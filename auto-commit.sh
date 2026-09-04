@@ -53,6 +53,6 @@ while true; do
         fi
     fi
     
-    # Wait for 30 seconds before checking again
-    sleep 30
+    # Wait for 5 seconds before checking again
+    sleep 5
 done
