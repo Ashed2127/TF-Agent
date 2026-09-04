@@ -65,19 +65,19 @@ bot.action('new_idea', async (ctx) => {
   }
 });
 
-bot.action(/approve_(\d+)/, async (ctx) => {
+bot.action(/approve_(.+)/, async (ctx) => {
   try {
-    const id = parseInt(ctx.match[1]);
+    const id = ctx.match[1];
     await ctx.answerCbQuery();
     
-    const idea = getIdeaById(id);
+    const idea = await getIdeaById(id);
     if (!idea) {
       await ctx.reply('❌ Idea not found');
       return;
     }
     
     await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, idea.content);
-    markPosted(id);
+    await markPosted(id);
     
     console.log(`📤 Posted idea [${id}] to True Feed`);
     
@@ -102,12 +102,12 @@ bot.action(/approve_(\d+)/, async (ctx) => {
   }
 });
 
-bot.action(/reject_(\d+)/, async (ctx) => {
+bot.action(/reject_(.+)/, async (ctx) => {
   try {
-    const id = parseInt(ctx.match[1]);
+    const id = ctx.match[1];
     await ctx.answerCbQuery();
     
-    markRejected(id);
+    await markRejected(id);
     console.log(`❌ Rejected idea [${id}]`);
     
     await ctx.editMessageText('❌ ተቀባይነት አላገኘም');
