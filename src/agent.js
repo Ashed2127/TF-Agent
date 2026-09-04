@@ -6,8 +6,8 @@ async function generateIdea() {
   try {
     console.log('🤖 Generating new idea...');
     
-    const previousTopics = getPreviousTopics();
-    const category = getNextCategory();
+    const previousTopics = await getPreviousTopics();
+    const category = await getNextCategory();
     const prompt = buildPrompt(previousTopics, category);
     
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -37,7 +37,7 @@ async function generateIdea() {
       topic = firstLine.replace('🟩 Business Idea -', '').trim();
     }
     
-    const id = saveIdea(content, topic, category);
+    const id = await saveIdea(content, topic, category);
     
     console.log(`✅ Idea generated: ${topic} (ID: ${id})`);
     
