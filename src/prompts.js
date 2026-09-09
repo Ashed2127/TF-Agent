@@ -6,7 +6,7 @@ function buildPrompt(previousTopics, category) {
   return `Generate business idea post in SIMPLE Amharic. Keep it SHORT but clear.
 
 FORMAT:
-🟢 <strong>Hybrid - [N]፡ [Name]</strong>
+🟢 <strong>Hybrid፡ [Name]</strong>
 
 <strong>Value</strong> [2-3 short sentences]
 
@@ -15,7 +15,7 @@ FORMAT:
 <strong>@true_feed</strong>
 
 EXAMPLE:
-🟢 <strong>Hybrid - 1፡ ለህፃናት አስተማሪ እቃ</strong>
+🟢 <strong>Hybrid፡ ለህፃናት አስተማሪ እቃ</strong>
 
 <strong>Value</strong> ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
 
