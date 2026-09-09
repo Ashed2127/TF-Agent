@@ -49,6 +49,12 @@ async function generateIdea() {
       throw new Error('AI response missing required structure (Title section)');
     }
     
+    // Validate that content includes at least one ". . ."
+    if (!content.includes('. . .')) {
+      console.error('❌ AI response missing required pauses (. . .):', content);
+      throw new Error('AI response missing required pauses (. . .)');
+    }
+    
     const lines = content.split('\n');
     const firstLine = lines[0];
     
