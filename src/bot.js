@@ -7,14 +7,20 @@ const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
 const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID;
 
 bot.use((ctx, next) => {
-  if (ctx.from && ctx.from.id !== OWNER_CHAT_ID) {
-    ctx.reply('⛔ Unauthorized');
+  // Check user ID from different possible sources (message, callback query, etc.)
+  const userId = ctx.from?.id || ctx.chat?.id;
+  if (userId && userId !== OWNER_CHAT_ID) {
+    // Only reply if it's a message, not a callback query
+    if (ctx.message) {
+      ctx.reply('⛔ Unauthorized');
+    }
     return;
   }
   return next();
 });
 
 bot.start((ctx) => {
+  console.log('Start command received from:', ctx.from?.id);
   ctx.reply(
     '🌱 TF Agent እንኳን ደህና መጡ!\n\n' +
     'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
@@ -26,7 +32,9 @@ bot.start((ctx) => {
         ]
       }
     }
-  );
+  ).catch(err => {
+    console.error('Error sending start reply:', err);
+  });
 });
 
 bot.action('new_idea', async (ctx) => {
@@ -39,6 +47,7 @@ bot.action('new_idea', async (ctx) => {
     await ctx.reply(
       idea.content,
       {
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
@@ -76,13 +85,14 @@ bot.action(/approve_(.+)/, async (ctx) => {
       return;
     }
     
-    await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, idea.content);
+    await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, idea.content, { parse_mode: 'HTML' });
     await markPosted(id);
     
     console.log(`📤 Posted idea [${id}] to True Feed`);
     
     await ctx.editMessageText(
-      '✅ True Feed ላይ ተለቀቀ!\n\n' + idea.content
+      '✅ True Feed ላይ ተለቀቀ!\n\n' + idea.content,
+      { parse_mode: 'HTML' }
     );
     
     await ctx.reply(
@@ -119,6 +129,7 @@ bot.action(/reject_(.+)/, async (ctx) => {
     await ctx.reply(
       newIdea.content,
       {
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [

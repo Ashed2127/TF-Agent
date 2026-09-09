@@ -1,4 +1,3 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { getPreviousTopics, getNextCategory, saveIdea } = require('./database');
 const { buildPrompt } = require('./prompts');
 
@@ -10,20 +9,46 @@ async function generateIdea() {
     const category = await getNextCategory();
     const prompt = buildPrompt(previousTopics, category);
     
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-1.5-flash',
-      generationConfig: { 
-        maxOutputTokens: 1000, 
-        temperature: 0.9 
-      }
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.0-flash-exp',
+        messages: [
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 1500,
+        temperature: 0.9
+      })
     });
     
-    const result = await model.generateContent(prompt);
-    const content = result.response.text().trim();
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('API Error:', response.status, errorText);
+      throw new Error(`API request failed: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    
+    console.log('API Response:', JSON.stringify(data, null, 2));
+    
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid API response structure');
+    }
+    
+    const content = data.choices[0].message.content.trim();
     
     if (!content) {
-      throw new Error('Empty response from Gemini');
+      throw new Error('Empty response from OpenRouter');
+    }
+    
+    // Validate that the content includes the required structure
+    if (!content.includes('🎯') || !content.includes('🛠️')) {
+      console.error('❌ AI response missing required structure:', content);
+      throw new Error('AI response missing required structure (Value/How it works sections)');
     }
     
     const lines = content.split('\n');
