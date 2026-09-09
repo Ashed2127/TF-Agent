@@ -44,9 +44,9 @@ async function generateIdea() {
     }
     
     // Validate that the content includes the required structure
-    if (!content.includes('🎯') || !content.includes('🛠️') || !content.includes('🟢')) {
+    if (!content.includes('🟢')) {
       console.error('❌ AI response missing required structure:', content);
-      throw new Error('AI response missing required structure (Title/Value/How it works sections)');
+      throw new Error('AI response missing required structure (Title section)');
     }
     
     const lines = content.split('\n');
