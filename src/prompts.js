@@ -6,17 +6,15 @@ function buildPrompt(previousTopics, category) {
   return `Generate business idea post in SIMPLE Amharic. Keep it SHORT but clear.
 
 FORMAT:
-🟢 <strong>Business Idea - [N]፡ [Name]</strong>
-🎯 Value: [2-3 short sentences]
-🛠️  How: [2-3 short sentences]
-<blockquote>[1 short insight]</blockquote>
+🟢 <strong>Hybrid - [N]፡ [Name]</strong>
+Value: [2-3 short sentences]
+How: [2-3 short sentences]
 <strong>@true_feed</strong>
 
 EXAMPLE:
-🟢 <strong>Business Idea - 1፡ ለህፃናት አስተማሪ እቃ</strong>
-🎯 Value: ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
-🛠️  How: ቀለል ያሉ ነገሮችን አንድ ላይ ይያዋሃዳል . . . ከቤት ውስጥ ያሉትን መጠቀም ይችላሉ . . . ገንዘብ ሳይወጣ መጀመር ይችላሉ
-<blockquote>ህፃናት አንድ ነገር ላይ ብቻ ትኩረት እንዲያረጉ ይህን መሳሪያ መስራት ይችላሉ . . . ግን ለህፃናቱ ደህና መሆን አለባቸው</blockquote>
+🟢 <strong>Hybrid - 1፡ ለህፃናት አስተማሪ እቃ</strong>
+Value: ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
+How: ቀለል ያሉ ነገሮችን አንድ ላይ ይያዋሃዳል . . . ከቤት ውስጥ ያሉትን መጠቀም ይችላሉ . . . ገንዘብ ሳይወጣ መጀመር ይችላሉ
 <strong>@true_feed</strong>
 
 PREVIOUS TOPICS TO AVOID:
