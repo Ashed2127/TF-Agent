@@ -23,7 +23,7 @@ TRUE FEED EXACT FORMAT:
 🎯 Value/ እሴት/የሚሰጠው ጠቀሜታ?
 [2-3 sentences describing the value proposition. Include specific Ethiopian cities, target audience, and pain points solved.]
 
-🛠️ How it works/እንዴት ይሰራል?
+🛠️  How it works/እንዴት ይሰራል?
 [2-3 sentences explaining how the business works. Keep it clear and practical.]
 
 <blockquote>[Key insight or wisdom about the business opportunity]</blockquote>
@@ -38,7 +38,7 @@ EXAMPLE POST 1 (from True Feed):
 
 ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
 
-🛠️ How it works/እንዴት ይሰራል?
+🛠️  How it works/እንዴት ይሰራል?
 
 ቀለል ያሉ ነገሮችን አንድ ላይ ይያዋሃዳል . . . ከቤት ውስጥ ያሉትን መጠቀም ይችላሉ . . . ገንዘብ ሳይወጣ መጀመር ይችላሉ
 
@@ -53,7 +53,7 @@ EXAMPLE POST 2 (from True Feed):
 
 ምግብ ቤቶች ንጹህ እንዲሆኑ ይረዳል . . . ሰዎች ይበርሳሉ . . . በአዲስ አበባ ብዙ ሰዎች ይፈልጋሉ
 
-🛠️ How it works/እንዴት ይሰራል?
+🛠️  How it works/እንዴት ይሰራል?
 
 የፅዳት መሳሪያዎች ይዞ ወደ ምግብ ቤቶች መሄድ ይሰራል . . . ጓደኛዎች ጋር መጀመር ይችላሉ . . . ወዲያዊኑ ትንሽ ገንዘብ ይገኛል
 

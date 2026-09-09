@@ -16,7 +16,7 @@ async function generateIdea() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o',
+        model: 'google/gemini-2.5-pro',
         messages: [
           { role: 'user', content: prompt }
         ],
