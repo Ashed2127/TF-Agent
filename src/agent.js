@@ -69,11 +69,14 @@ async function generateIdea() {
     if (colonIndex !== -1) {
       topic = firstLine.substring(colonIndex + 1).trim();
     } else {
-      topic = firstLine.replace('🟢 Hybrid -', '').replace('<strong>', '').replace('</strong>', '').trim();
+      // Extract topic from title by removing emojis and formatting
+      topic = firstLine
+        .replace('🟢', '')
+        .replace('Hybrid -', '')
+        .replace(/<[^>]*>/g, '')
+        .replace(/፡/, '')
+        .trim();
     }
-    
-    // Clean up topic from HTML tags
-    topic = topic.replace(/<[^>]*>/g, '').trim();
     
     // Validate that topic does not contain "Digital"
     if (topic.includes('Digital') || topic.includes('digital')) {
