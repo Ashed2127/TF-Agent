@@ -7,7 +7,7 @@ function buildPrompt(previousTopics, category) {
 
 TRUE FEED EXACT FORMAT:
 ---
-🟩 <strong>Business Idea - [N]፡ [Idea Name in Amharic/English if needed]</strong>
+🟢 <strong>Business Idea - [N]፡ [Idea Name in Amharic/English if needed]</strong>
 
 🎯 Value/ እሴት/የሚሰጠው ጠቀሜታ?
 [2-3 sentences describing the value proposition. Include specific Ethiopian cities, target audience, and pain points solved.]
@@ -21,7 +21,7 @@ TRUE FEED EXACT FORMAT:
 ---
 
 EXAMPLE POST 1 (from True Feed):
-🟩 <strong>Business Idea - 1፡ Baby busy board</strong>
+🟢 <strong>Business Idea - 1፡ Baby busy board</strong>
 
 🎯Value/ እሴት/የሚሰጠው ጠቀሜታ?
 
@@ -36,7 +36,7 @@ EXAMPLE POST 1 (from True Feed):
 <strong>@true_feed</strong>
 
 EXAMPLE POST 2 (from True Feed):
-🟩 <strong>Business Idea - 2፡</strong> የCafe/Restaurant ችግኞችን ማፅዳትና መንከባከብ
+🟢 <strong>Business Idea - 2፡</strong> የCafe/Restaurant ችግኞችን ማፅዳትና መንከባከብ
 
 <em>🎯Value/ እሴት/የሚሰጠው ጠቀሜታ?</em><br><br>
 
@@ -66,7 +66,9 @@ QUALITY RULES:
 - Include specific details about implementation
 - Use blockquotes for key insights and wisdom
 - Keep tone professional yet conversational
-- Use ". . ." instead of regular dots in the middle of sentences
+- CRITICAL: Do NOT use these Amharic punctuation marks: ። (Ethiopian period), ፣ (Ethiopian comma), _ (underscore)
+- CRITICAL: Replace ALL Amharic punctuation marks with ". . ." (space dot space dot space dot space)
+- Use standard Western punctuation style with ". . ." for pauses
 
 PREVIOUS TOPICS TO AVOID:
 ${previousTopicsList}
@@ -76,18 +78,20 @@ CURRENT CATEGORY: ${category}
 Generate a business idea post following the exact True Feed format above. The idea should be in the "${category}" category and should NOT repeat any of the previous topics listed.
 
 CRITICAL REQUIREMENTS:
-- You MUST include ALL sections: Title (🟩), Value (🎯), How it works (🛠️), and blockquote
+- You MUST include ALL sections: Title (🟢), Value (🎯), How it works (🛠️), and blockquote
 - You MUST include the @true_feed tag at the very end
 - The response must be the COMPLETE post, not just the title
 - Do NOT stop after the first line
-- Use ". . ." instead of regular dots in the middle of sentences
+- FORBIDDEN PUNCTUATION: Do NOT use ። (Ethiopian period), ፣ (Ethiopian comma), _ (underscore)
+- REQUIRED PUNCTUATION: Use ". . ." (space dot space dot space dot space) for ALL pauses and breaks within sentences
+- Use Western-style punctuation, not Ethiopian punctuation marks
 
 IMPORTANT: Use <strong> tags ONLY for:
-1. The Business Idea title line (with 🟩 emoji)
+1. The Business Idea title line (with 🟢 emoji)
 2. The @true_feed tag at the end
 Do NOT use <strong> tags anywhere else in the content.
 
-Output ONLY the complete post starting with 🟩 and ending with @true_feed. Do not include any explanations or additional text.`;
+Output ONLY the complete post starting with 🟢 and ending with @true_feed. Do not include any explanations or additional text.`;
 }
 
 module.exports = {

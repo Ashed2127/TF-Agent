@@ -16,7 +16,7 @@ async function generateIdea() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp',
+        model: 'openai/gpt-4o',
         messages: [
           { role: 'user', content: prompt }
         ],
@@ -33,8 +33,6 @@ async function generateIdea() {
     
     const data = await response.json();
     
-    console.log('API Response:', JSON.stringify(data, null, 2));
-    
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       throw new Error('Invalid API response structure');
     }
@@ -46,9 +44,9 @@ async function generateIdea() {
     }
     
     // Validate that the content includes the required structure
-    if (!content.includes('🎯') || !content.includes('🛠️')) {
+    if (!content.includes('🎯') || !content.includes('🛠️') || !content.includes('🟢')) {
       console.error('❌ AI response missing required structure:', content);
-      throw new Error('AI response missing required structure (Value/How it works sections)');
+      throw new Error('AI response missing required structure (Title/Value/How it works sections)');
     }
     
     const lines = content.split('\n');
@@ -59,7 +57,7 @@ async function generateIdea() {
     if (colonIndex !== -1) {
       topic = firstLine.substring(colonIndex + 1).trim();
     } else {
-      topic = firstLine.replace('🟩 Business Idea -', '').trim();
+      topic = firstLine.replace('🟢 Business Idea -', '').trim();
     }
     
     const id = await saveIdea(content, topic, category);

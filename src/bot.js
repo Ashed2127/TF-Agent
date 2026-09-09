@@ -6,6 +6,10 @@ const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
 const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID;
 
+// Simple in-memory session storage
+const sessions = {};
+
+// Authorization middleware
 bot.use((ctx, next) => {
   // Check user ID from different possible sources (message, callback query, etc.)
   const userId = ctx.from?.id || ctx.chat?.id;
@@ -16,6 +20,13 @@ bot.use((ctx, next) => {
     }
     return;
   }
+  
+  // Add session support for authorized users
+  const chatId = ctx.chat?.id || ctx.from?.id;
+  if (chatId) {
+    ctx.session = sessions[chatId] = sessions[chatId] || {};
+  }
+  
   return next();
 });
 
@@ -85,15 +96,61 @@ bot.action(/approve_(.+)/, async (ctx) => {
       return;
     }
     
-    await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, idea.content, { parse_mode: 'HTML' });
-    await markPosted(id);
-    
-    console.log(`📤 Posted idea [${id}] to True Feed`);
+    // Store the idea ID in session for image upload
+    ctx.session.pendingIdeaId = id;
     
     await ctx.editMessageText(
+      '📸 ምስል አስገቢው እንደሆነ አዲስ ምስል ይላኩ ፡\n\nወይም "ምስል ሳይኖር ቀጥል" የሚለውን ይጫኑ',
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⏭️ ምስል ሳይኖር ቀጥል', callback_data: `post_no_image_${id}` }]
+          ]
+        }
+      }
+    );
+    
+  } catch (error) {
+    console.error('Error in approve callback:', error);
+    await ctx.reply('❌ Error posting idea. Please try again.');
+  }
+});
+
+// Handle image upload
+bot.on('photo', async (ctx) => {
+  try {
+    if (!ctx.session || !ctx.session.pendingIdeaId) {
+      await ctx.reply('❌ እባክዎ አዲስ ሀሳብ ይፍጠሩ እና ከዚያ ያስፈልጉ');
+      return;
+    }
+    
+    const id = ctx.session.pendingIdeaId;
+    const idea = await getIdeaById(id);
+    if (!idea) {
+      await ctx.reply('❌ Idea not found');
+      return;
+    }
+    
+    // Get the largest photo
+    const photo = ctx.message.photo[ctx.message.photo.length - 1];
+    
+    await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, photo.file_id, {
+      caption: idea.content,
+      parse_mode: 'HTML'
+    });
+    
+    await markPosted(id);
+    
+    console.log(`📤 Posted idea [${id}] with image to True Feed`);
+    
+    await ctx.reply(
       '✅ True Feed ላይ ተለቀቀ!\n\n' + idea.content,
       { parse_mode: 'HTML' }
     );
+    
+    // Clear session
+    delete ctx.session.pendingIdeaId;
     
     await ctx.reply(
       '🎉 ተሳካ! ቀጣዩን ሀሳብ ሲፈልጉ:',
@@ -107,7 +164,49 @@ bot.action(/approve_(.+)/, async (ctx) => {
     );
     
   } catch (error) {
-    console.error('Error in approve callback:', error);
+    console.error('Error handling photo upload:', error);
+    await ctx.reply('❌ Error posting image. Please try again.');
+  }
+});
+
+// Handle posting without image
+bot.action(/post_no_image_(.+)/, async (ctx) => {
+  try {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery();
+    
+    const idea = await getIdeaById(id);
+    if (!idea) {
+      await ctx.reply('❌ Idea not found');
+      return;
+    }
+    
+    await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, idea.content, { parse_mode: 'HTML' });
+    await markPosted(id);
+    
+    console.log(`📤 Posted idea [${id}] to True Feed (no image)`);
+    
+    await ctx.editMessageText(
+      '✅ True Feed ላይ ተለቀቀ!\n\n' + idea.content,
+      { parse_mode: 'HTML' }
+    );
+    
+    // Clear session
+    delete ctx.session.pendingIdeaId;
+    
+    await ctx.reply(
+      '🎉 ተሳካ! ቀጣዩን ሀሳብ ሲፈልጉ:',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' }]
+          ]
+        }
+      }
+    );
+    
+  } catch (error) {
+    console.error('Error in post_no_image callback:', error);
     await ctx.reply('❌ Error posting idea. Please try again.');
   }
 });
