@@ -174,6 +174,21 @@ async function getIdeaById(id) {
   }
 }
 
+async function deleteLastIdea() {
+  try {
+    const lastIdea = await Idea.findOne().sort({ created_at: -1 });
+    if (lastIdea) {
+      await Idea.findByIdAndDelete(lastIdea._id);
+      console.log('✅ Last idea deleted');
+      return true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error deleting last idea:', error);
+    return false;
+  }
+}
+
 module.exports = {
   initDB,
   saveIdea,
@@ -183,5 +198,6 @@ module.exports = {
   markRejected,
   getAllIdeas,
   getStats,
-  getIdeaById
+  getIdeaById,
+  deleteLastIdea
 };
