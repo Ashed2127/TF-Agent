@@ -8,16 +8,16 @@ function buildPrompt(previousTopics, category) {
 FORMAT:
 🟢 <strong>Hybrid - [N]፡ [Name]</strong>
 
-Value: [2-3 short sentences]
-How: [2-3 short sentences]
+<strong>Value</strong> [2-3 short sentences]
+<strong>How</strong> [2-3 short sentences]
 
 <strong>@true_feed</strong>
 
 EXAMPLE:
 🟢 <strong>Hybrid - 1፡ ለህፃናት አስተማሪ እቃ</strong>
 
-Value: ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
-How: ቀለል ያሉ ነገሮችን አንድ ላይ ይያዋሃዳል . . . ከቤት ውስጥ ያሉትን መጠቀም ይችላሉ . . . ገንዘብ ሳይወጣ መጀመር ይችላሉ
+<strong>Value</strong> ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
+<strong>How</strong> ቀለል ያሉ ነገሮችን አንድ ላይ ይያዋሃዳል . . . ከቤት ውስጥ ያሉትን መጠቀም ይችላሉ . . . ገንዘብ ሳይወጣ መጀመር ይችላሉ
 
 <strong>@true_feed</strong>
 
