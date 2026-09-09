@@ -20,7 +20,7 @@ async function generateIdea() {
         messages: [
           { role: 'user', content: prompt }
         ],
-        max_tokens: 1500,
+        max_tokens: 2000,
         temperature: 0.9
       })
     });
