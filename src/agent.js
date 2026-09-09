@@ -55,6 +55,18 @@ async function generateIdea() {
       throw new Error('AI response missing required pauses (. . .)');
     }
     
+    // Validate that content does NOT contain Ethiopian period ።
+    if (content.includes('።')) {
+      console.error('❌ AI response contains forbidden Ethiopian period ።:', content);
+      throw new Error('AI response contains forbidden Ethiopian period ። - use ". . ." instead');
+    }
+    
+    // Validate that topic does not contain "Digital"
+    if (topic.includes('Digital') || topic.includes('digital')) {
+      console.error('❌ Topic contains forbidden word "Digital":', topic);
+      throw new Error('Topic contains forbidden word "Digital" - use "Hybrid" instead');
+    }
+    
     const lines = content.split('\n');
     const firstLine = lines[0];
     
