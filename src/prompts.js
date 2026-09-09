@@ -22,7 +22,7 @@ ${previousTopicsList}
 
 CATEGORY: ${category}
 
-Generate post in Amharic. Keep sentences short and clear. MUST use at least 1-2 ". . ." for pauses in the entire post. Output ONLY from 🟢 to @true_feed.`;
+Generate post in Amharic. Keep sentences short and clear. MUST use at least 1-2 ". . ." for pauses in the entire post. NEVER use ። (Ethiopian period) - use ". . ." instead. Output ONLY from 🟢 to @true_feed.`;
 }
 
 module.exports = {
