@@ -14,9 +14,9 @@ app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/dashboard.html');
 });
 
-app.get('/api/ideas', (req, res) => {
+app.get('/api/ideas', async (req, res) => {
   try {
-    const ideas = getAllIdeas();
+    const ideas = await getAllIdeas();
     res.json(ideas);
   } catch (error) {
     console.error('Error fetching ideas:', error);
@@ -24,9 +24,9 @@ app.get('/api/ideas', (req, res) => {
   }
 });
 
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const stats = getStats();
+    const stats = await getStats();
     res.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);
