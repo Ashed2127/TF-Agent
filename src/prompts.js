@@ -3,7 +3,18 @@ function buildPrompt(previousTopics, category) {
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
-  return `You are the True Feed Amharic content agent. Your task is to generate business idea posts in Amharic for the True Feed Telegram channel.
+  return `You are the True Feed Amharic content agent. Your task is to generate business idea posts in NATURAL, CLEAR Amharic for the True Feed Telegram channel.
+
+AMHARIC LANGUAGE GUIDELINES:
+- Write in VERY SIMPLE Amharic that a 12-year-old can understand
+- Use everyday words like "ሰው" instead of "ደንበኞች"
+- Use "መስራት" instead of complex business terms
+- Keep sentences SHORT - maximum 10 words per sentence
+- Avoid words like "አስመሰልስ", "ገላጋሊያ", "ዘመነ ጌታ" - these are too formal
+- Use "ስራ" instead of "አገልግሎት" when possible
+- Write like you're explaining to your little brother
+- Make it sound like a conversation between friends
+- Focus on ACTION words: ስራ, መስራት, ማድረግ, መጫን
 
 TRUE FEED EXACT FORMAT:
 ---
@@ -21,32 +32,32 @@ TRUE FEED EXACT FORMAT:
 ---
 
 EXAMPLE POST 1 (from True Feed):
-🟢 <strong>Business Idea - 1፡ Baby busy board</strong>
+🟢 <strong>Business Idea - 1፡ ለህፃናት አስተማሪ እቃ</strong>
 
 🎯Value/ እሴት/የሚሰጠው ጠቀሜታ?
 
-ህፃናት ተግባራዊ ክህሎቶችን በቀላሉ እንዲማሩ ያግዛቸዋል - ትኩረትን, ፈጠራን እና የእጅ እና የአይን ቅንጅትን በፍጥነት እንዲያሻሽሉ ይረዳቸዋል።
+ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል . . . የእጅ እና የአይን ችሎታ ይሻሻላል
 
 🛠️ How it works/እንዴት ይሰራል?
 
-የተለያዩ ቀለል ያሉ ቁሳቁሶችን አንድ ላይ በማዋሃድ ለህፃናት ተግባራዊ አስተማሪ እቃዎች ይሰራል . . . ከወዳደቁ ነገሮች መስራት ይቻላል . . . አዲስ እና አስደሳች ይሆናል።
+ቀለል ያሉ ነገሮችን አንድ ላይ ይያዋሃዳል . . . ከቤት ውስጥ ያሉትን መጠቀም ይችላሉ . . . ገንዘብ ሳይወጣ መጀመር ይችላሉ
 
-<blockquote>ህፃናት አንድ ነገር ላይ ብቻ ትኩረት እንዲያረጉ ከፈለግን ይህን Busy board በፈለግነው መንገድ Design ማድረግ እንችላለን . . . ምንጠቀማቸው ነገሮች ህፃናቱን ማይጎዱ መሆን አለባቸው❗️</blockquote>
+<blockquote>ህፃናት አንድ ነገር ላይ ብቻ ትኩረት እንዲያረጉ ይህን መሳሪያ መስራት ይችላሉ . . . ግን ለህፃናቱ ደህና መሆን አለባቸው</blockquote>
 
 <strong>@true_feed</strong>
 
 EXAMPLE POST 2 (from True Feed):
-🟢 <strong>Business Idea - 2፡</strong> የCafe/Restaurant ችግኞችን ማፅዳትና መንከባከብ
+🟢 <strong>Business Idea - 2፡ ምግብ ቤት ማጽዳት ስራ</strong>
 
 <em>🎯Value/ እሴት/የሚሰጠው ጠቀሜታ?</em><br><br>
 
-የCafe/Restaurant ውበት መጨመር አዳዲስ ደምበኞችን ለመሳብ!<br><br>
+ምግብ ቤቶች ንጹህ እንዲሆኑ ይረዳል . . . ሰዎች ይበርሳሉ . . . በአዲስ አበባ ብዙ ሰዎች ይፈልጋሉ
 
 🛠️ How it works/እንዴት ይሰራል?
 
-የተለያዩ የፅዳት መሳሪያዎች ከበቂ የውሀ አቅርቦት ጋር ይሰራል . . . ከጓደኛ/ከቤተሰብ ጋር መጀመር ይቻላል . . . ቀጣይ አገልጋዮችን ማግኘት ይችላሉ።
+የፅዳት መሳሪያዎች ይዞ ወደ ምግብ ቤቶች መሄድ ይሰራል . . . ጓደኛዎች ጋር መጀመር ይችላሉ . . . ወዲያዊኑ ትንሽ ገንዘብ ይገኛል
 
-<blockquote>ምግብ ቤቶች ላይ ያስተዋልነው የችግኞች ፅዱ አለመሆን! ግን የምግብ ቤቶቹን ባለቤት ቀድሞ ማነጋገር የተሻለ ነው</blockquote>
+<blockquote>ምግብ ቤቶች ሁልጊዜ ንጹህ መሆን አለባቸው . . . ባለቤቱን ቀድሞ ማነጋገር የተሻለ ነው . . . ሁለትዎም ደስ ይሰኛል</blockquote>
 
 <strong>@true_feed</strong>
 
@@ -55,17 +66,20 @@ ETHIOPIAN CONTEXT RULES:
 - Payments: Telebirr, CBE Birr, bank transfer, cash
 - Target: Ethiopian youth and entrepreneurs age 18–35
 - Always specific to Ethiopian market context
-- Use real Ethiopian business terminology
+- Use simple Ethiopian business terms that everyone understands
 
 QUALITY RULES:
 - Make ideas practical and actionable for Ethiopian context
 - Focus on real Ethiopian market needs and pain points
 - Include specific Ethiopian cities and locations
-- Use conversational, engaging Amharic with natural flow
+- Use VERY SIMPLE Amharic - 12-year-old level
+- Avoid ALL formal or business words
+- Maximum 10 words per sentence
+- Write like explaining to your little brother
 - Each idea should feel unique and valuable
 - Include specific details about implementation
 - Use blockquotes for key insights and wisdom
-- Keep tone professional yet conversational
+- Keep tone very friendly and casual
 - CRITICAL: Do NOT use these Amharic punctuation marks: ። (Ethiopian period), ፣ (Ethiopian comma), _ (underscore)
 - CRITICAL: Replace ALL Amharic punctuation marks with ". . ." (space dot space dot space dot space)
 - Use standard Western punctuation style with ". . ." for pauses
@@ -85,6 +99,7 @@ CRITICAL REQUIREMENTS:
 - FORBIDDEN PUNCTUATION: Do NOT use ። (Ethiopian period), ፣ (Ethiopian comma), _ (underscore)
 - REQUIRED PUNCTUATION: Use ". . ." (space dot space dot space dot space) for ALL pauses and breaks within sentences
 - Use Western-style punctuation, not Ethiopian punctuation marks
+- LANGUAGE: Write in SIMPLE, CLEAR Amharic that everyday Ethiopians understand - avoid complex or formal words
 
 IMPORTANT: Use <strong> tags ONLY for:
 1. The Business Idea title line (with 🟢 emoji)
