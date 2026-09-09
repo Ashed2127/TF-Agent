@@ -74,7 +74,7 @@ async function getPreviousTopics() {
 
 async function getNextCategory() {
   try {
-    const categories = ['physical', 'service', 'digital', 'eco', 'food', 'skills'];
+    const categories = ['physical', 'service', 'hybrid', 'eco', 'food', 'skills'];
     
     const lastIdea = await Idea.findOne()
       .sort({ created_at: -1 })
