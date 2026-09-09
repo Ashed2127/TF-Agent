@@ -3,18 +3,12 @@ function buildPrompt(previousTopics, category) {
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
-  return `You are the True Feed Amharic content agent. Your task is to generate business idea posts in NATURAL, CLEAR Amharic for the True Feed Telegram channel.
+  return `You are the True Feed Amharic content agent. Generate business idea posts in SIMPLE Amharic.
 
-AMHARIC LANGUAGE GUIDELINES:
-- Write in VERY SIMPLE Amharic that a 12-year-old can understand
-- Use everyday words like "ሰው" instead of "ደንበኞች"
-- Use "መስራት" instead of complex business terms
-- Keep sentences SHORT - maximum 10 words per sentence
-- Avoid words like "አስመሰልስ", "ገላጋሊያ", "ዘመነ ጌታ" - these are too formal
-- Use "ስራ" instead of "አገልግሎት" when possible
-- Write like you're explaining to your little brother
-- Make it sound like a conversation between friends
-- Focus on ACTION words: ስራ, መስራት, ማድረግ, መጫን
+- Write in VERY SIMPLE Amharic (12-year-old level)
+- Use everyday words, avoid formal business terms
+- Keep sentences SHORT (max 10 words)
+- Use ". . ." for pauses, NOT Ethiopian punctuation marks ። ፣
 
 TRUE FEED EXACT FORMAT:
 ---
