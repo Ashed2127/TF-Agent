@@ -61,12 +61,6 @@ async function generateIdea() {
       throw new Error('AI response contains forbidden Ethiopian period ። - use ". . ." instead');
     }
     
-    // Validate that topic does not contain "Digital"
-    if (topic.includes('Digital') || topic.includes('digital')) {
-      console.error('❌ Topic contains forbidden word "Digital":', topic);
-      throw new Error('Topic contains forbidden word "Digital" - use "Hybrid" instead');
-    }
-    
     const lines = content.split('\n');
     const firstLine = lines[0];
     
@@ -75,7 +69,13 @@ async function generateIdea() {
     if (colonIndex !== -1) {
       topic = firstLine.substring(colonIndex + 1).trim();
     } else {
-      topic = firstLine.replace('🟢 Business Idea -', '').trim();
+      topic = firstLine.replace('🟢 Hybrid -', '').trim();
+    }
+    
+    // Validate that topic does not contain "Digital"
+    if (topic.includes('Digital') || topic.includes('digital')) {
+      console.error('❌ Topic contains forbidden word "Digital":', topic);
+      throw new Error('Topic contains forbidden word "Digital" - use "Hybrid" instead');
     }
     
     const id = await saveIdea(content, topic, category);
