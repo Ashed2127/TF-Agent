@@ -1,5 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
+const { generatePost } = require('./postGenerator');
 const { markPosted, markRejected, getIdeaById } = require('./database');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -35,11 +36,14 @@ bot.start((ctx) => {
   ctx.reply(
     '🌱 TF Agent እንኳን ደህና መጡ!\n\n' +
     'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
-    'አዲስ ሀሳብ ሲፈልጉ ከታች ያለውን Button ይጫኑ።',
+    'አዲስ ሀሳብ ወይም ፖስት ሲፈልጉ ከታች ያለውን Button ይጫኑ።',
     {
       reply_markup: {
         inline_keyboard: [
-          [{ text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' }]
+          [
+            { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+            { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+          ]
         ]
       }
     }
@@ -77,7 +81,52 @@ bot.action('new_idea', async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' }]
+            [
+              { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+            ]
+          ]
+        }
+      }
+    );
+  }
+});
+
+bot.action('new_post', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply('⏳ ፖስት እየተዘጋጀ ነው...');
+    
+    const post = await generatePost();
+    
+    // Store post content in session for later use
+    const postId = `post_${Date.now()}`;
+    ctx.session.pendingIdeaId = postId;
+    ctx.session.pendingPostContent = post.content;
+    
+    await ctx.reply(
+      post.content,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Approve & Post', callback_data: `approve_${postId}` },
+              { text: '❌ Reject — New Post', callback_data: 'new_post' }
+            ]
+          ]
+        }
+      }
+    );
+    
+  } catch (error) {
+    console.error('Error in new_post callback:', error);
+    await ctx.reply(
+      '❌ ፖስት መፍጠር አልተቻለም። እንደገና ሞክር።',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }]
           ]
         }
       }
@@ -89,6 +138,22 @@ bot.action(/approve_(.+)/, async (ctx) => {
   try {
     const id = ctx.match[1];
     await ctx.answerCbQuery();
+    
+    // Check if this is a post approval (contains "approve_post")
+    if (id.startsWith('post_')) {
+      // For posts, we don't have a database record, so we'll post directly
+      await ctx.editMessageText('📸 ምስል አስገቢው እንደሆነ አዲስ ምስል ይላኩ ፡\n\nወይም "ምስል ሳይኖር ቀጥል" የሚለውን ይጫኑ',
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⏭️ ምስል ሳይኖር ቀጥል', callback_data: `post_no_image_${id}` }]
+            ]
+          }
+        }
+      );
+      return;
+    }
     
     const idea = await getIdeaById(id);
     if (!idea) {
@@ -121,11 +186,20 @@ bot.action(/approve_(.+)/, async (ctx) => {
 bot.on('photo', async (ctx) => {
   try {
     if (!ctx.session || !ctx.session.pendingIdeaId) {
-      await ctx.reply('❌ እባክዎ አዲስ ሀሳብ ይፍጠሩ እና ከዚያ ያስፈልጉ');
+      await ctx.reply('❌ እባክዎ አዲስ ሀሳብ ወይም ፖስት ይፍጠሩ እና ከዚያ ያስፈልጉ');
       return;
     }
     
     const id = ctx.session.pendingIdeaId;
+    
+    // Check if this is a post (starts with "post_")
+    if (id.startsWith('post_')) {
+      // For posts, we need to get the content from the session or context
+      // Since we don't store post content in database, we'll handle this differently
+      await ctx.reply('❌ ፖስት ምስል አስገቢው አሁን አይደግፍም። እባክዎ "ምስል ሳይኖር ቀጥል" ይጫኑ።');
+      return;
+    }
+    
     const idea = await getIdeaById(id);
     if (!idea) {
       await ctx.reply('❌ Idea not found');
@@ -157,7 +231,10 @@ bot.on('photo', async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' }]
+            [
+              { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+            ]
           ]
         }
       }
@@ -174,6 +251,44 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
   try {
     const id = ctx.match[1];
     await ctx.answerCbQuery();
+    
+    // Check if this is a post (starts with "post_")
+    if (id.startsWith('post_')) {
+      // For posts, we need to get the content from the session
+      // We'll store the post content in session when generating the post
+      if (!ctx.session || !ctx.session.pendingPostContent) {
+        await ctx.reply('❌ Post content not found. Please generate a new post.');
+        return;
+      }
+      
+      await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, ctx.session.pendingPostContent, { parse_mode: 'HTML' });
+      
+      console.log(`📤 Posted post to True Feed (no image)`);
+      
+      await ctx.editMessageText(
+        '✅ True Feed ላይ ተለቀቀ!\n\n' + ctx.session.pendingPostContent,
+        { parse_mode: 'HTML' }
+      );
+      
+      // Clear session
+      delete ctx.session.pendingIdeaId;
+      delete ctx.session.pendingPostContent;
+      
+      await ctx.reply(
+        '🎉 ተሳካ! ቀጣዩን ሀሳብ ወይም ፖስት ሲፈልጉ:',
+        {
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+                { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+              ]
+            ]
+          }
+        }
+      );
+      return;
+    }
     
     const idea = await getIdeaById(id);
     if (!idea) {
@@ -199,7 +314,10 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' }]
+            [
+              { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+            ]
           ]
         }
       }
@@ -215,6 +333,41 @@ bot.action(/reject_(.+)/, async (ctx) => {
   try {
     const id = ctx.match[1];
     await ctx.answerCbQuery();
+    
+    // Check if this is a post rejection
+    if (id.startsWith('post_')) {
+      console.log(`❌ Rejected post [${id}]`);
+      await ctx.editMessageText('❌ ተቀባይነት አላገኘም');
+      
+      // Clear session
+      delete ctx.session.pendingIdeaId;
+      delete ctx.session.pendingPostContent;
+      
+      await ctx.reply('⏳ አዲስ ፖስት እየተዘጋጀ ነው...');
+      
+      const newPost = await generatePost();
+      
+      // Store new post content in session
+      const newPostId = `post_${Date.now()}`;
+      ctx.session.pendingIdeaId = newPostId;
+      ctx.session.pendingPostContent = newPost.content;
+      
+      await ctx.reply(
+        newPost.content,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Approve & Post', callback_data: `approve_${newPostId}` },
+                { text: '❌ Reject — New Post', callback_data: 'new_post' }
+              ]
+            ]
+          }
+        }
+      );
+      return;
+    }
     
     await markRejected(id);
     console.log(`❌ Rejected idea [${id}]`);
@@ -247,7 +400,10 @@ bot.action(/reject_(.+)/, async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' }]
+            [
+              { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+            ]
           ]
         }
       }
