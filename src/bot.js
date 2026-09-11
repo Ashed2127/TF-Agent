@@ -193,9 +193,9 @@ bot.action(/approve_(.+)/, async (ctx) => {
     const id = ctx.match[1];
     await ctx.answerCbQuery();
     
-    // Check if this is a post approval (contains "approve_post")
-    if (id.startsWith('post_')) {
-      // For posts, we don't have a database record, so we'll post directly
+    // Check if this is a post or joke approval (contains "approve_post" or "approve_joke")
+    if (id.startsWith('post_') || id.startsWith('joke_')) {
+      // For posts and jokes, we don't have a database record, so we'll post directly
       await ctx.editMessageText('📸 ምስል አስገቢው እንደሆነ አዲስ ምስል ይላኩ ፡\n\nወይም "ምስል ሳይኖር ቀጥል" የሚለውን ይጫኑ',
         {
           parse_mode: 'HTML',
