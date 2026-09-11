@@ -1,6 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
-const { generatePost } = require('./postGenerator');
+const { generateInsightfulPost, generateJoke } = require('./postGenerator');
 const { markPosted, markRejected, getIdeaById } = require('./database');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
