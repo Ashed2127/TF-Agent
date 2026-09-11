@@ -11,12 +11,11 @@ async function generateInsightfulPost() {
     
     const prompt = `Generate a SHORT insightful Telegram post in Amharic that is RELATED to the previous posts of this channel. 
 
-This should NOT be a business idea - it should be a regular post that relates to the channel's content, such as:
-- Commentary on business trends
-- Motivational content for entrepreneurs
-- Discussion about startup challenges
-- Tips for business owners
-- Industry news relevant to the channel
+This should focus on:
+- Recommendations on tools, strategies, or approaches
+- Asking audience for their suggestions and experiences on specific topics
+- Building on themes from previous posts
+- Maintaining the same conversational tone and writing style
 
 CRITICAL CONSTRAINTS:
 - Maximum 10 lines total
