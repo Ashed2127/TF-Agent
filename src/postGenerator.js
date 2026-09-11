@@ -21,13 +21,15 @@ CRITICAL CONSTRAINTS:
 - Maximum 10 lines total
 - Maximum 3-4 sentences
 - Keep it concise and impactful
-- Write in True Feed channel style
+- Write in True Feed channel style (same as previous posts)
 - No jokes included - just serious insight
+- Must maintain context and writing style from previous posts
+- Focus on recommendations and asking for suggestions
 
-Previous posts context:
+Previous posts context (analyze the writing style and themes):
 ${postsContext}
 
-Generate the post in Amharic. Keep it short, insightful, and conversational. Maximum 10 lines.`;
+Generate the post in Amharic. Keep it short, insightful, and conversational. Maximum 10 lines. Focus on recommendations and asking for suggestions while maintaining the established writing style.`;
     
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
