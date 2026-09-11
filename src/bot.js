@@ -246,11 +246,11 @@ bot.on('photo', async (ctx) => {
     
     const id = ctx.session.pendingIdeaId;
     
-    // Check if this is a post (starts with "post_")
-    if (id.startsWith('post_')) {
-      // For posts, we need to get the content from the session or context
+    // Check if this is a post or joke (starts with "post_" or "joke_")
+    if (id.startsWith('post_') || id.startsWith('joke_')) {
+      // For posts and jokes, we need to get the content from the session or context
       // Since we don't store post content in database, we'll handle this differently
-      await ctx.reply('❌ ፖስት ምስል አስገቢው አሁን አይደግፍም። እባክዎ "ምስል ሳይኖር ቀጥል" ይጫኑ።');
+      await ctx.reply('❌ ፖስት/ግልጽ ውስጥ ዘራፍ ምስል አስገቢው አሁን አይደግፍም። እባክዎ "ምስል ሳይኖር ቀጥል" ይጫኑ።');
       return;
     }
     
