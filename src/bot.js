@@ -335,9 +335,9 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-                { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
-                { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
+                { text: 'idea', callback_data: 'new_idea' },
+                { text: 'insight', callback_data: 'new_post' },
+                { text: 'joke', callback_data: 'new_joke' }
               ]
             ]
           }
