@@ -9,7 +9,7 @@ async function generateInsightfulPost() {
       ? recentPosts.map((post, index) => `Post ${index + 1}: ${post.substring(0, 200)}...`).join('\n\n')
       : 'No previous posts available';
     
-    const prompt = `Generate a SHORT insightful Telegram post in Amharic that is RELATED to the previous posts of this channel. 
+    const prompt = `Generate a SHORT insightful Telegram post in Amharic that provides RECOMMENDATIONS and asks for SUGGESTIONS on specific topics, while maintaining the writing style and context from previous posts. 
 
 This should focus on:
 - Recommendations on tools, strategies, or approaches
