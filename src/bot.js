@@ -402,7 +402,7 @@ bot.action(/reject_(.+)/, async (ctx) => {
       
       await ctx.reply('⏳ አዲስ ፖስት እየተዘጋጀ ነው...');
       
-      const newPost = await generatePost();
+      const newPost = await generateInsightfulPost();
       
       // Store new post content in session
       const newPostId = `post_${Date.now()}`;
@@ -418,6 +418,41 @@ bot.action(/reject_(.+)/, async (ctx) => {
               [
                 { text: '✅ Approve & Post', callback_data: `approve_${newPostId}` },
                 { text: '❌ Reject — New Post', callback_data: 'new_post' }
+              ]
+            ]
+          }
+        }
+      );
+      return;
+    }
+    
+    // Check if this is a joke rejection
+    if (id.startsWith('joke_')) {
+      console.log(`❌ Rejected joke [${id}]`);
+      await ctx.editMessageText('❌ ተቀባይነት አላገኘም');
+      
+      // Clear session
+      delete ctx.session.pendingIdeaId;
+      delete ctx.session.pendingPostContent;
+      
+      await ctx.reply('⏳ አዲስ ግልጽ ውስጥ ዘራፍ እየተዘጋጀ ነው...');
+      
+      const newJoke = await generateJoke();
+      
+      // Store new joke content in session
+      const newJokeId = `joke_${Date.now()}`;
+      ctx.session.pendingIdeaId = newJokeId;
+      ctx.session.pendingPostContent = newJoke.content;
+      
+      await ctx.reply(
+        newJoke.content,
+        {
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: '✅ Approve & Post', callback_data: `approve_${newJokeId}` },
+                { text: '❌ Reject — New Joke', callback_data: 'new_joke' }
               ]
             ]
           }
