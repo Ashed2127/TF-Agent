@@ -36,13 +36,14 @@ bot.start((ctx) => {
   ctx.reply(
     '🌱 TF Agent እንኳን ደህና መጡ!\n\n' +
     'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
-    'አዲስ ሀሳብ ወይም ፖስት ሲፈልጉ ከታች ያለውን Button ይጫኑ።',
+    'ከታች ያሉትን አማራጮች ይጫኑ።',
     {
       reply_markup: {
         inline_keyboard: [
           [
             { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-            { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+            { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+            { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
           ]
         ]
       }
