@@ -84,7 +84,8 @@ bot.action('new_idea', async (ctx) => {
           inline_keyboard: [
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
         }
@@ -98,7 +99,7 @@ bot.action('new_post', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.reply('⏳ ፖስት እየተዘጋጀ ነው...');
     
-    const post = await generatePost();
+    const post = await generateInsightfulPost();
     
     // Store post content in session for later use
     const postId = `post_${Date.now()}`;
@@ -127,7 +128,11 @@ bot.action('new_post', async (ctx) => {
       {
         reply_markup: {
           inline_keyboard: [
-            [{ text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }]
+            [
+              { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
+            ]
           ]
         }
       }
