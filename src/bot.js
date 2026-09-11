@@ -118,6 +118,9 @@ bot.action('new_post', async (ctx) => {
             [
               { text: '✅ Approve & Post', callback_data: `approve_${postId}` },
               { text: '❌ Reject — New Post', callback_data: 'new_post' }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
         }
@@ -164,6 +167,9 @@ bot.action('new_joke', async (ctx) => {
             [
               { text: '✅ Approve & Post', callback_data: `approve_${jokeId}` },
               { text: '❌ Reject — New Joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
         }
