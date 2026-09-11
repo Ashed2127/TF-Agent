@@ -85,6 +85,7 @@ bot.action('new_idea', async (ctx) => {
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
               { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' },
               { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
@@ -131,6 +132,7 @@ bot.action('new_post', async (ctx) => {
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
               { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' },
               { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
@@ -177,6 +179,7 @@ bot.action('new_joke', async (ctx) => {
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
               { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' },
               { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
@@ -285,7 +288,8 @@ bot.on('photo', async (ctx) => {
           inline_keyboard: [
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
         }
@@ -368,7 +372,8 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
           inline_keyboard: [
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
         }
@@ -454,7 +459,8 @@ bot.action(/reject_(.+)/, async (ctx) => {
           inline_keyboard: [
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
         }
