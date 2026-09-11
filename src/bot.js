@@ -307,18 +307,18 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
     const id = ctx.match[1];
     await ctx.answerCbQuery();
     
-    // Check if this is a post (starts with "post_")
-    if (id.startsWith('post_')) {
-      // For posts, we need to get the content from the session
-      // We'll store the post content in session when generating the post
+    // Check if this is a post or joke (starts with "post_" or "joke_")
+    if (id.startsWith('post_') || id.startsWith('joke_')) {
+      // For posts and jokes, we need to get the content from the session
+      // We'll store the post content in session when generating the post/joke
       if (!ctx.session || !ctx.session.pendingPostContent) {
-        await ctx.reply('❌ Post content not found. Please generate a new post.');
+        await ctx.reply('❌ Post/Joke content not found. Please generate a new post/joke.');
         return;
       }
       
       await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, ctx.session.pendingPostContent, { parse_mode: 'HTML' });
       
-      console.log(`📤 Posted post to True Feed (no image)`);
+      console.log(`📤 Posted ${id.startsWith('joke_') ? 'joke' : 'post'} to True Feed (no image)`);
       
       await ctx.editMessageText(
         '✅ True Feed ላይ ተለቀቀ!\n\n' + ctx.session.pendingPostContent,
@@ -336,7 +336,8 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
             inline_keyboard: [
               [
                 { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
-                { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' }
+                { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+                { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
               ]
             ]
           }
