@@ -56,7 +56,7 @@ bot.start((ctx) => {
 bot.action('new_idea', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    await ctx.reply('⏳ ሀሳብ እየተዘጋጀ ነው...');
+    await ctx.reply('⏳ Generating idea...');
     
     const idea = await generateIdea();
     
@@ -78,7 +78,7 @@ bot.action('new_idea', async (ctx) => {
   } catch (error) {
     console.error('Error in new_idea callback:', error);
     await ctx.reply(
-      '❌ ሀሳብ መፍጠር አልተቻለም። እንደገና ሞክር።',
+      '❌ Failed to generate idea. Please try again.',
       {
         reply_markup: {
           inline_keyboard: [
