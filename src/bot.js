@@ -69,6 +69,9 @@ bot.action('new_idea', async (ctx) => {
             [
               { text: '✅ Approve & Post', callback_data: `approve_${idea.id}` },
               { text: '❌ Reject — New Idea', callback_data: `reject_${idea.id}` }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
         }
