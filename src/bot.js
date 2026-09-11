@@ -140,6 +140,52 @@ bot.action('new_post', async (ctx) => {
   }
 });
 
+bot.action('new_joke', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply('⏳ ግልጽ ውስጥ ዘራፍ እየተዘጋጀ ነው...');
+    
+    const joke = await generateJoke();
+    
+    // Store joke content in session for later use
+    const jokeId = `joke_${Date.now()}`;
+    ctx.session.pendingIdeaId = jokeId;
+    ctx.session.pendingPostContent = joke.content;
+    
+    await ctx.reply(
+      joke.content,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Approve & Post', callback_data: `approve_${jokeId}` },
+              { text: '❌ Reject — New Joke', callback_data: 'new_joke' }
+            ]
+          ]
+        }
+      }
+    );
+    
+  } catch (error) {
+    console.error('Error in new_joke callback:', error);
+    await ctx.reply(
+      '❌ ግልጽ ውስጥ ዘራፍ መፍጠር አልተቻለም። እንደገና ሞክር።',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
+              { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
+              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
+            ]
+          ]
+        }
+      }
+    );
+  }
+});
+
 bot.action(/approve_(.+)/, async (ctx) => {
   try {
     const id = ctx.match[1];
