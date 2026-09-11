@@ -131,8 +131,7 @@ bot.action('new_post', async (ctx) => {
             [
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
-              { text: 'joke', callback_data: 'new_joke' },
-              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
+              { text: 'joke', callback_data: 'new_joke' }
             ]
           ]
         }
@@ -178,8 +177,7 @@ bot.action('new_joke', async (ctx) => {
             [
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
-              { text: 'joke', callback_data: 'new_joke' },
-              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
+              { text: 'joke', callback_data: 'new_joke' }
             ]
           ]
         }
