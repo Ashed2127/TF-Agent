@@ -146,6 +146,30 @@ bot.action('new_post', async (ctx) => {
   }
 });
 
+bot.action('back', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply(
+      '🌱 TF Agent እንኳን ደህና መጡ!\n\n' +
+      'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
+      'ከታች ያሉትን አማራጮች ይጫኑ።',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'idea', callback_data: 'new_idea' },
+              { text: 'insight', callback_data: 'new_post' },
+              { text: 'joke', callback_data: 'new_joke' }
+            ]
+          ]
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Error in back callback:', error);
+  }
+});
+
 bot.action('new_joke', async (ctx) => {
   try {
     await ctx.answerCbQuery();
@@ -425,6 +449,9 @@ bot.action(/reject_(.+)/, async (ctx) => {
               [
                 { text: '✅ Approve & Post', callback_data: `approve_${newPostId}` },
                 { text: '❌ Reject — New Post', callback_data: 'new_post' }
+              ],
+              [
+                { text: '↩️ Back', callback_data: 'back' }
               ]
             ]
           }
@@ -460,6 +487,9 @@ bot.action(/reject_(.+)/, async (ctx) => {
               [
                 { text: '✅ Approve & Post', callback_data: `approve_${newJokeId}` },
                 { text: '❌ Reject — New Joke', callback_data: 'new_joke' }
+              ],
+              [
+                { text: '↩️ Back', callback_data: 'back' }
               ]
             ]
           }
