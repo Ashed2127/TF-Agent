@@ -85,7 +85,6 @@ bot.action('new_idea', async (ctx) => {
             [
               { text: '🌱 አዲስ ሀሳብ ስጠኝ', callback_data: 'new_idea' },
               { text: '📝 ፖስት ፍጠር', callback_data: 'new_post' },
-              { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' },
               { text: '😂 ግልጽ ውስጥ ዘራፍ', callback_data: 'new_joke' }
             ]
           ]
