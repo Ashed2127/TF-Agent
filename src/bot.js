@@ -2,6 +2,7 @@ const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
 const { generateInsightfulPost, generateJoke } = require('./postGenerator');
 const { markPosted, markRejected, getIdeaById } = require('./database');
+const { fetchNewsFromAllSources, formatNewsForTelegram } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
@@ -44,6 +45,9 @@ bot.start((ctx) => {
             { text: 'idea', callback_data: 'new_idea' },
             { text: 'insight', callback_data: 'new_post' },
             { text: 'joke', callback_data: 'new_joke' }
+          ],
+          [
+            { text: '📰 news', callback_data: 'get_news' }
           ]
         ]
       }
@@ -89,6 +93,9 @@ bot.action('new_idea', async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -138,6 +145,9 @@ bot.action('new_post', async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -160,6 +170,9 @@ bot.action('back', async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -174,14 +187,14 @@ bot.action('new_joke', async (ctx) => {
   try {
     await ctx.answerCbQuery();
     await ctx.reply('⏳ ግልጽ ውስጥ ዘራፍ እየተዘጋጀ ነው...');
-    
+
     const joke = await generateJoke();
-    
+
     // Store joke content in session for later use
     const jokeId = `joke_${Date.now()}`;
     ctx.session.pendingIdeaId = jokeId;
     ctx.session.pendingPostContent = joke.content;
-    
+
     await ctx.reply(
       joke.content,
       {
@@ -199,7 +212,7 @@ bot.action('new_joke', async (ctx) => {
         }
       }
     );
-    
+
   } catch (error) {
     console.error('Error in new_joke callback:', error);
     await ctx.reply(
@@ -211,6 +224,55 @@ bot.action('new_joke', async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
+            ]
+          ]
+        }
+      }
+    );
+  }
+});
+
+bot.action('get_news', async (ctx) => {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply('⏳ Fetching latest tech news...');
+
+    const articles = await fetchNewsFromAllSources(3);
+    const newsMessage = formatNewsForTelegram(articles);
+
+    await ctx.reply(
+      newsMessage,
+      {
+        parse_mode: 'HTML',
+        disable_web_page_preview: false,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Refresh News', callback_data: 'get_news' },
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ]
+        }
+      }
+    );
+
+  } catch (error) {
+    console.error('Error in get_news callback:', error);
+    await ctx.reply(
+      '❌ Failed to fetch news. Please try again.',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'idea', callback_data: 'new_idea' },
+              { text: 'insight', callback_data: 'new_post' },
+              { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -320,6 +382,9 @@ bot.on('photo', async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -405,6 +470,9 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -536,6 +604,9 @@ bot.action(/reject_(.+)/, async (ctx) => {
               { text: 'idea', callback_data: 'new_idea' },
               { text: 'insight', callback_data: 'new_post' },
               { text: 'joke', callback_data: 'new_joke' }
+            ],
+            [
+              { text: '📰 news', callback_data: 'get_news' }
             ]
           ]
         }
