@@ -240,6 +240,10 @@ bot.action('get_news', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.reply('⏳ Fetching latest tech news...');
 
+    // Clear previous news articles to ensure fresh content
+    ctx.session.newsArticles = null;
+    ctx.session.currentNewsIndex = 0;
+
     const articles = await fetchNewsFromAllSources(10);
 
     if (articles.length === 0) {
@@ -382,6 +386,7 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
     const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
 
     // Post to channel with image if available
+    let posted = false;
     if (article.image) {
       try {
         await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, article.image, {
@@ -389,27 +394,39 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
           parse_mode: 'HTML',
           disable_web_page_preview: false
         });
+        posted = true;
       } catch (photoError) {
         console.error('Error posting photo to channel:', photoError.message);
         console.error('Photo error details:', JSON.stringify(photoError.response || photoError, null, 2));
+        // Fallback to text message
         await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
           parse_mode: 'HTML',
           disable_web_page_preview: false
         });
+        posted = true;
       }
     } else {
       await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
         parse_mode: 'HTML',
         disable_web_page_preview: false
       });
+      posted = true;
     }
 
-    console.log(`📤 Posted news article [${id}] to True Feed`);
-    await ctx.editMessageText('✅ Posted to True Feed!');
+    if (posted) {
+      console.log(`📤 Posted news article [${id}] to True Feed`);
+      // Try to edit the message, if it fails (e.g., photo message), send a new one
+      try {
+        await ctx.editMessageText('✅ Posted to True Feed!');
+      } catch (editError) {
+        console.error('Error editing message:', editError.message);
+        await ctx.reply('✅ Posted to True Feed!');
+      }
 
-    // Move to next article
-    const nextIndex = ctx.session.currentNewsIndex + 1;
-    await sendNewsArticle(ctx, nextIndex);
+      // Move to next article
+      const nextIndex = ctx.session.currentNewsIndex + 1;
+      await sendNewsArticle(ctx, nextIndex);
+    }
 
   } catch (error) {
     console.error('Error in approve_news callback:', error);
@@ -425,7 +442,14 @@ bot.action(/reject_news_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
 
     console.log(`❌ Rejected news article [${id}]`);
-    await ctx.editMessageText('❌ Article rejected');
+
+    // Try to edit the message, if it fails (e.g., photo message), send a new one
+    try {
+      await ctx.editMessageText('❌ Article rejected');
+    } catch (editError) {
+      console.error('Error editing message:', editError.message);
+      await ctx.reply('❌ Article rejected');
+    }
 
     // Move to next article
     const nextIndex = ctx.session.currentNewsIndex + 1;
@@ -444,7 +468,14 @@ bot.action(/skip_news_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
 
     console.log(`⏭️ Skipped news article [${id}]`);
-    await ctx.editMessageText('⏭️ Skipped');
+
+    // Try to edit the message, if it fails (e.g., photo message), send a new one
+    try {
+      await ctx.editMessageText('⏭️ Skipped');
+    } catch (editError) {
+      console.error('Error editing message:', editError.message);
+      await ctx.reply('⏭️ Skipped');
+    }
 
     // Move to next article
     const nextIndex = ctx.session.currentNewsIndex + 1;
