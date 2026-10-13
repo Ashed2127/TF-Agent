@@ -433,45 +433,15 @@ async function fetchArsTechnicaNews(limit = 5) {
  */
 async function fetchNewsFromAllSources(perSource = 3) {
   try {
-    const results = await Promise.allSettled([
-      fetchTechCrunchNews(perSource),
-      fetchTheVergeNews(perSource),
-      fetchBBCTechNews(perSource),
-      fetchWiredNews(perSource),
-      fetchVentureBeatNews(perSource),
-      fetchEngadgetNews(perSource),
-      fetchArsTechnicaNews(perSource)
-    ]);
+    const techCrunch = await fetchTechCrunchNews(perSource);
 
-    // Extract successful results
-    const [techCrunch, theVerge, bbcTech, wired, ventureBeat, engadget, arsTechnica] = results.map((result, index) => {
-      if (result.status === 'fulfilled') {
-        return result.value;
-      } else {
-        const sources = ['TechCrunch', 'The Verge', 'BBC Tech', 'Wired', 'VentureBeat', 'Engadget', 'Ars Technica'];
-        console.error(`Failed to fetch from ${sources[index]}:`, result.reason.message);
-        return [];
-      }
-    });
-
-    // Combine all sources
-    const allNews = [
-      ...techCrunch,
-      ...theVerge,
-      ...bbcTech,
-      ...wired,
-      ...ventureBeat,
-      ...engadget,
-      ...arsTechnica
-    ];
-
-    if (allNews.length === 0) {
-      console.error('No articles fetched from any source');
+    if (techCrunch.length === 0) {
+      console.error('No articles fetched from TechCrunch');
       return [];
     }
 
     // Score each article based on impressiveness and usefulness
-    const scoredNews = allNews.map(article => ({
+    const scoredNews = techCrunch.map(article => ({
       ...article,
       score: scoreArticle(article)
     }));
@@ -484,7 +454,7 @@ async function fetchNewsFromAllSources(perSource = 3) {
 
     return topNews;
   } catch (error) {
-    console.error('Error fetching news from all sources:', error.message);
+    console.error('Error fetching news from TechCrunch:', error.message);
     return [];
   }
 }

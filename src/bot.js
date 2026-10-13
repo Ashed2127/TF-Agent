@@ -240,7 +240,7 @@ bot.action('get_news', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.reply('⏳ Fetching latest tech news...');
 
-    const articles = await fetchNewsFromAllSources(3);
+    const articles = await fetchNewsFromAllSources(10);
 
     if (articles.length === 0) {
       await ctx.reply('❌ No news articles found at the moment. Please try again later.');
