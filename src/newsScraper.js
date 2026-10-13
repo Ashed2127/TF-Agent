@@ -429,6 +429,342 @@ async function fetchArsTechnicaNews(limit = 5) {
 }
 
 /**
+ * Fetch news from The Information using RSS
+ */
+async function fetchTheInformationNews(limit = 5) {
+  try {
+    const url = 'https://theinformation.com/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'The Information',
+          time: pubDate || 'Recently',
+          source: 'The Information',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching The Information news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Rest of World using RSS
+ */
+async function fetchRestOfWorldNews(limit = 5) {
+  try {
+    const url = 'https://restofworld.org/feed/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Rest of World',
+          time: pubDate || 'Recently',
+          source: 'Rest of World',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Rest of World news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Fast Company using RSS
+ */
+async function fetchFastCompanyNews(limit = 5) {
+  try {
+    const url = 'https://www.fastcompany.com/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Fast Company',
+          time: pubDate || 'Recently',
+          source: 'Fast Company',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Fast Company news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from MIT Technology Review using RSS
+ */
+async function fetchMITTechReviewNews(limit = 5) {
+  try {
+    const url = 'https://www.technologyreview.com/feed/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'MIT Technology Review',
+          time: pubDate || 'Recently',
+          source: 'MIT Technology Review',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching MIT Technology Review news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from The New Stack using RSS
+ */
+async function fetchTheNewStackNews(limit = 5) {
+  try {
+    const url = 'https://thenewstack.io/feed/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'The New Stack',
+          time: pubDate || 'Recently',
+          source: 'The New Stack',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching The New Stack news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Hacker News using RSS
+ */
+async function fetchHackerNews(limit = 5) {
+  try {
+    const url = 'https://hnrss.org/frontpage';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Hacker News',
+          time: pubDate || 'Recently',
+          source: 'Hacker News',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Hacker News:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Techmeme using RSS
+ */
+async function fetchTechmemeNews(limit = 5) {
+  try {
+    const url = 'https://www.techmeme.com/feed.xml';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Techmeme',
+          time: pubDate || 'Recently',
+          source: 'Techmeme',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Techmeme news:', error.message);
+    return [];
+  }
+}
+
+/**
  * Fetch news from multiple sources
  */
 async function fetchNewsFromAllSources(perSource = 3) {
@@ -440,15 +776,42 @@ async function fetchNewsFromAllSources(perSource = 3) {
       fetchWiredNews(perSource),
       fetchVentureBeatNews(perSource),
       fetchEngadgetNews(perSource),
-      fetchArsTechnicaNews(perSource)
+      fetchArsTechnicaNews(perSource),
+      fetchTheInformationNews(perSource),
+      fetchRestOfWorldNews(perSource),
+      fetchFastCompanyNews(perSource),
+      fetchMITTechReviewNews(perSource),
+      fetchTheNewStackNews(perSource),
+      fetchHackerNews(perSource),
+      fetchTechmemeNews(perSource)
     ]);
 
     // Extract successful results
-    const [techCrunch, theVerge, bbcTech, wired, ventureBeat, engadget, arsTechnica] = results.map((result, index) => {
+    const [
+      techCrunch,
+      theVerge,
+      bbcTech,
+      wired,
+      ventureBeat,
+      engadget,
+      arsTechnica,
+      theInformation,
+      restOfWorld,
+      fastCompany,
+      mitTechReview,
+      theNewStack,
+      hackerNews,
+      techmeme
+    ] = results.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;
       } else {
-        const sources = ['TechCrunch', 'The Verge', 'BBC Tech', 'Wired', 'VentureBeat', 'Engadget', 'Ars Technica'];
+        const sources = [
+          'TechCrunch', 'The Verge', 'BBC Tech', 'Wired', 'VentureBeat',
+          'Engadget', 'Ars Technica', 'The Information', 'Rest of World',
+          'Fast Company', 'MIT Technology Review', 'The New Stack',
+          'Hacker News', 'Techmeme'
+        ];
         console.error(`Failed to fetch from ${sources[index]}:`, result.reason.message);
         return [];
       }
@@ -462,7 +825,14 @@ async function fetchNewsFromAllSources(perSource = 3) {
       ...wired,
       ...ventureBeat,
       ...engadget,
-      ...arsTechnica
+      ...arsTechnica,
+      ...theInformation,
+      ...restOfWorld,
+      ...fastCompany,
+      ...mitTechReview,
+      ...theNewStack,
+      ...hackerNews,
+      ...techmeme
     ];
 
     if (allNews.length === 0) {
@@ -524,6 +894,13 @@ module.exports = {
   fetchVentureBeatNews,
   fetchEngadgetNews,
   fetchArsTechnicaNews,
+  fetchTheInformationNews,
+  fetchRestOfWorldNews,
+  fetchFastCompanyNews,
+  fetchMITTechReviewNews,
+  fetchTheNewStackNews,
+  fetchHackerNews,
+  fetchTechmemeNews,
   fetchNewsFromAllSources,
   formatNewsForTelegram
 };

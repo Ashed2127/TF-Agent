@@ -9,7 +9,14 @@ const {
   fetchWiredNews,
   fetchVentureBeatNews,
   fetchEngadgetNews,
-  fetchArsTechnicaNews
+  fetchArsTechnicaNews,
+  fetchTheInformationNews,
+  fetchRestOfWorldNews,
+  fetchFastCompanyNews,
+  fetchMITTechReviewNews,
+  fetchTheNewStackNews,
+  fetchHackerNews,
+  fetchTechmemeNews
 } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -151,7 +158,20 @@ bot.action('get_news', async (ctx) => {
               { text: 'Engadget', callback_data: 'news_engadget' }
             ],
             [
-              { text: 'Ars Technica', callback_data: 'news_arstechnica' }
+              { text: 'Ars Technica', callback_data: 'news_arstechnica' },
+              { text: 'The Information', callback_data: 'news_theinformation' }
+            ],
+            [
+              { text: 'Rest of World', callback_data: 'news_restofworld' },
+              { text: 'Fast Company', callback_data: 'news_fastcompany' }
+            ],
+            [
+              { text: 'MIT Tech Review', callback_data: 'news_mittechreview' },
+              { text: 'The New Stack', callback_data: 'news_thenewstack' }
+            ],
+            [
+              { text: 'Hacker News', callback_data: 'news_hackernews' },
+              { text: 'Techmeme', callback_data: 'news_techmeme' }
             ],
             [
               { text: '↩️ Back', callback_data: 'back' }
@@ -227,6 +247,34 @@ bot.action('news_engadget', async (ctx) => {
 
 bot.action('news_arstechnica', async (ctx) => {
   await fetchAndDisplayNews(ctx, 'Ars Technica', fetchArsTechnicaNews, 'news_arstechnica');
+});
+
+bot.action('news_theinformation', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'The Information', fetchTheInformationNews, 'news_theinformation');
+});
+
+bot.action('news_restofworld', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Rest of World', fetchRestOfWorldNews, 'news_restofworld');
+});
+
+bot.action('news_fastcompany', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Fast Company', fetchFastCompanyNews, 'news_fastcompany');
+});
+
+bot.action('news_mittechreview', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'MIT Technology Review', fetchMITTechReviewNews, 'news_mittechreview');
+});
+
+bot.action('news_thenewstack', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'The New Stack', fetchTheNewStackNews, 'news_thenewstack');
+});
+
+bot.action('news_hackernews', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Hacker News', fetchHackerNews, 'news_hackernews');
+});
+
+bot.action('news_techmeme', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Techmeme', fetchTechmemeNews, 'news_techmeme');
 });
 
 /**
