@@ -6,7 +6,7 @@ const { fetchNewsFromAllSources } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
-const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID;
+const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID ? parseInt(process.env.TRUE_FEED_CHANNEL_ID) : null;
 
 // Simple in-memory session storage
 const sessions = {};
@@ -374,6 +374,11 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
       return;
     }
 
+    if (!TRUE_FEED_CHANNEL_ID) {
+      await ctx.reply('❌ TRUE_FEED_CHANNEL_ID not configured');
+      return;
+    }
+
     const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
 
     // Post to channel with image if available
@@ -386,6 +391,7 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
         });
       } catch (photoError) {
         console.error('Error posting photo to channel:', photoError.message);
+        console.error('Photo error details:', JSON.stringify(photoError.response || photoError, null, 2));
         await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
           parse_mode: 'HTML',
           disable_web_page_preview: false
@@ -407,6 +413,7 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
 
   } catch (error) {
     console.error('Error in approve_news callback:', error);
+    console.error('Error details:', JSON.stringify(error.response || error, null, 2));
     await ctx.reply('❌ Error posting article. Please try again.');
   }
 });
