@@ -16,7 +16,31 @@ const {
   fetchMITTechReviewNews,
   fetchTheNewStackNews,
   fetchHackerNews,
-  fetchTechmemeNews
+  fetchTechmemeNews,
+  fetchSiftedNews,
+  fetchTechEuNews,
+  fetchTheNextWebNews,
+  fetchYourStoryNews,
+  fetchTheMorningContextNews,
+  fetchEntrackrNews,
+  fetchTechNodeNews,
+  fetchKrASIANews,
+  fetchTechCabalNews,
+  fetchDisruptAfricaNews,
+  fetchTechpointAfricaNews,
+  fetchWamdaNews,
+  fetchMagnittNews,
+  fetchMITTechReviewArabicNews,
+  fetchHabrNews,
+  fetchRBRuNews,
+  fetchSmartCompanyNews,
+  fetchStartupDailyNews,
+  fetchTechGuideNews,
+  fetchGizmodoAustraliaNews,
+  fetchContxtoNews,
+  fetchStartupsLatamNews,
+  fetchBrazilJournalNews,
+  fetchLatamListNews
 } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -138,7 +162,7 @@ bot.action('get_news', async (ctx) => {
   try {
     await ctx.answerCbQuery();
 
-    // Show news source selection menu
+    // Show news source selection menu with all sources
     await ctx.reply(
       '📰 <b>Select a news source:</b>',
       {
@@ -147,31 +171,67 @@ bot.action('get_news', async (ctx) => {
           inline_keyboard: [
             [
               { text: 'TechCrunch', callback_data: 'news_techcrunch' },
-              { text: 'The Verge', callback_data: 'news_theverge' }
+              { text: 'The Verge', callback_data: 'news_theverge' },
+              { text: 'BBC Tech', callback_data: 'news_bbctech' }
             ],
             [
-              { text: 'BBC Tech', callback_data: 'news_bbctech' },
-              { text: 'Wired', callback_data: 'news_wired' }
-            ],
-            [
+              { text: 'Wired', callback_data: 'news_wired' },
               { text: 'VentureBeat', callback_data: 'news_venturebeat' },
               { text: 'Engadget', callback_data: 'news_engadget' }
             ],
             [
               { text: 'Ars Technica', callback_data: 'news_arstechnica' },
-              { text: 'The Information', callback_data: 'news_theinformation' }
+              { text: 'The Information', callback_data: 'news_theinformation' },
+              { text: 'Rest of World', callback_data: 'news_restofworld' }
             ],
             [
-              { text: 'Rest of World', callback_data: 'news_restofworld' },
-              { text: 'Fast Company', callback_data: 'news_fastcompany' }
-            ],
-            [
+              { text: 'Fast Company', callback_data: 'news_fastcompany' },
               { text: 'MIT Tech Review', callback_data: 'news_mittechreview' },
               { text: 'The New Stack', callback_data: 'news_thenewstack' }
             ],
             [
               { text: 'Hacker News', callback_data: 'news_hackernews' },
-              { text: 'Techmeme', callback_data: 'news_techmeme' }
+              { text: 'Techmeme', callback_data: 'news_techmeme' },
+              { text: 'Sifted', callback_data: 'news_sifted' }
+            ],
+            [
+              { text: 'Tech.eu', callback_data: 'news_techceu' },
+              { text: 'The Next Web', callback_data: 'news_thenextweb' },
+              { text: 'YourStory', callback_data: 'news_yourstory' }
+            ],
+            [
+              { text: 'Morning Context', callback_data: 'news_morningcontext' },
+              { text: 'Entrackr', callback_data: 'news_entrackr' },
+              { text: 'TechNode', callback_data: 'news_technode' }
+            ],
+            [
+              { text: 'KrASIA', callback_data: 'news_krasia' },
+              { text: 'TechCabal', callback_data: 'news_techcabal' },
+              { text: 'Disrupt Africa', callback_data: 'news_disruptafrica' }
+            ],
+            [
+              { text: 'Techpoint Africa', callback_data: 'news_techpointafrica' },
+              { text: 'Wamda', callback_data: 'news_wamda' },
+              { text: 'Magnitt', callback_data: 'news_magnitt' }
+            ],
+            [
+              { text: 'MIT Tech Review AR', callback_data: 'news_mitarabic' },
+              { text: 'Habr', callback_data: 'news_habr' },
+              { text: 'RB.ru', callback_data: 'news_rbru' }
+            ],
+            [
+              { text: 'SmartCompany', callback_data: 'news_smartcompany' },
+              { text: 'Startup Daily', callback_data: 'news_startupdaily' },
+              { text: 'Tech Guide', callback_data: 'news_techguide' }
+            ],
+            [
+              { text: 'Gizmodo AU', callback_data: 'news_gizmodoau' },
+              { text: 'Contxto', callback_data: 'news_contxto' },
+              { text: 'Startups Latam', callback_data: 'news_startupslatam' }
+            ],
+            [
+              { text: 'Brazil Journal', callback_data: 'news_braziljournal' },
+              { text: 'LatamList', callback_data: 'news_latamlist' }
             ],
             [
               { text: '↩️ Back', callback_data: 'back' }
@@ -275,6 +335,102 @@ bot.action('news_hackernews', async (ctx) => {
 
 bot.action('news_techmeme', async (ctx) => {
   await fetchAndDisplayNews(ctx, 'Techmeme', fetchTechmemeNews, 'news_techmeme');
+});
+
+bot.action('news_sifted', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Sifted', fetchSiftedNews, 'news_sifted');
+});
+
+bot.action('news_techceu', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Tech.eu', fetchTechEuNews, 'news_techceu');
+});
+
+bot.action('news_thenextweb', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'The Next Web', fetchTheNextWebNews, 'news_thenextweb');
+});
+
+bot.action('news_yourstory', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'YourStory', fetchYourStoryNews, 'news_yourstory');
+});
+
+bot.action('news_morningcontext', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'The Morning Context', fetchTheMorningContextNews, 'news_morningcontext');
+});
+
+bot.action('news_entrackr', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Entrackr', fetchEntrackrNews, 'news_entrackr');
+});
+
+bot.action('news_technode', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'TechNode', fetchTechNodeNews, 'news_technode');
+});
+
+bot.action('news_krasia', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'KrASIA', fetchKrASIANews, 'news_krasia');
+});
+
+bot.action('news_techcabal', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'TechCabal', fetchTechCabalNews, 'news_techcabal');
+});
+
+bot.action('news_disruptafrica', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Disrupt Africa', fetchDisruptAfricaNews, 'news_disruptafrica');
+});
+
+bot.action('news_techpointafrica', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Techpoint Africa', fetchTechpointAfricaNews, 'news_techpointafrica');
+});
+
+bot.action('news_wamda', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Wamda', fetchWamdaNews, 'news_wamda');
+});
+
+bot.action('news_magnitt', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Magnitt', fetchMagnittNews, 'news_magnitt');
+});
+
+bot.action('news_mitarabic', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'MIT Technology Review Arabic', fetchMITTechReviewArabicNews, 'news_mitarabic');
+});
+
+bot.action('news_habr', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Habr', fetchHabrNews, 'news_habr');
+});
+
+bot.action('news_rbru', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'RB.ru', fetchRBRuNews, 'news_rbru');
+});
+
+bot.action('news_smartcompany', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'SmartCompany', fetchSmartCompanyNews, 'news_smartcompany');
+});
+
+bot.action('news_startupdaily', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Startup Daily', fetchStartupDailyNews, 'news_startupdaily');
+});
+
+bot.action('news_techguide', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Tech Guide', fetchTechGuideNews, 'news_techguide');
+});
+
+bot.action('news_gizmodoau', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Gizmodo Australia', fetchGizmodoAustraliaNews, 'news_gizmodoau');
+});
+
+bot.action('news_contxto', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Contxto', fetchContxtoNews, 'news_contxto');
+});
+
+bot.action('news_startupslatam', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Startups Latam', fetchStartupsLatamNews, 'news_startupslatam');
+});
+
+bot.action('news_braziljournal', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Brazil Journal', fetchBrazilJournalNews, 'news_braziljournal');
+});
+
+bot.action('news_latamlist', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'LatamList', fetchLatamListNews, 'news_latamlist');
 });
 
 /**
