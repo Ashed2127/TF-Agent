@@ -1,6 +1,7 @@
 const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
 const { markPosted, markRejected, getIdeaById } = require('./database');
+const axios = require('axios');
 const {
   fetchNewsFromAllSources,
   fetchTechCrunchNews,
@@ -46,6 +47,23 @@ const {
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
 const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID ? parseInt(process.env.TRUE_FEED_CHANNEL_ID) : null;
+
+// Helper function to download image as buffer
+async function downloadImage(url) {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+    return Buffer.from(response.data, 'binary');
+  } catch (error) {
+    console.error('Error downloading image:', error.message);
+    return null;
+  }
+}
 
 // Simple in-memory session storage
 const sessions = {};
@@ -553,12 +571,25 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
     let posted = false;
     if (article.image) {
       try {
-        await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, article.image, {
-          caption,
-          parse_mode: 'HTML',
-          disable_web_page_preview: false
-        });
-        posted = true;
+        // Download the image first
+        const imageBuffer = await downloadImage(article.image);
+        if (imageBuffer) {
+          await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, {
+            source: imageBuffer
+          }, {
+            caption,
+            parse_mode: 'HTML',
+            disable_web_page_preview: false
+          });
+          posted = true;
+        } else {
+          // Fallback to text message if download fails
+          await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
+            parse_mode: 'HTML',
+            disable_web_page_preview: false
+          });
+          posted = true;
+        }
       } catch (photoError) {
         console.error('Error posting photo to channel:', photoError.message);
         console.error('Photo error details:', JSON.stringify(photoError.response || photoError, null, 2));
