@@ -2,7 +2,16 @@ const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
 const { generateInsightfulPost, generateJoke } = require('./postGenerator');
 const { markPosted, markRejected, getIdeaById } = require('./database');
-const { fetchNewsFromAllSources } = require('./newsScraper');
+const {
+  fetchNewsFromAllSources,
+  fetchTechCrunchNews,
+  fetchTheVergeNews,
+  fetchBBCTechNews,
+  fetchWiredNews,
+  fetchVentureBeatNews,
+  fetchEngadgetNews,
+  fetchArsTechnicaNews
+} = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
@@ -238,16 +247,57 @@ bot.action('new_joke', async (ctx) => {
 bot.action('get_news', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    await ctx.reply('⏳ Fetching latest tech news...');
+
+    // Show news source selection menu
+    await ctx.reply(
+      '📰 <b>Select a news source:</b>',
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'TechCrunch', callback_data: 'news_techcrunch' },
+              { text: 'The Verge', callback_data: 'news_theverge' }
+            ],
+            [
+              { text: 'BBC Tech', callback_data: 'news_bbctech' },
+              { text: 'Wired', callback_data: 'news_wired' }
+            ],
+            [
+              { text: 'VentureBeat', callback_data: 'news_venturebeat' },
+              { text: 'Engadget', callback_data: 'news_engadget' }
+            ],
+            [
+              { text: 'Ars Technica', callback_data: 'news_arstechnica' }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ]
+        }
+      }
+    );
+  } catch (error) {
+    console.error('Error in get_news callback:', error);
+    await ctx.reply('❌ Error. Please try again.');
+  }
+});
+
+// Helper function to fetch and display news from a specific source
+async function fetchAndDisplayNews(ctx, sourceName, fetchFunction, sourceCallback) {
+  try {
+    await ctx.answerCbQuery();
+    await ctx.reply(`⏳ Fetching latest news from ${sourceName}...`);
 
     // Clear previous news articles to ensure fresh content
     ctx.session.newsArticles = null;
     ctx.session.currentNewsIndex = 0;
+    ctx.session.currentNewsSource = sourceCallback;
 
-    const articles = await fetchNewsFromAllSources(10);
+    const articles = await fetchFunction(10);
 
     if (articles.length === 0) {
-      await ctx.reply('❌ No news articles found at the moment. Please try again later.');
+      await ctx.reply(`❌ No news articles found from ${sourceName} at the moment. Please try again later.`);
       return;
     }
 
@@ -262,25 +312,38 @@ bot.action('get_news', async (ctx) => {
     await sendNewsArticle(ctx, 0);
 
   } catch (error) {
-    console.error('Error in get_news callback:', error);
-    await ctx.reply(
-      '❌ Failed to fetch news. Please try again.',
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'idea', callback_data: 'new_idea' },
-              { text: 'insight', callback_data: 'new_post' },
-              { text: 'joke', callback_data: 'new_joke' }
-            ],
-            [
-              { text: '📰 news', callback_data: 'get_news' }
-            ]
-          ]
-        }
-      }
-    );
+    console.error(`Error fetching news from ${sourceName}:`, error);
+    await ctx.reply(`❌ Failed to fetch news from ${sourceName}. Please try again.`);
   }
+}
+
+// News source handlers
+bot.action('news_techcrunch', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'TechCrunch', fetchTechCrunchNews, 'news_techcrunch');
+});
+
+bot.action('news_theverge', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'The Verge', fetchTheVergeNews, 'news_theverge');
+});
+
+bot.action('news_bbctech', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'BBC Tech', fetchBBCTechNews, 'news_bbctech');
+});
+
+bot.action('news_wired', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Wired', fetchWiredNews, 'news_wired');
+});
+
+bot.action('news_venturebeat', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'VentureBeat', fetchVentureBeatNews, 'news_venturebeat');
+});
+
+bot.action('news_engadget', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Engadget', fetchEngadgetNews, 'news_engadget');
+});
+
+bot.action('news_arstechnica', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Ars Technica', fetchArsTechnicaNews, 'news_arstechnica');
 });
 
 /**
@@ -289,13 +352,17 @@ bot.action('get_news', async (ctx) => {
 async function sendNewsArticle(ctx, index) {
   if (!ctx.session.newsArticles || index >= ctx.session.newsArticles.length) {
     // All articles processed
+    const refreshCallback = ctx.session.currentNewsSource || 'get_news';
     await ctx.reply(
       '📰 All news articles reviewed!',
       {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '🔄 Refresh News', callback_data: 'get_news' },
+              { text: '🔄 Refresh Same Source', callback_data: refreshCallback },
+              { text: '🔄 Change Source', callback_data: 'get_news' }
+            ],
+            [
               { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
