@@ -2,6 +2,38 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 
 /**
+ * Helper function to fetch image from article page
+ */
+async function fetchImageFromPage(url) {
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 5000
+    });
+
+    const $ = cheerio.load(response.data);
+
+    // Try different meta tags for featured image
+    const ogImage = $('meta[property="og:image"]').attr('content');
+    if (ogImage) return ogImage;
+
+    const twitterImage = $('meta[name="twitter:image"]').attr('content');
+    if (twitterImage) return twitterImage;
+
+    // Try to find the main article image
+    const articleImg = $('article img').first().attr('src');
+    if (articleImg) return articleImg;
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching image from page:', error.message);
+    return null;
+  }
+}
+
+/**
  * Fetch news from TechCrunch using RSS
  */
 async function fetchTechCrunchNews(limit = 5) {
@@ -17,17 +49,21 @@ async function fetchTechCrunchNews(limit = 5) {
     const $ = cheerio.load(response.data, { xmlMode: true });
     const articles = [];
 
-    $('item').each((index, element) => {
-      if (articles.length >= limit) return false;
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
 
-      const title = $(element).find('title').text().trim();
-      const link = $(element).find('link').text().trim();
-      const description = $(element).find('description').text().trim();
-      const pubDate = $(element).find('pubDate').text().trim();
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
 
       if (title && link) {
         // Strip HTML from description
         const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+
+        // Fetch image from article page
+        const image = await fetchImageFromPage(link);
 
         articles.push({
           title,
@@ -35,10 +71,11 @@ async function fetchTechCrunchNews(limit = 5) {
           excerpt: excerpt || 'No excerpt available',
           author: 'TechCrunch',
           time: pubDate || 'Recently',
-          source: 'TechCrunch'
+          source: 'TechCrunch',
+          image
         });
       }
-    });
+    }
 
     return articles;
   } catch (error) {
@@ -63,17 +100,21 @@ async function fetchTheVergeNews(limit = 5) {
     const $ = cheerio.load(response.data, { xmlMode: true });
     const articles = [];
 
-    $('item').each((index, element) => {
-      if (articles.length >= limit) return false;
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
 
-      const title = $(element).find('title').text().trim();
-      const link = $(element).find('link').text().trim();
-      const description = $(element).find('description').text().trim();
-      const pubDate = $(element).find('pubDate').text().trim();
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
 
       if (title && link) {
         // Strip HTML from description
         const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+
+        // Fetch image from article page
+        const image = await fetchImageFromPage(link);
 
         articles.push({
           title,
@@ -81,10 +122,11 @@ async function fetchTheVergeNews(limit = 5) {
           excerpt: excerpt || 'No excerpt available',
           author: 'The Verge',
           time: pubDate || 'Recently',
-          source: 'The Verge'
+          source: 'The Verge',
+          image
         });
       }
-    });
+    }
 
     return articles;
   } catch (error) {
@@ -109,17 +151,21 @@ async function fetchBBCTechNews(limit = 5) {
     const $ = cheerio.load(response.data, { xmlMode: true });
     const articles = [];
 
-    $('item').each((index, element) => {
-      if (articles.length >= limit) return false;
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
 
-      const title = $(element).find('title').text().trim();
-      const link = $(element).find('link').text().trim();
-      const description = $(element).find('description').text().trim();
-      const pubDate = $(element).find('pubDate').text().trim();
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
 
       if (title && link) {
         // Strip HTML from description
         const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+
+        // Fetch image from article page
+        const image = await fetchImageFromPage(link);
 
         articles.push({
           title,
@@ -127,10 +173,11 @@ async function fetchBBCTechNews(limit = 5) {
           excerpt: excerpt || 'No excerpt available',
           author: 'BBC Technology',
           time: pubDate || 'Recently',
-          source: 'BBC Tech'
+          source: 'BBC Tech',
+          image
         });
       }
-    });
+    }
 
     return articles;
   } catch (error) {
@@ -174,6 +221,10 @@ function formatNewsForTelegram(articles) {
     message += `<b>${index + 1}. ${article.title}</b>\n`;
     // Make the source name a clickable link to the article
     message += `<a href="${article.link}">${article.source}</a>\n`;
+    // Add image URL if available
+    if (article.image) {
+      message += `🖼️ ${article.image}\n`;
+    }
     message += '\n';
   });
 

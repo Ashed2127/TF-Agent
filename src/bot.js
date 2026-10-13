@@ -2,7 +2,7 @@ const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
 const { generateInsightfulPost, generateJoke } = require('./postGenerator');
 const { markPosted, markRejected, getIdeaById } = require('./database');
-const { fetchNewsFromAllSources, formatNewsForTelegram } = require('./newsScraper');
+const { fetchNewsFromAllSources } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
 const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
@@ -241,13 +241,37 @@ bot.action('get_news', async (ctx) => {
     await ctx.reply('⏳ Fetching latest tech news...');
 
     const articles = await fetchNewsFromAllSources(3);
-    const newsMessage = formatNewsForTelegram(articles);
 
+    if (articles.length === 0) {
+      await ctx.reply('❌ No news articles found at the moment. Please try again later.');
+      return;
+    }
+
+    // Send each article with its image if available
+    for (const article of articles) {
+      const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
+
+      if (article.image) {
+        try {
+          await ctx.replyWithPhoto(article.image, {
+            caption,
+            parse_mode: 'HTML',
+            disable_web_page_preview: false
+          });
+        } catch (photoError) {
+          // If photo fails, send as text message
+          console.error('Error sending photo:', photoError.message);
+          await ctx.reply(caption, { parse_mode: 'HTML', disable_web_page_preview: false });
+        }
+      } else {
+        await ctx.reply(caption, { parse_mode: 'HTML', disable_web_page_preview: false });
+      }
+    }
+
+    // Send menu at the end
     await ctx.reply(
-      newsMessage,
+      '📰 News fetched successfully!',
       {
-        parse_mode: 'HTML',
-        disable_web_page_preview: false,
         reply_markup: {
           inline_keyboard: [
             [
