@@ -363,6 +363,7 @@ async function sendNewsArticle(ctx, index) {
               { text: '🔄 Change Source', callback_data: 'get_news' }
             ],
             [
+              { text: '↩️ Back to Sources', callback_data: 'get_news' },
               { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
@@ -392,6 +393,9 @@ async function sendNewsArticle(ctx, index) {
             ],
             [
               { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
+            ],
+            [
+              { text: '↩️ Back to Sources', callback_data: 'get_news' }
             ]
           ]
         }
@@ -409,6 +413,9 @@ async function sendNewsArticle(ctx, index) {
             ],
             [
               { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
+            ],
+            [
+              { text: '↩️ Back to Sources', callback_data: 'get_news' }
             ]
           ]
         }
@@ -426,6 +433,9 @@ async function sendNewsArticle(ctx, index) {
           ],
           [
             { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
+          ],
+          [
+            { text: '↩️ Back to Sources', callback_data: 'get_news' }
           ]
         ]
       }
