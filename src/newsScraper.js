@@ -433,7 +433,7 @@ async function fetchArsTechnicaNews(limit = 5) {
  */
 async function fetchNewsFromAllSources(perSource = 3) {
   try {
-    const [techCrunch, theVerge, bbcTech, wired, ventureBeat, engadget, arsTechnica] = await Promise.all([
+    const results = await Promise.allSettled([
       fetchTechCrunchNews(perSource),
       fetchTheVergeNews(perSource),
       fetchBBCTechNews(perSource),
@@ -442,6 +442,17 @@ async function fetchNewsFromAllSources(perSource = 3) {
       fetchEngadgetNews(perSource),
       fetchArsTechnicaNews(perSource)
     ]);
+
+    // Extract successful results
+    const [techCrunch, theVerge, bbcTech, wired, ventureBeat, engadget, arsTechnica] = results.map((result, index) => {
+      if (result.status === 'fulfilled') {
+        return result.value;
+      } else {
+        const sources = ['TechCrunch', 'The Verge', 'BBC Tech', 'Wired', 'VentureBeat', 'Engadget', 'Ars Technica'];
+        console.error(`Failed to fetch from ${sources[index]}:`, result.reason.message);
+        return [];
+      }
+    });
 
     // Combine all sources
     const allNews = [
@@ -453,6 +464,11 @@ async function fetchNewsFromAllSources(perSource = 3) {
       ...engadget,
       ...arsTechnica
     ];
+
+    if (allNews.length === 0) {
+      console.error('No articles fetched from any source');
+      return [];
+    }
 
     // Score each article based on impressiveness and usefulness
     const scoredNews = allNews.map(article => ({
