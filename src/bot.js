@@ -247,41 +247,15 @@ bot.action('get_news', async (ctx) => {
       return;
     }
 
-    // Send each article with its image if available
-    for (const article of articles) {
-      const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
+    // Store articles in session with unique IDs
+    ctx.session.newsArticles = articles.map((article, index) => ({
+      ...article,
+      id: `news_${Date.now()}_${index}`
+    }));
+    ctx.session.currentNewsIndex = 0;
 
-      if (article.image) {
-        try {
-          await ctx.replyWithPhoto(article.image, {
-            caption,
-            parse_mode: 'HTML',
-            disable_web_page_preview: false
-          });
-        } catch (photoError) {
-          // If photo fails, send as text message
-          console.error('Error sending photo:', photoError.message);
-          await ctx.reply(caption, { parse_mode: 'HTML', disable_web_page_preview: false });
-        }
-      } else {
-        await ctx.reply(caption, { parse_mode: 'HTML', disable_web_page_preview: false });
-      }
-    }
-
-    // Send menu at the end
-    await ctx.reply(
-      '📰 News fetched successfully!',
-      {
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '🔄 Refresh News', callback_data: 'get_news' },
-              { text: '↩️ Back', callback_data: 'back' }
-            ]
-          ]
-        }
-      }
-    );
+    // Send first article with approve/reject buttons
+    await sendNewsArticle(ctx, 0);
 
   } catch (error) {
     console.error('Error in get_news callback:', error);
@@ -302,6 +276,176 @@ bot.action('get_news', async (ctx) => {
         }
       }
     );
+  }
+});
+
+/**
+ * Helper function to send a news article with approve/reject buttons
+ */
+async function sendNewsArticle(ctx, index) {
+  if (!ctx.session.newsArticles || index >= ctx.session.newsArticles.length) {
+    // All articles processed
+    await ctx.reply(
+      '📰 All news articles reviewed!',
+      {
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '🔄 Refresh News', callback_data: 'get_news' },
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ]
+        }
+      }
+    );
+    return;
+  }
+
+  const article = ctx.session.newsArticles[index];
+  const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
+
+  ctx.session.currentNewsIndex = index;
+  ctx.session.currentNewsId = article.id;
+
+  if (article.image) {
+    try {
+      await ctx.replyWithPhoto(article.image, {
+        caption,
+        parse_mode: 'HTML',
+        disable_web_page_preview: false,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Approve & Post', callback_data: `approve_news_${article.id}` },
+              { text: '❌ Reject', callback_data: `reject_news_${article.id}` }
+            ],
+            [
+              { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
+            ]
+          ]
+        }
+      });
+    } catch (photoError) {
+      console.error('Error sending photo:', photoError.message);
+      await ctx.reply(caption, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: false,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Approve & Post', callback_data: `approve_news_${article.id}` },
+              { text: '❌ Reject', callback_data: `reject_news_${article.id}` }
+            ],
+            [
+              { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
+            ]
+          ]
+        }
+      });
+    }
+  } else {
+    await ctx.reply(caption, {
+      parse_mode: 'HTML',
+      disable_web_page_preview: false,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Approve & Post', callback_data: `approve_news_${article.id}` },
+            { text: '❌ Reject', callback_data: `reject_news_${article.id}` }
+          ],
+          [
+            { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
+          ]
+        }
+      }
+    });
+  }
+}
+
+// Handle news article approval
+bot.action(/approve_news_(.+)/, async (ctx) => {
+  try {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery();
+
+    const article = ctx.session.newsArticles?.find(a => a.id === id);
+    if (!article) {
+      await ctx.reply('❌ Article not found');
+      return;
+    }
+
+    const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
+
+    // Post to channel with image if available
+    if (article.image) {
+      try {
+        await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, article.image, {
+          caption,
+          parse_mode: 'HTML',
+          disable_web_page_preview: false
+        });
+      } catch (photoError) {
+        console.error('Error posting photo to channel:', photoError.message);
+        await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
+          parse_mode: 'HTML',
+          disable_web_page_preview: false
+        });
+      }
+    } else {
+      await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
+        parse_mode: 'HTML',
+        disable_web_page_preview: false
+      });
+    }
+
+    console.log(`📤 Posted news article [${id}] to True Feed`);
+    await ctx.editMessageText('✅ Posted to True Feed!');
+
+    // Move to next article
+    const nextIndex = ctx.session.currentNewsIndex + 1;
+    await sendNewsArticle(ctx, nextIndex);
+
+  } catch (error) {
+    console.error('Error in approve_news callback:', error);
+    await ctx.reply('❌ Error posting article. Please try again.');
+  }
+});
+
+// Handle news article rejection
+bot.action(/reject_news_(.+)/, async (ctx) => {
+  try {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery();
+
+    console.log(`❌ Rejected news article [${id}]`);
+    await ctx.editMessageText('❌ Article rejected');
+
+    // Move to next article
+    const nextIndex = ctx.session.currentNewsIndex + 1;
+    await sendNewsArticle(ctx, nextIndex);
+
+  } catch (error) {
+    console.error('Error in reject_news callback:', error);
+    await ctx.reply('❌ Error. Please try again.');
+  }
+});
+
+// Handle news article skip
+bot.action(/skip_news_(.+)/, async (ctx) => {
+  try {
+    const id = ctx.match[1];
+    await ctx.answerCbQuery();
+
+    console.log(`⏭️ Skipped news article [${id}]`);
+    await ctx.editMessageText('⏭️ Skipped');
+
+    // Move to next article
+    const nextIndex = ctx.session.currentNewsIndex + 1;
+    await sendNewsArticle(ctx, nextIndex);
+
+  } catch (error) {
+    console.error('Error in skip_news callback:', error);
+    await ctx.reply('❌ Error. Please try again.');
   }
 });
 
