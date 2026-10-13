@@ -356,7 +356,7 @@ async function sendNewsArticle(ctx, index) {
           [
             { text: '⏭️ Skip', callback_data: `skip_news_${article.id}` }
           ]
-        }
+        ]
       }
     });
   }
