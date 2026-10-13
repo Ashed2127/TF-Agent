@@ -172,13 +172,13 @@ function formatNewsForTelegram(articles) {
 
   articles.forEach((article, index) => {
     message += `<b>${index + 1}. ${article.title}</b>\n`;
-    message += `📰 ${article.source}\n`;
-    message += `🔗 ${article.link}\n`;
-    if (article.excerpt && article.excerpt !== 'No excerpt available') {
-      message += `📝 ${article.excerpt}...\n`;
-    }
+    // Make the source name a clickable link to the article
+    message += `<a href="${article.link}">${article.source}</a>\n`;
     message += '\n';
   });
+
+  // Add @true_feed in bold at the end
+  message += '\n<b>@true_feed</b>';
 
   return message;
 }
