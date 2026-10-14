@@ -34,6 +34,14 @@ async function fetchImageFromPage(url) {
 }
 
 /**
+ * Helper function to remove /s/ from Telegram links
+ */
+function cleanTelegramLink(url) {
+  if (!url) return url;
+  return url.replace(/https:\/\/t\.me\/s\//, 'https://t.me/');
+}
+
+/**
  * Score article based on impressiveness and usefulness
  */
 function scoreArticle(article) {
@@ -117,7 +125,7 @@ async function fetchTechCrunchNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'TechCrunch',
           time: pubDate || 'Recently',
@@ -168,7 +176,7 @@ async function fetchTheVergeNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'The Verge',
           time: pubDate || 'Recently',
@@ -219,7 +227,7 @@ async function fetchBBCTechNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'BBC Technology',
           time: pubDate || 'Recently',
@@ -267,7 +275,7 @@ async function fetchWiredNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Wired',
           time: pubDate || 'Recently',
@@ -315,7 +323,7 @@ async function fetchVentureBeatNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'VentureBeat',
           time: pubDate || 'Recently',
@@ -363,7 +371,7 @@ async function fetchEngadgetNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Engadget',
           time: pubDate || 'Recently',
@@ -411,7 +419,7 @@ async function fetchArsTechnicaNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Ars Technica',
           time: pubDate || 'Recently',
@@ -459,7 +467,7 @@ async function fetchTheInformationNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'The Information',
           time: pubDate || 'Recently',
@@ -507,7 +515,7 @@ async function fetchRestOfWorldNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Rest of World',
           time: pubDate || 'Recently',
@@ -555,7 +563,7 @@ async function fetchFastCompanyNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Fast Company',
           time: pubDate || 'Recently',
@@ -603,7 +611,7 @@ async function fetchMITTechReviewNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'MIT Technology Review',
           time: pubDate || 'Recently',
@@ -651,7 +659,7 @@ async function fetchTheNewStackNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'The New Stack',
           time: pubDate || 'Recently',
@@ -699,7 +707,7 @@ async function fetchHackerNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Hacker News',
           time: pubDate || 'Recently',
@@ -747,7 +755,7 @@ async function fetchTechmemeNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Techmeme',
           time: pubDate || 'Recently',
@@ -795,7 +803,7 @@ async function fetchSiftedNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Sifted',
           time: pubDate || 'Recently',
@@ -843,7 +851,7 @@ async function fetchTechEuNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Tech.eu',
           time: pubDate || 'Recently',
@@ -891,7 +899,7 @@ async function fetchTheNextWebNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'The Next Web',
           time: pubDate || 'Recently',
@@ -939,7 +947,7 @@ async function fetchYourStoryNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'YourStory',
           time: pubDate || 'Recently',
@@ -987,7 +995,7 @@ async function fetchTheMorningContextNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'The Morning Context',
           time: pubDate || 'Recently',
@@ -1035,7 +1043,7 @@ async function fetchEntrackrNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Entrackr',
           time: pubDate || 'Recently',
@@ -1083,7 +1091,7 @@ async function fetchTechNodeNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'TechNode',
           time: pubDate || 'Recently',
@@ -1131,7 +1139,7 @@ async function fetchKrASIANews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'KrASIA',
           time: pubDate || 'Recently',
@@ -1179,7 +1187,7 @@ async function fetchTechCabalNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'TechCabal',
           time: pubDate || 'Recently',
@@ -1227,7 +1235,7 @@ async function fetchDisruptAfricaNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Disrupt Africa',
           time: pubDate || 'Recently',
@@ -1275,7 +1283,7 @@ async function fetchTechpointAfricaNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Techpoint Africa',
           time: pubDate || 'Recently',
@@ -1323,7 +1331,7 @@ async function fetchWamdaNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Wamda',
           time: pubDate || 'Recently',
@@ -1371,7 +1379,7 @@ async function fetchMagnittNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Magnitt',
           time: pubDate || 'Recently',
@@ -1419,7 +1427,7 @@ async function fetchSmartCompanyNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'SmartCompany',
           time: pubDate || 'Recently',
@@ -1467,7 +1475,7 @@ async function fetchStartupDailyNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Startup Daily',
           time: pubDate || 'Recently',
@@ -1515,7 +1523,7 @@ async function fetchTechGuideNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Tech Guide',
           time: pubDate || 'Recently',
@@ -1563,7 +1571,7 @@ async function fetchGizmodoAustraliaNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Gizmodo Australia',
           time: pubDate || 'Recently',
@@ -1611,7 +1619,7 @@ async function fetchContxtoNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Contxto',
           time: pubDate || 'Recently',
@@ -1659,7 +1667,7 @@ async function fetchStartupsLatamNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Startups Latam',
           time: pubDate || 'Recently',
@@ -1707,7 +1715,7 @@ async function fetchBrazilJournalNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Brazil Journal',
           time: pubDate || 'Recently',
@@ -1755,7 +1763,7 @@ async function fetchLatamListNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'LatamList',
           time: pubDate || 'Recently',
@@ -1803,7 +1811,7 @@ async function fetchCNETNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'CNET',
           time: pubDate || 'Recently',
@@ -1851,7 +1859,7 @@ async function fetchTechRadarNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'TechRadar',
           time: pubDate || 'Recently',
@@ -1899,7 +1907,7 @@ async function fetchGizmodoNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Gizmodo',
           time: pubDate || 'Recently',
@@ -1947,7 +1955,7 @@ async function fetchMashableNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Mashable',
           time: pubDate || 'Recently',
@@ -1995,7 +2003,7 @@ async function fetchDigitalTrendsNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Digital Trends',
           time: pubDate || 'Recently',
@@ -2043,7 +2051,7 @@ async function fetchZDNETNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'ZDNET',
           time: pubDate || 'Recently',
@@ -2091,7 +2099,7 @@ async function fetchInfoWorldNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'InfoWorld',
           time: pubDate || 'Recently',
@@ -2139,7 +2147,7 @@ async function fetchTechRepublicNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'TechRepublic',
           time: pubDate || 'Recently',
@@ -2187,7 +2195,7 @@ async function fetchGartnerNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Gartner',
           time: pubDate || 'Recently',
@@ -2235,7 +2243,7 @@ async function fetchHackerNoonNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'HackerNoon',
           time: pubDate || 'Recently',
@@ -2283,7 +2291,7 @@ async function fetchDEVCommunityNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'DEV Community',
           time: pubDate || 'Recently',
@@ -2331,7 +2339,7 @@ async function fetchSlashdotNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Slashdot',
           time: pubDate || 'Recently',
@@ -2379,7 +2387,7 @@ async function fetchDZoneNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'DZone',
           time: pubDate || 'Recently',
@@ -2427,7 +2435,7 @@ async function fetchKrebsOnSecurityNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Krebs on Security',
           time: pubDate || 'Recently',
@@ -2475,7 +2483,7 @@ async function fetchDaringFireballNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Daring Fireball',
           time: pubDate || 'Recently',
@@ -2523,7 +2531,7 @@ async function fetchPragmaticEngineerNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'The Pragmatic Engineer',
           time: pubDate || 'Recently',
@@ -2571,7 +2579,7 @@ async function fetchNetflixTechBlogNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Netflix Tech Blog',
           time: pubDate || 'Recently',
@@ -2619,7 +2627,7 @@ async function fetchCloudflareBlogNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Cloudflare Blog',
           time: pubDate || 'Recently',
@@ -2667,7 +2675,7 @@ async function fetchTelegramGramNews(limit = 5) {
 
         articles.push({
           title,
-          link,
+          link: cleanTelegramLink(link),
           excerpt: excerpt || 'No excerpt available',
           author: 'Telegram Gram',
           time: pubDate || 'Recently',
