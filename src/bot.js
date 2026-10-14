@@ -31,8 +31,6 @@ const {
   fetchTechpointAfricaNews,
   fetchWamdaNews,
   fetchMagnittNews,
-  fetchMITTechReviewArabicNews,
-  fetchRBRuNews,
   fetchSmartCompanyNews,
   fetchStartupDailyNews,
   fetchTechGuideNews,
@@ -250,10 +248,6 @@ bot.action('get_news', async (ctx) => {
               { text: 'Magnitt', callback_data: 'news_magnitt' }
             ],
             [
-              { text: 'MIT Tech Review AR', callback_data: 'news_mitarabic' },
-              { text: 'RB.ru', callback_data: 'news_rbru' }
-            ],
-            [
               { text: 'SmartCompany', callback_data: 'news_smartcompany' },
               { text: 'Startup Daily', callback_data: 'news_startupdaily' },
               { text: 'Tech Guide', callback_data: 'news_techguide' }
@@ -451,14 +445,6 @@ bot.action('news_wamda', async (ctx) => {
 
 bot.action('news_magnitt', async (ctx) => {
   await fetchAndDisplayNews(ctx, 'Magnitt', fetchMagnittNews, 'news_magnitt');
-});
-
-bot.action('news_mitarabic', async (ctx) => {
-  await fetchAndDisplayNews(ctx, 'MIT Technology Review Arabic', fetchMITTechReviewArabicNews, 'news_mitarabic');
-});
-
-bot.action('news_rbru', async (ctx) => {
-  await fetchAndDisplayNews(ctx, 'RB.ru', fetchRBRuNews, 'news_rbru');
 });
 
 bot.action('news_smartcompany', async (ctx) => {

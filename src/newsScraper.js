@@ -1389,102 +1389,6 @@ async function fetchMagnittNews(limit = 5) {
 }
 
 /**
- * Fetch news from MIT Technology Review Arabic using RSS
- */
-async function fetchMITTechReviewArabicNews(limit = 5) {
-  try {
-    const url = 'https://arabic.technologyreview.com/feed';
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 10000
-    });
-
-    const $ = cheerio.load(response.data, { xmlMode: true });
-    const articles = [];
-
-    for (const element of $('item').toArray()) {
-      if (articles.length >= limit) break;
-
-      const $item = $(element);
-      const title = $item.find('title').text().trim();
-      const link = $item.find('link').text().trim();
-      const description = $item.find('description').text().trim();
-      const pubDate = $item.find('pubDate').text().trim();
-
-      if (title && link) {
-        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
-        const image = await fetchImageFromPage(link);
-
-        articles.push({
-          title,
-          link,
-          excerpt: excerpt || 'No excerpt available',
-          author: 'MIT Technology Review Arabic',
-          time: pubDate || 'Recently',
-          source: 'MIT Technology Review Arabic',
-          image
-        });
-      }
-    }
-
-    return articles;
-  } catch (error) {
-    console.error('Error fetching MIT Technology Review Arabic news:', error.message);
-    return [];
-  }
-}
-
-/**
- * Fetch news from RB.ru (Rusbase) using RSS
- */
-async function fetchRBRuNews(limit = 5) {
-  try {
-    const url = 'https://rb.ru/feed/';
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 10000
-    });
-
-    const $ = cheerio.load(response.data, { xmlMode: true });
-    const articles = [];
-
-    for (const element of $('item').toArray()) {
-      if (articles.length >= limit) break;
-
-      const $item = $(element);
-      const title = $item.find('title').text().trim();
-      const link = $item.find('link').text().trim();
-      const description = $item.find('description').text().trim();
-      const pubDate = $item.find('pubDate').text().trim();
-
-      if (title && link) {
-        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
-        const image = await fetchImageFromPage(link);
-
-        articles.push({
-          title,
-          link,
-          excerpt: excerpt || 'No excerpt available',
-          author: 'RB.ru',
-          time: pubDate || 'Recently',
-          source: 'RB.ru',
-          image
-        });
-      }
-    }
-
-    return articles;
-  } catch (error) {
-    console.error('Error fetching RB.ru news:', error.message);
-    return [];
-  }
-}
-
-/**
  * Fetch news from SmartCompany using RSS
  */
 async function fetchSmartCompanyNews(limit = 5) {
@@ -2765,8 +2669,6 @@ async function fetchNewsFromAllSources(perSource = 3) {
       fetchTechpointAfricaNews(perSource),
       fetchWamdaNews(perSource),
       fetchMagnittNews(perSource),
-      fetchMITTechReviewArabicNews(perSource),
-      fetchRBRuNews(perSource),
       fetchSmartCompanyNews(perSource),
       fetchStartupDailyNews(perSource),
       fetchTechGuideNews(perSource),
@@ -2824,8 +2726,6 @@ async function fetchNewsFromAllSources(perSource = 3) {
       techpointAfrica,
       wamda,
       magnitt,
-      mitTechReviewArabic,
-      rBRu,
       smartCompany,
       startupDaily,
       techGuide,
@@ -2863,8 +2763,7 @@ async function fetchNewsFromAllSources(perSource = 3) {
           'Hacker News', 'Techmeme', 'Sifted', 'Tech.eu', 'The Next Web',
           'YourStory', 'The Morning Context', 'Entrackr', 'TechNode',
           'KrASIA', 'TechCabal', 'Disrupt Africa', 'Techpoint Africa',
-          'Wamda', 'Magnitt', 'MIT Technology Review Arabic',
-          'RB.ru', 'SmartCompany', 'Startup Daily', 'Tech Guide',
+          'Wamda', 'Magnitt', 'SmartCompany', 'Startup Daily', 'Tech Guide',
           'Gizmodo Australia', 'Contxto', 'Startups Latam', 'Brazil Journal',
           'LatamList', 'CNET', 'TechRadar', 'Gizmodo', 'Mashable',
           'Digital Trends', 'ZDNET', 'InfoWorld', 'TechRepublic', 'Gartner',
@@ -2906,8 +2805,6 @@ async function fetchNewsFromAllSources(perSource = 3) {
       ...techpointAfrica,
       ...wamda,
       ...magnitt,
-      ...mitTechReviewArabic,
-      ...rBRu,
       ...smartCompany,
       ...startupDaily,
       ...techGuide,
@@ -3015,8 +2912,6 @@ module.exports = {
   fetchTechpointAfricaNews,
   fetchWamdaNews,
   fetchMagnittNews,
-  fetchMITTechReviewArabicNews,
-  fetchRBRuNews,
   fetchSmartCompanyNews,
   fetchStartupDailyNews,
   fetchTechGuideNews,
