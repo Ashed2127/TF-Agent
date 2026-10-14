@@ -1,9 +1,9 @@
 # TF-Agent
 
-Telegram bot for the True Feed channel that generates Amharic content and business ideas using AI and posts them with admin approval.
+Telegram bot for True Feed channel that generates Amharic business ideas and news using AI, with admin approval workflow.
 
-## What it does
-- Generates content and business ideas via Telegram bot
-- Admin approves/rejects before posting
+## Features
+- AI-generated Amharic business ideas and news
+- Telegram approval workflow for posts
 - Web dashboard for monitoring
 - Rotates through 6 business categories
