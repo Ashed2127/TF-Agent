@@ -32,7 +32,6 @@ const {
   fetchWamdaNews,
   fetchMagnittNews,
   fetchMITTechReviewArabicNews,
-  fetchHabrNews,
   fetchRBRuNews,
   fetchSmartCompanyNews,
   fetchStartupDailyNews,
@@ -234,7 +233,6 @@ bot.action('get_news', async (ctx) => {
             ],
             [
               { text: 'MIT Tech Review AR', callback_data: 'news_mitarabic' },
-              { text: 'Habr', callback_data: 'news_habr' },
               { text: 'RB.ru', callback_data: 'news_rbru' }
             ],
             [
@@ -409,10 +407,6 @@ bot.action('news_magnitt', async (ctx) => {
 
 bot.action('news_mitarabic', async (ctx) => {
   await fetchAndDisplayNews(ctx, 'MIT Technology Review Arabic', fetchMITTechReviewArabicNews, 'news_mitarabic');
-});
-
-bot.action('news_habr', async (ctx) => {
-  await fetchAndDisplayNews(ctx, 'Habr', fetchHabrNews, 'news_habr');
 });
 
 bot.action('news_rbru', async (ctx) => {

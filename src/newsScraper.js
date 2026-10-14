@@ -1437,54 +1437,6 @@ async function fetchMITTechReviewArabicNews(limit = 5) {
 }
 
 /**
- * Fetch news from Habr using RSS
- */
-async function fetchHabrNews(limit = 5) {
-  try {
-    const url = 'https://habr.com/ru/rss/articles/?fl=ru';
-    const response = await axios.get(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      },
-      timeout: 10000
-    });
-
-    const $ = cheerio.load(response.data, { xmlMode: true });
-    const articles = [];
-
-    for (const element of $('item').toArray()) {
-      if (articles.length >= limit) break;
-
-      const $item = $(element);
-      const title = $item.find('title').text().trim();
-      const link = $item.find('link').text().trim();
-      const description = $item.find('description').text().trim();
-      const pubDate = $item.find('pubDate').text().trim();
-
-      if (title && link) {
-        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
-        const image = await fetchImageFromPage(link);
-
-        articles.push({
-          title,
-          link,
-          excerpt: excerpt || 'No excerpt available',
-          author: 'Habr',
-          time: pubDate || 'Recently',
-          source: 'Habr',
-          image
-        });
-      }
-    }
-
-    return articles;
-  } catch (error) {
-    console.error('Error fetching Habr news:', error.message);
-    return [];
-  }
-}
-
-/**
  * Fetch news from RB.ru (Rusbase) using RSS
  */
 async function fetchRBRuNews(limit = 5) {
@@ -1950,7 +1902,6 @@ async function fetchNewsFromAllSources(perSource = 3) {
       fetchWamdaNews(perSource),
       fetchMagnittNews(perSource),
       fetchMITTechReviewArabicNews(perSource),
-      fetchHabrNews(perSource),
       fetchRBRuNews(perSource),
       fetchSmartCompanyNews(perSource),
       fetchStartupDailyNews(perSource),
@@ -1992,7 +1943,6 @@ async function fetchNewsFromAllSources(perSource = 3) {
       wamda,
       magnitt,
       mitTechReviewArabic,
-      habr,
       rBRu,
       smartCompany,
       startupDaily,
@@ -2013,7 +1963,7 @@ async function fetchNewsFromAllSources(perSource = 3) {
           'Hacker News', 'Techmeme', 'Sifted', 'Tech.eu', 'The Next Web',
           'YourStory', 'The Morning Context', 'Entrackr', 'TechNode',
           'KrASIA', 'TechCabal', 'Disrupt Africa', 'Techpoint Africa',
-          'Wamda', 'Magnitt', 'MIT Technology Review Arabic', 'Habr',
+          'Wamda', 'Magnitt', 'MIT Technology Review Arabic',
           'RB.ru', 'SmartCompany', 'Startup Daily', 'Tech Guide',
           'Gizmodo Australia', 'Contxto', 'Startups Latam', 'Brazil Journal',
           'LatamList'
@@ -2053,7 +2003,6 @@ async function fetchNewsFromAllSources(perSource = 3) {
       ...wamda,
       ...magnitt,
       ...mitTechReviewArabic,
-      ...habr,
       ...rBRu,
       ...smartCompany,
       ...startupDaily,
@@ -2145,7 +2094,6 @@ module.exports = {
   fetchWamdaNews,
   fetchMagnittNews,
   fetchMITTechReviewArabicNews,
-  fetchHabrNews,
   fetchRBRuNews,
   fetchSmartCompanyNews,
   fetchStartupDailyNews,
