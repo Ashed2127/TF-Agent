@@ -56,7 +56,8 @@ const {
   fetchDaringFireballNews,
   fetchPragmaticEngineerNews,
   fetchNetflixTechBlogNews,
-  fetchCloudflareBlogNews
+  fetchCloudflareBlogNews,
+  fetchTelegramGramNews
 } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -290,6 +291,9 @@ bot.action('get_news', async (ctx) => {
               { text: 'Pragmatic Eng', callback_data: 'news_pragmaticeng' },
               { text: 'Netflix Tech', callback_data: 'news_netflixtech' },
               { text: 'Cloudflare Blog', callback_data: 'news_cloudflare' }
+            ],
+            [
+              { text: 'Telegram Gram', callback_data: 'news_telegramgram' }
             ],
             [
               { text: '↩️ Back', callback_data: 'back' }
@@ -549,6 +553,10 @@ bot.action('news_netflixtech', async (ctx) => {
 
 bot.action('news_cloudflare', async (ctx) => {
   await fetchAndDisplayNews(ctx, 'Cloudflare Blog', fetchCloudflareBlogNews, 'news_cloudflare');
+});
+
+bot.action('news_telegramgram', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Telegram Gram', fetchTelegramGramNews, 'news_telegramgram');
 });
 
 /**
