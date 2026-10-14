@@ -2649,10 +2649,12 @@ async function fetchCloudflareBlogNews(limit = 5) {
  */
 async function fetchTelegramGramNews(limit = 5) {
   try {
-    const url = 'https://tg2rss.0000456.xyz/rss/gram';
+    const url = `https://tg2rss.0000456.xyz/rss/gram?_=${Date.now()}`;
     const response = await axios.get(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
       },
       timeout: 10000
     });
