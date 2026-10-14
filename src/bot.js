@@ -40,7 +40,25 @@ const {
   fetchContxtoNews,
   fetchStartupsLatamNews,
   fetchBrazilJournalNews,
-  fetchLatamListNews
+  fetchLatamListNews,
+  fetchCNETNews,
+  fetchTechRadarNews,
+  fetchGizmodoNews,
+  fetchMashableNews,
+  fetchDigitalTrendsNews,
+  fetchZDNETNews,
+  fetchInfoWorldNews,
+  fetchTechRepublicNews,
+  fetchGartnerNews,
+  fetchHackerNoonNews,
+  fetchDEVCommunityNews,
+  fetchSlashdotNews,
+  fetchDZoneNews,
+  fetchKrebsOnSecurityNews,
+  fetchDaringFireballNews,
+  fetchPragmaticEngineerNews,
+  fetchNetflixTechBlogNews,
+  fetchCloudflareBlogNews
 } = require('./newsScraper');
 
 const bot = new Telegraf(process.env.TELEGRAM_BOT_TOKEN);
@@ -250,6 +268,36 @@ bot.action('get_news', async (ctx) => {
               { text: 'LatamList', callback_data: 'news_latamlist' }
             ],
             [
+              { text: 'CNET', callback_data: 'news_cnet' },
+              { text: 'TechRadar', callback_data: 'news_techradar' },
+              { text: 'Gizmodo', callback_data: 'news_gizmodo' }
+            ],
+            [
+              { text: 'Mashable', callback_data: 'news_mashable' },
+              { text: 'Digital Trends', callback_data: 'news_digitaltrends' },
+              { text: 'ZDNET', callback_data: 'news_zdnet' }
+            ],
+            [
+              { text: 'InfoWorld', callback_data: 'news_infoworld' },
+              { text: 'TechRepublic', callback_data: 'news_techrepublic' },
+              { text: 'Gartner', callback_data: 'news_gartner' }
+            ],
+            [
+              { text: 'HackerNoon', callback_data: 'news_hackernoon' },
+              { text: 'DEV Community', callback_data: 'news_devcommunity' },
+              { text: 'Slashdot', callback_data: 'news_slashdot' }
+            ],
+            [
+              { text: 'DZone', callback_data: 'news_dzone' },
+              { text: 'Krebs Security', callback_data: 'news_krebssecurity' },
+              { text: 'Daring Fireball', callback_data: 'news_daringfireball' }
+            ],
+            [
+              { text: 'Pragmatic Eng', callback_data: 'news_pragmaticeng' },
+              { text: 'Netflix Tech', callback_data: 'news_netflixtech' },
+              { text: 'Cloudflare Blog', callback_data: 'news_cloudflare' }
+            ],
+            [
               { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
@@ -443,6 +491,78 @@ bot.action('news_braziljournal', async (ctx) => {
 
 bot.action('news_latamlist', async (ctx) => {
   await fetchAndDisplayNews(ctx, 'LatamList', fetchLatamListNews, 'news_latamlist');
+});
+
+bot.action('news_cnet', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'CNET', fetchCNETNews, 'news_cnet');
+});
+
+bot.action('news_techradar', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'TechRadar', fetchTechRadarNews, 'news_techradar');
+});
+
+bot.action('news_gizmodo', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Gizmodo', fetchGizmodoNews, 'news_gizmodo');
+});
+
+bot.action('news_mashable', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Mashable', fetchMashableNews, 'news_mashable');
+});
+
+bot.action('news_digitaltrends', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Digital Trends', fetchDigitalTrendsNews, 'news_digitaltrends');
+});
+
+bot.action('news_zdnet', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'ZDNET', fetchZDNETNews, 'news_zdnet');
+});
+
+bot.action('news_infoworld', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'InfoWorld', fetchInfoWorldNews, 'news_infoworld');
+});
+
+bot.action('news_techrepublic', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'TechRepublic', fetchTechRepublicNews, 'news_techrepublic');
+});
+
+bot.action('news_gartner', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Gartner', fetchGartnerNews, 'news_gartner');
+});
+
+bot.action('news_hackernoon', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'HackerNoon', fetchHackerNoonNews, 'news_hackernoon');
+});
+
+bot.action('news_devcommunity', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'DEV Community', fetchDEVCommunityNews, 'news_devcommunity');
+});
+
+bot.action('news_slashdot', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Slashdot', fetchSlashdotNews, 'news_slashdot');
+});
+
+bot.action('news_dzone', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'DZone', fetchDZoneNews, 'news_dzone');
+});
+
+bot.action('news_krebssecurity', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Krebs on Security', fetchKrebsOnSecurityNews, 'news_krebssecurity');
+});
+
+bot.action('news_daringfireball', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Daring Fireball', fetchDaringFireballNews, 'news_daringfireball');
+});
+
+bot.action('news_pragmaticeng', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'The Pragmatic Engineer', fetchPragmaticEngineerNews, 'news_pragmaticeng');
+});
+
+bot.action('news_netflixtech', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Netflix Tech Blog', fetchNetflixTechBlogNews, 'news_netflixtech');
+});
+
+bot.action('news_cloudflare', async (ctx) => {
+  await fetchAndDisplayNews(ctx, 'Cloudflare Blog', fetchCloudflareBlogNews, 'news_cloudflare');
 });
 
 /**

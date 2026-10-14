@@ -1869,6 +1869,870 @@ async function fetchLatamListNews(limit = 5) {
 }
 
 /**
+ * Fetch news from CNET using RSS
+ */
+async function fetchCNETNews(limit = 5) {
+  try {
+    const url = 'https://www.cnet.com/rss/all/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'CNET',
+          time: pubDate || 'Recently',
+          source: 'CNET',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching CNET news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from TechRadar using RSS
+ */
+async function fetchTechRadarNews(limit = 5) {
+  try {
+    const url = 'https://www.techradar.com/feeds.xml';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'TechRadar',
+          time: pubDate || 'Recently',
+          source: 'TechRadar',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching TechRadar news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Gizmodo using RSS
+ */
+async function fetchGizmodoNews(limit = 5) {
+  try {
+    const url = 'https://gizmodo.com/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Gizmodo',
+          time: pubDate || 'Recently',
+          source: 'Gizmodo',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Gizmodo news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Mashable using RSS
+ */
+async function fetchMashableNews(limit = 5) {
+  try {
+    const url = 'https://mashable.com/feeds/rss/all';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Mashable',
+          time: pubDate || 'Recently',
+          source: 'Mashable',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Mashable news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Digital Trends using RSS
+ */
+async function fetchDigitalTrendsNews(limit = 5) {
+  try {
+    const url = 'https://www.digitaltrends.com/feed/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Digital Trends',
+          time: pubDate || 'Recently',
+          source: 'Digital Trends',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Digital Trends news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from ZDNET using RSS
+ */
+async function fetchZDNETNews(limit = 5) {
+  try {
+    const url = 'https://www.zdnet.com/news/rss.xml';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'ZDNET',
+          time: pubDate || 'Recently',
+          source: 'ZDNET',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching ZDNET news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from InfoWorld using RSS
+ */
+async function fetchInfoWorldNews(limit = 5) {
+  try {
+    const url = 'https://www.infoworld.com/feed/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'InfoWorld',
+          time: pubDate || 'Recently',
+          source: 'InfoWorld',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching InfoWorld news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from TechRepublic using RSS
+ */
+async function fetchTechRepublicNews(limit = 5) {
+  try {
+    const url = 'https://www.techrepublic.com/rssfeeds/articles/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'TechRepublic',
+          time: pubDate || 'Recently',
+          source: 'TechRepublic',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching TechRepublic news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Gartner using RSS
+ */
+async function fetchGartnerNews(limit = 5) {
+  try {
+    const url = 'http://www.gartner.com/newsroom/rss';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Gartner',
+          time: pubDate || 'Recently',
+          source: 'Gartner',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Gartner news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from HackerNoon using RSS
+ */
+async function fetchHackerNoonNews(limit = 5) {
+  try {
+    const url = 'https://hackernoon.com/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'HackerNoon',
+          time: pubDate || 'Recently',
+          source: 'HackerNoon',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching HackerNoon news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from DEV Community using RSS
+ */
+async function fetchDEVCommunityNews(limit = 5) {
+  try {
+    const url = 'https://dev.to/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'DEV Community',
+          time: pubDate || 'Recently',
+          source: 'DEV Community',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching DEV Community news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Slashdot using RSS
+ */
+async function fetchSlashdotNews(limit = 5) {
+  try {
+    const url = 'https://rss.slashdot.org/Slashdot/slashdotMain';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Slashdot',
+          time: pubDate || 'Recently',
+          source: 'Slashdot',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Slashdot news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from DZone using RSS
+ */
+async function fetchDZoneNews(limit = 5) {
+  try {
+    const url = 'https://feeds.dzone.com/home';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'DZone',
+          time: pubDate || 'Recently',
+          source: 'DZone',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching DZone news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Krebs on Security using RSS
+ */
+async function fetchKrebsOnSecurityNews(limit = 5) {
+  try {
+    const url = 'https://krebsonsecurity.com/feed/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Krebs on Security',
+          time: pubDate || 'Recently',
+          source: 'Krebs on Security',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Krebs on Security news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Daring Fireball using RSS
+ */
+async function fetchDaringFireballNews(limit = 5) {
+  try {
+    const url = 'https://daringfireball.net/feeds/main';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Daring Fireball',
+          time: pubDate || 'Recently',
+          source: 'Daring Fireball',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Daring Fireball news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from The Pragmatic Engineer using RSS
+ */
+async function fetchPragmaticEngineerNews(limit = 5) {
+  try {
+    const url = 'https://blog.pragmaticengineer.com/rss/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'The Pragmatic Engineer',
+          time: pubDate || 'Recently',
+          source: 'The Pragmatic Engineer',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching The Pragmatic Engineer news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Netflix Tech Blog using RSS
+ */
+async function fetchNetflixTechBlogNews(limit = 5) {
+  try {
+    const url = 'https://netflixtechblog.com/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Netflix Tech Blog',
+          time: pubDate || 'Recently',
+          source: 'Netflix Tech Blog',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Netflix Tech Blog news:', error.message);
+    return [];
+  }
+}
+
+/**
+ * Fetch news from Cloudflare Blog using RSS
+ */
+async function fetchCloudflareBlogNews(limit = 5) {
+  try {
+    const url = 'https://blog.cloudflare.com/rss/';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link,
+          excerpt: excerpt || 'No excerpt available',
+          author: 'Cloudflare Blog',
+          time: pubDate || 'Recently',
+          source: 'Cloudflare Blog',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching Cloudflare Blog news:', error.message);
+    return [];
+  }
+}
+
+/**
  * Fetch news from multiple sources
  */
 async function fetchNewsFromAllSources(perSource = 3) {
@@ -1910,7 +2774,25 @@ async function fetchNewsFromAllSources(perSource = 3) {
       fetchContxtoNews(perSource),
       fetchStartupsLatamNews(perSource),
       fetchBrazilJournalNews(perSource),
-      fetchLatamListNews(perSource)
+      fetchLatamListNews(perSource),
+      fetchCNETNews(perSource),
+      fetchTechRadarNews(perSource),
+      fetchGizmodoNews(perSource),
+      fetchMashableNews(perSource),
+      fetchDigitalTrendsNews(perSource),
+      fetchZDNETNews(perSource),
+      fetchInfoWorldNews(perSource),
+      fetchTechRepublicNews(perSource),
+      fetchGartnerNews(perSource),
+      fetchHackerNoonNews(perSource),
+      fetchDEVCommunityNews(perSource),
+      fetchSlashdotNews(perSource),
+      fetchDZoneNews(perSource),
+      fetchKrebsOnSecurityNews(perSource),
+      fetchDaringFireballNews(perSource),
+      fetchPragmaticEngineerNews(perSource),
+      fetchNetflixTechBlogNews(perSource),
+      fetchCloudflareBlogNews(perSource)
     ]);
 
     // Extract successful results
@@ -1951,7 +2833,25 @@ async function fetchNewsFromAllSources(perSource = 3) {
       contxto,
       startupsLatam,
       brazilJournal,
-      latamList
+      latamList,
+      cnet,
+      techRadar,
+      gizmodo,
+      mashable,
+      digitalTrends,
+      zdnet,
+      infoWorld,
+      techRepublic,
+      gartner,
+      hackerNoon,
+      devCommunity,
+      slashdot,
+      dzone,
+      krebsOnSecurity,
+      daringFireball,
+      pragmaticEngineer,
+      netflixTechBlog,
+      cloudflareBlog
     ] = results.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;
@@ -1966,7 +2866,11 @@ async function fetchNewsFromAllSources(perSource = 3) {
           'Wamda', 'Magnitt', 'MIT Technology Review Arabic',
           'RB.ru', 'SmartCompany', 'Startup Daily', 'Tech Guide',
           'Gizmodo Australia', 'Contxto', 'Startups Latam', 'Brazil Journal',
-          'LatamList'
+          'LatamList', 'CNET', 'TechRadar', 'Gizmodo', 'Mashable',
+          'Digital Trends', 'ZDNET', 'InfoWorld', 'TechRepublic', 'Gartner',
+          'HackerNoon', 'DEV Community', 'Slashdot', 'DZone',
+          'Krebs on Security', 'Daring Fireball', 'The Pragmatic Engineer',
+          'Netflix Tech Blog', 'Cloudflare Blog'
         ];
         console.error(`Failed to fetch from ${sources[index]}:`, result.reason.message);
         return [];
@@ -2011,7 +2915,25 @@ async function fetchNewsFromAllSources(perSource = 3) {
       ...contxto,
       ...startupsLatam,
       ...brazilJournal,
-      ...latamList
+      ...latamList,
+      ...cnet,
+      ...techRadar,
+      ...gizmodo,
+      ...mashable,
+      ...digitalTrends,
+      ...zdnet,
+      ...infoWorld,
+      ...techRepublic,
+      ...gartner,
+      ...hackerNoon,
+      ...devCommunity,
+      ...slashdot,
+      ...dzone,
+      ...krebsOnSecurity,
+      ...daringFireball,
+      ...pragmaticEngineer,
+      ...netflixTechBlog,
+      ...cloudflareBlog
     ];
 
     if (allNews.length === 0) {
@@ -2103,6 +3025,24 @@ module.exports = {
   fetchStartupsLatamNews,
   fetchBrazilJournalNews,
   fetchLatamListNews,
+  fetchCNETNews,
+  fetchTechRadarNews,
+  fetchGizmodoNews,
+  fetchMashableNews,
+  fetchDigitalTrendsNews,
+  fetchZDNETNews,
+  fetchInfoWorldNews,
+  fetchTechRepublicNews,
+  fetchGartnerNews,
+  fetchHackerNoonNews,
+  fetchDEVCommunityNews,
+  fetchSlashdotNews,
+  fetchDZoneNews,
+  fetchKrebsOnSecurityNews,
+  fetchDaringFireballNews,
+  fetchPragmaticEngineerNews,
+  fetchNetflixTechBlogNews,
+  fetchCloudflareBlogNews,
   fetchNewsFromAllSources,
   formatNewsForTelegram
 };
