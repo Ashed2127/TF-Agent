@@ -65,51 +65,6 @@ const OWNER_CHAT_ID = parseInt(process.env.OWNER_CHAT_ID);
 const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID ? parseInt(process.env.TRUE_FEED_CHANNEL_ID) : null;
 
 /**
- * Translate text to Amharic using OpenRouter API
- */
-async function translateToAmharic(text) {
-  try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional translator. Translate the given text to Amharic with Ethiopian cultural context and semantic meaning. DO NOT do direct literal translation - instead, adapt the meaning to sound natural in Amharic while preserving the original intent. Use Ethiopian expressions and cultural references where appropriate. CRITICAL: Keep the following in English: company names (e.g., Google, Apple, Microsoft), person names (e.g., Elon Musk, Jeff Bezos), coined names/brand names (e.g., iPhone, ChatGPT, AI, blockchain), technical terms, product names, and subject names. ONLY translate the descriptive parts, connecting words, and general concepts with semantic adaptation to Ethiopian context. Return ONLY the translation, no explanations.'
-          },
-          {
-            role: 'user',
-            content: text
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.4
-      })
-    });
-
-    if (!response.ok) {
-      console.error('Translation API error:', response.status);
-      return text; // Return original if translation fails
-    }
-
-    const data = await response.json();
-    if (data.choices && data.choices[0] && data.choices[0].message) {
-      return data.choices[0].message.content.trim();
-    }
-
-    return text;
-  } catch (error) {
-    console.error('Error translating to Amharic:', error.message);
-    return text; // Return original if translation fails
-  }
-}
-
-/**
  * Fetch a relevant GIF from Giphy based on news content
  */
 async function fetchRelevantGif(newsTitle) {
@@ -691,10 +646,7 @@ async function sendNewsArticle(ctx, index) {
 
   const article = ctx.session.newsArticles[index];
 
-  // Translate title to Amharic (keep source in English)
-  const translatedTitle = await translateToAmharic(article.title);
-
-  const caption = `<b>${translatedTitle}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
+  const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
 
   ctx.session.currentNewsIndex = index;
   ctx.session.currentNewsId = article.id;
@@ -780,10 +732,7 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
       return;
     }
 
-    // Translate title to Amharic (keep source in English)
-    const translatedTitle = await translateToAmharic(article.title);
-
-    const caption = `<b>${translatedTitle}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
+    const caption = `<b>${article.title}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
 
     // Post to channel with image if available
     let posted = false;
