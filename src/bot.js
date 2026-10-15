@@ -680,11 +680,10 @@ async function sendNewsArticle(ctx, index) {
 
   const article = ctx.session.newsArticles[index];
 
-  // Translate title and source to Amharic
+  // Translate title to Amharic (keep source in English)
   const translatedTitle = await translateToAmharic(article.title);
-  const translatedSource = await translateToAmharic(article.source);
 
-  const caption = `<b>${translatedTitle}</b>\n\n<a href="${article.link}">${translatedSource}</a>\n\n<b>@true_feed</b>`;
+  const caption = `<b>${translatedTitle}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
 
   ctx.session.currentNewsIndex = index;
   ctx.session.currentNewsId = article.id;
@@ -770,11 +769,10 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
       return;
     }
 
-    // Translate title and source to Amharic
+    // Translate title to Amharic (keep source in English)
     const translatedTitle = await translateToAmharic(article.title);
-    const translatedSource = await translateToAmharic(article.source);
 
-    const caption = `<b>${translatedTitle}</b>\n\n<a href="${article.link}">${translatedSource}</a>\n\n<b>@true_feed</b>`;
+    const caption = `<b>${translatedTitle}</b>\n\n<a href="${article.link}">${article.source}</a>\n\n<b>@true_feed</b>`;
 
     // Post to channel with image if available
     let posted = false;
