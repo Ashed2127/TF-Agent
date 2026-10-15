@@ -1,6 +1,7 @@
 const { Telegraf } = require('telegraf');
 const { generateIdea } = require('./agent');
 const { markPosted, markRejected, getIdeaById } = require('./database');
+const { editNewsImage } = require('./imageEditor');
 const axios = require('axios');
 const {
   fetchNewsFromAllSources,
@@ -744,34 +745,72 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
     let posted = false;
     if (article.image) {
       try {
-        // Download the image first
-        const imageBuffer = await downloadImage(article.image);
-        if (imageBuffer) {
+        console.log('🎨 Editing news image before posting...');
+        // Edit the image using OpenRouter
+        const editedImageBuffer = await editNewsImage(article.image, article.title);
+        
+        if (editedImageBuffer) {
           await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, {
-            source: imageBuffer
+            source: editedImageBuffer
           }, {
             caption,
             parse_mode: 'HTML',
             disable_web_page_preview: false
           });
           posted = true;
+          console.log('✅ Edited image posted successfully');
         } else {
-          // Fallback to text message if download fails
+          // Fallback to original image if editing fails
+          console.log('⚠️ Image editing failed, using original image');
+          const imageBuffer = await downloadImage(article.image);
+          if (imageBuffer) {
+            await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, {
+              source: imageBuffer
+            }, {
+              caption,
+              parse_mode: 'HTML',
+              disable_web_page_preview: false
+            });
+            posted = true;
+          } else {
+            // Fallback to text message if download fails
+            await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
+              parse_mode: 'HTML',
+              disable_web_page_preview: false
+            });
+            posted = true;
+          }
+        }
+      } catch (photoError) {
+        console.error('Error posting photo to channel:', photoError.message);
+        console.error('Photo error details:', JSON.stringify(photoError.response || photoError, null, 2));
+        // Fallback to original image if editing fails
+        try {
+          const imageBuffer = await downloadImage(article.image);
+          if (imageBuffer) {
+            await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, {
+              source: imageBuffer
+            }, {
+              caption,
+              parse_mode: 'HTML',
+              disable_web_page_preview: false
+            });
+            posted = true;
+          } else {
+            await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
+              parse_mode: 'HTML',
+              disable_web_page_preview: false
+            });
+            posted = true;
+          }
+        } catch (fallbackError) {
+          console.error('Fallback also failed:', fallbackError.message);
           await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
             parse_mode: 'HTML',
             disable_web_page_preview: false
           });
           posted = true;
         }
-      } catch (photoError) {
-        console.error('Error posting photo to channel:', photoError.message);
-        console.error('Photo error details:', JSON.stringify(photoError.response || photoError, null, 2));
-        // Fallback to text message
-        await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
-          parse_mode: 'HTML',
-          disable_web_page_preview: false
-        });
-        posted = true;
       }
     } else {
       await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, caption, {
