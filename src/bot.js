@@ -115,9 +115,11 @@ async function translateToAmharic(text) {
 async function fetchRelevantGif(newsTitle) {
   try {
     if (!process.env.GIPHY_API_KEY) {
-      console.log('GIPHY_API_KEY not configured, skipping GIF');
+      console.log('⚠️ GIPHY_API_KEY not configured in .env file - GIF feature disabled');
       return null;
     }
+
+    console.log(`🔍 Searching for GIF with keywords from: ${newsTitle}`);
 
     // Extract keywords from the title for GIF search
     const keywords = newsTitle
@@ -129,8 +131,11 @@ async function fetchRelevantGif(newsTitle) {
       .join(' ');
 
     if (!keywords) {
+      console.log('⚠️ No valid keywords found for GIF search');
       return null;
     }
+
+    console.log(`🔍 GIF search keywords: ${keywords}`);
 
     const response = await axios.get('https://api.giphy.com/v1/gifs/search', {
       params: {
@@ -146,12 +151,18 @@ async function fetchRelevantGif(newsTitle) {
     if (response.data && response.data.data && response.data.data.length > 0) {
       const gif = response.data.data[0];
       // Get the small version of the GIF
-      return gif.images.fixed_height_small?.url || gif.images.original?.url;
+      const gifUrl = gif.images.fixed_height_small?.url || gif.images.original?.url;
+      console.log(`✅ GIF found: ${gifUrl}`);
+      return gifUrl;
     }
 
+    console.log('⚠️ No GIFs found for the given keywords');
     return null;
   } catch (error) {
-    console.error('Error fetching GIF from Giphy:', error.message);
+    console.error('❌ Error fetching GIF from Giphy:', error.message);
+    if (error.response) {
+      console.error('Giphy API response:', error.response.status, error.response.data);
+    }
     return null;
   }
 }
@@ -818,16 +829,23 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
     // Send a relevant GIF after the news post
     if (posted) {
       try {
+        console.log(`🎬 Attempting to fetch GIF for article [${id}]...`);
         const gifUrl = await fetchRelevantGif(article.title);
         if (gifUrl) {
+          console.log(`🎬 Posting GIF to channel...`);
           await bot.telegram.sendAnimation(TRUE_FEED_CHANNEL_ID, gifUrl, {
             caption: '',
             disable_web_page_preview: true
           });
-          console.log(`🎬 Posted GIF for article [${id}]`);
+          console.log(`✅ Successfully posted GIF for article [${id}]`);
+        } else {
+          console.log(`⚠️ No GIF available for article [${id}]`);
         }
       } catch (gifError) {
-        console.error('Error posting GIF:', gifError.message);
+        console.error('❌ Error posting GIF:', gifError.message);
+        if (gifError.response) {
+          console.error('Telegram API response:', JSON.stringify(gifError.response, null, 2));
+        }
         // Don't fail the whole post if GIF fails
       }
     }
