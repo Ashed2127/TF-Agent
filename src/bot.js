@@ -80,7 +80,7 @@ async function translateToAmharic(text) {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional translator. Translate the given text to Amharic. Keep the Ethiopian context. For proper nouns, company names, and brand names, keep them in English if they are well-known. Return ONLY the translation, no explanations.'
+            content: 'You are a professional translator. Translate the given text to Amharic. Keep the Ethiopian context. CRITICAL: Keep the following in English: company names (e.g., Google, Apple, Microsoft), person names (e.g., Elon Musk, Jeff Bezos), coined names/brand names (e.g., iPhone, ChatGPT, AI, blockchain), technical terms, product names, and subject names. ONLY translate the descriptive parts, connecting words, and general concepts. Return ONLY the translation, no explanations.'
           },
           {
             role: 'user',
