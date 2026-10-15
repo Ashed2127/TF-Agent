@@ -39,14 +39,11 @@ Keep the original image content recognizable but apply this tech news explainer 
     console.log('📝 Sending edit request to OpenRouter Image API...');
 
     const response = await axios.post('https://openrouter.ai/api/v1/images', {
-      model: 'google/gemini-3.1-flash-image',
+      model: 'google/gemini-nano-banana-2.1',
       prompt: editPrompt,
       input_references: [dataUrl],
-      image_config: {
-        aspect_ratio: '16:9',
-        quality: 'high',
-        output_format: 'png'
-      }
+      aspect_ratio: '16:9',
+      resolution: '2K'
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -63,6 +60,7 @@ Keep the original image content recognizable but apply this tech news explainer 
     const editedImageBuffer = Buffer.from(editedImageBase64, 'base64');
 
     console.log('✅ Image editing completed successfully');
+    console.log(`Edited image size: ${editedImageBuffer.length} bytes`);
     return editedImageBuffer;
 
   } catch (error) {
