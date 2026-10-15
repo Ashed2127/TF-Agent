@@ -1,14 +1,12 @@
 require('dotenv').config();
 const express = require('express');
 const { initDB, getAllIdeas, getStats } = require('./src/database');
-const { bot } = require('./src/bot');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Initialize database
 initDB();
-
-bot.launch();
 
 app.get('/', (req, res) => {
   res.sendFile(__dirname + '/public/dashboard.html');
@@ -34,9 +32,12 @@ app.get('/api/stats', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 TF Agent running on port ${PORT}`);
-});
+// For local development
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`🚀 TF Agent running on port ${PORT}`);
+  });
+}
 
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+// Export for Vercel
+module.exports = app;
