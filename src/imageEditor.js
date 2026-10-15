@@ -28,8 +28,8 @@ async function addLogoOverlay(imageBuffer) {
     const logo = sharp(logoBuffer);
     const logoMetadata = await logo.metadata();
 
-    // Calculate logo size - make it proportional to the main image (about 15% of width)
-    const logoWidth = Math.round(metadata.width * 0.15);
+    // Calculate logo size - make it proportional to the main image (about 25% of width for better visibility)
+    const logoWidth = Math.round(metadata.width * 0.25);
     const logoHeight = Math.round(logoWidth * (logoMetadata.height / logoMetadata.width));
 
     // Resize logo
@@ -39,7 +39,7 @@ async function addLogoOverlay(imageBuffer) {
       .toBuffer();
 
     // Position logo in bottom-right corner with some padding
-    const padding = Math.round(metadata.width * 0.03);
+    const padding = Math.round(metadata.width * 0.02);
     const left = metadata.width - logoWidth - padding;
     const top = metadata.height - logoHeight - padding;
 
