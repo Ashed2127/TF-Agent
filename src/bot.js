@@ -3,6 +3,9 @@ const { generateIdea } = require('./agent');
 const { markPosted, markRejected, getIdeaById } = require('./database');
 const { editNewsImage } = require('./imageEditor');
 const axios = require('axios');
+const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
 const {
   fetchNewsFromAllSources,
   fetchTechCrunchNews,
@@ -138,6 +141,62 @@ async function downloadImage(url) {
   } catch (error) {
     console.error('Error downloading image:', error.message);
     return null;
+  }
+}
+
+// Helper function to add TF logo overlay to image
+async function addLogoToImage(imageBuffer) {
+  try {
+    console.log('🏷️ Adding TF logo overlay...');
+
+    const logoPath = path.join(__dirname, 'tf.jpg');
+
+    if (!fs.existsSync(logoPath)) {
+      console.warn('⚠️ TF logo not found, skipping logo overlay');
+      return imageBuffer;
+    }
+
+    // Load the main image
+    const mainImage = sharp(imageBuffer);
+    const metadata = await mainImage.metadata();
+
+    // Load the logo
+    const logoBuffer = fs.readFileSync(logoPath);
+    const logo = sharp(logoBuffer);
+    const logoMetadata = await logo.metadata();
+
+    // Calculate logo size - make it proportional to the main image (about 25% of width for better visibility)
+    const logoWidth = Math.round(metadata.width * 0.25);
+    const logoHeight = Math.round(logoWidth * (logoMetadata.height / logoMetadata.width));
+
+    // Resize logo
+    const resizedLogo = await logo
+      .resize(logoWidth, logoHeight, { fit: 'cover' })
+      .png()
+      .toBuffer();
+
+    // Position logo in bottom-right corner with some padding
+    const padding = Math.round(metadata.width * 0.02);
+    const left = metadata.width - logoWidth - padding;
+    const top = metadata.height - logoHeight - padding;
+
+    // Composite logo onto main image
+    const result = await mainImage
+      .composite([{
+        input: resizedLogo,
+        left: left,
+        top: top
+      }])
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    console.log('✅ TF logo overlay added successfully');
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error adding logo overlay:', error.message);
+    // Return original image if logo overlay fails
+    return imageBuffer;
   }
 }
 
@@ -764,8 +823,10 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
           console.log('⚠️ Image editing failed, using original image');
           const imageBuffer = await downloadImage(article.image);
           if (imageBuffer) {
+            // Add TF logo overlay
+            const imageWithLogo = await addLogoToImage(imageBuffer);
             await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, {
-              source: imageBuffer
+              source: imageWithLogo
             }, {
               caption,
               parse_mode: 'HTML',
@@ -788,8 +849,10 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
         try {
           const imageBuffer = await downloadImage(article.image);
           if (imageBuffer) {
+            // Add TF logo overlay
+            const imageWithLogo = await addLogoToImage(imageBuffer);
             await bot.telegram.sendPhoto(TRUE_FEED_CHANNEL_ID, {
-              source: imageBuffer
+              source: imageWithLogo
             }, {
               caption,
               parse_mode: 'HTML',

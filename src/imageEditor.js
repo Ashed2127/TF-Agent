@@ -1,4 +1,67 @@
 const axios = require('axios');
+const sharp = require('sharp');
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Add TF logo overlay to an image
+ * @param {Buffer} imageBuffer - Image buffer to add logo to
+ * @returns {Promise<Buffer>} - Image with logo overlay
+ */
+async function addLogoOverlay(imageBuffer) {
+  try {
+    console.log('🏷️ Adding TF logo overlay...');
+
+    const logoPath = path.join(__dirname, 'tf.jpg');
+
+    if (!fs.existsSync(logoPath)) {
+      console.warn('⚠️ TF logo not found, skipping logo overlay');
+      return imageBuffer;
+    }
+
+    // Load the main image
+    const mainImage = sharp(imageBuffer);
+    const metadata = await mainImage.metadata();
+
+    // Load the logo
+    const logoBuffer = fs.readFileSync(logoPath);
+    const logo = sharp(logoBuffer);
+    const logoMetadata = await logo.metadata();
+
+    // Calculate logo size - make it proportional to the main image (about 25% of width for better visibility)
+    const logoWidth = Math.round(metadata.width * 0.25);
+    const logoHeight = Math.round(logoWidth * (logoMetadata.height / logoMetadata.width));
+
+    // Resize logo
+    const resizedLogo = await logo
+      .resize(logoWidth, logoHeight, { fit: 'cover' })
+      .png()
+      .toBuffer();
+
+    // Position logo in bottom-right corner with some padding
+    const padding = Math.round(metadata.width * 0.02);
+    const left = metadata.width - logoWidth - padding;
+    const top = metadata.height - logoHeight - padding;
+
+    // Composite logo onto main image
+    const result = await mainImage
+      .composite([{
+        input: resizedLogo,
+        left: left,
+        top: top
+      }])
+      .jpeg({ quality: 90 })
+      .toBuffer();
+
+    console.log('✅ TF logo overlay added successfully');
+    return result;
+
+  } catch (error) {
+    console.error('❌ Error adding logo overlay:', error.message);
+    // Return original image if logo overlay fails
+    return imageBuffer;
+  }
+}
 
 /**
  * Edit an image using OpenRouter's Image API to create a tech news explainer card style
@@ -39,14 +102,11 @@ Keep the original image content recognizable but apply this tech news explainer 
     console.log('📝 Sending edit request to OpenRouter Image API...');
 
     const response = await axios.post('https://openrouter.ai/api/v1/images', {
-      model: 'google/gemini-3.1-flash-image',
+      model: 'google/gemini-nano-banana-2.1',
       prompt: editPrompt,
       input_references: [dataUrl],
-      image_config: {
-        aspect_ratio: '16:9',
-        quality: 'high',
-        output_format: 'png'
-      }
+      aspect_ratio: '16:9',
+      resolution: '2K'
     }, {
       headers: {
         'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
@@ -62,8 +122,12 @@ Keep the original image content recognizable but apply this tech news explainer 
     const editedImageBase64 = response.data.data[0].b64_json;
     const editedImageBuffer = Buffer.from(editedImageBase64, 'base64');
 
+    // Add TF logo overlay
+    const finalImageBuffer = await addLogoOverlay(editedImageBuffer);
+
     console.log('✅ Image editing completed successfully');
-    return editedImageBuffer;
+    console.log(`Final image size: ${finalImageBuffer.length} bytes`);
+    return finalImageBuffer;
 
   } catch (error) {
     console.error('❌ Error editing image:', error.message);
