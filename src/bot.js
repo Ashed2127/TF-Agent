@@ -80,7 +80,7 @@ async function translateToAmharic(text) {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional translator. Translate the given text to Amharic. Keep the Ethiopian context. CRITICAL: Keep the following in English: company names (e.g., Google, Apple, Microsoft), person names (e.g., Elon Musk, Jeff Bezos), coined names/brand names (e.g., iPhone, ChatGPT, AI, blockchain), technical terms, product names, and subject names. ONLY translate the descriptive parts, connecting words, and general concepts. Return ONLY the translation, no explanations.'
+            content: 'You are a professional translator. Translate the given text to Amharic with Ethiopian cultural context and semantic meaning. DO NOT do direct literal translation - instead, adapt the meaning to sound natural in Amharic while preserving the original intent. Use Ethiopian expressions and cultural references where appropriate. CRITICAL: Keep the following in English: company names (e.g., Google, Apple, Microsoft), person names (e.g., Elon Musk, Jeff Bezos), coined names/brand names (e.g., iPhone, ChatGPT, AI, blockchain), technical terms, product names, and subject names. ONLY translate the descriptive parts, connecting words, and general concepts with semantic adaptation to Ethiopian context. Return ONLY the translation, no explanations.'
           },
           {
             role: 'user',
@@ -88,7 +88,7 @@ async function translateToAmharic(text) {
           }
         ],
         max_tokens: 500,
-        temperature: 0.3
+        temperature: 0.4
       })
     });
 
