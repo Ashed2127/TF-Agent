@@ -2695,6 +2695,54 @@ async function fetchTelegramGramNews(limit = 5) {
 }
 
 /**
+ * Fetch news from SingularityHub using RSS
+ */
+async function fetchSingularityHubNews(limit = 5) {
+  try {
+    const url = 'https://singularityhub.com/feed';
+    const response = await axios.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      },
+      timeout: 10000
+    });
+
+    const $ = cheerio.load(response.data, { xmlMode: true });
+    const articles = [];
+
+    for (const element of $('item').toArray()) {
+      if (articles.length >= limit) break;
+
+      const $item = $(element);
+      const title = $item.find('title').text().trim();
+      const link = $item.find('link').text().trim();
+      const description = $item.find('description').text().trim();
+      const pubDate = $item.find('pubDate').text().trim();
+
+      if (title && link) {
+        const excerpt = description.replace(/<[^>]*>/g, '').substring(0, 200);
+        const image = await fetchImageFromPage(link);
+
+        articles.push({
+          title,
+          link: cleanTelegramLink(link),
+          excerpt: excerpt || 'No excerpt available',
+          author: 'SingularityHub',
+          time: pubDate || 'Recently',
+          source: 'SingularityHub',
+          image
+        });
+      }
+    }
+
+    return articles;
+  } catch (error) {
+    console.error('Error fetching SingularityHub news:', error.message);
+    return [];
+  }
+}
+
+/**
  * Fetch news from multiple sources
  */
 async function fetchNewsFromAllSources(perSource = 3) {
@@ -2753,7 +2801,8 @@ async function fetchNewsFromAllSources(perSource = 3) {
       fetchPragmaticEngineerNews(perSource),
       fetchNetflixTechBlogNews(perSource),
       fetchCloudflareBlogNews(perSource),
-      fetchTelegramGramNews(perSource)
+      fetchTelegramGramNews(perSource),
+      fetchSingularityHubNews(perSource)
     ]);
 
     // Extract successful results
@@ -2811,7 +2860,8 @@ async function fetchNewsFromAllSources(perSource = 3) {
       pragmaticEngineer,
       netflixTechBlog,
       cloudflareBlog,
-      telegramGram
+      telegramGram,
+      singularityHub
     ] = results.map((result, index) => {
       if (result.status === 'fulfilled') {
         return result.value;
@@ -2829,7 +2879,8 @@ async function fetchNewsFromAllSources(perSource = 3) {
           'Digital Trends', 'ZDNET', 'InfoWorld', 'TechRepublic', 'Gartner',
           'HackerNoon', 'DEV Community', 'Slashdot', 'DZone',
           'Krebs on Security', 'Daring Fireball', 'The Pragmatic Engineer',
-          'Netflix Tech Blog', 'Cloudflare Blog', 'Telegram Gram'
+          'Netflix Tech Blog', 'Cloudflare Blog', 'Telegram Gram',
+          'SingularityHub'
         ];
         console.error(`Failed to fetch from ${sources[index]}:`, result.reason.message);
         return [];
@@ -2891,7 +2942,8 @@ async function fetchNewsFromAllSources(perSource = 3) {
       ...pragmaticEngineer,
       ...netflixTechBlog,
       ...cloudflareBlog,
-      ...telegramGram
+      ...telegramGram,
+      ...singularityHub
     ];
 
     if (allNews.length === 0) {
@@ -3000,6 +3052,7 @@ module.exports = {
   fetchNetflixTechBlogNews,
   fetchCloudflareBlogNews,
   fetchTelegramGramNews,
+  fetchSingularityHubNews,
   fetchNewsFromAllSources,
   formatNewsForTelegram
 };
