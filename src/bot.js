@@ -109,6 +109,53 @@ async function translateToAmharic(text) {
   }
 }
 
+/**
+ * Fetch a relevant GIF from Giphy based on news content
+ */
+async function fetchRelevantGif(newsTitle) {
+  try {
+    if (!process.env.GIPHY_API_KEY) {
+      console.log('GIPHY_API_KEY not configured, skipping GIF');
+      return null;
+    }
+
+    // Extract keywords from the title for GIF search
+    const keywords = newsTitle
+      .toLowerCase()
+      .replace(/[^\w\s]/g, '')
+      .split(' ')
+      .filter(word => word.length > 3)
+      .slice(0, 3)
+      .join(' ');
+
+    if (!keywords) {
+      return null;
+    }
+
+    const response = await axios.get('https://api.giphy.com/v1/gifs/search', {
+      params: {
+        api_key: process.env.GIPHY_API_KEY,
+        q: keywords,
+        limit: 1,
+        rating: 'g',
+        lang: 'en'
+      },
+      timeout: 5000
+    });
+
+    if (response.data && response.data.data && response.data.data.length > 0) {
+      const gif = response.data.data[0];
+      // Get the small version of the GIF
+      return gif.images.fixed_height_small?.url || gif.images.original?.url;
+    }
+
+    return null;
+  } catch (error) {
+    console.error('Error fetching GIF from Giphy:', error.message);
+    return null;
+  }
+}
+
 // Helper function to download image as buffer
 async function downloadImage(url) {
   try {
@@ -768,6 +815,23 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
         disable_web_page_preview: false
       });
       posted = true;
+    }
+
+    // Send a relevant GIF after the news post
+    if (posted) {
+      try {
+        const gifUrl = await fetchRelevantGif(article.title);
+        if (gifUrl) {
+          await bot.telegram.sendAnimation(TRUE_FEED_CHANNEL_ID, gifUrl, {
+            caption: '',
+            disable_web_page_preview: true
+          });
+          console.log(`🎬 Posted GIF for article [${id}]`);
+        }
+      } catch (gifError) {
+        console.error('Error posting GIF:', gifError.message);
+        // Don't fail the whole post if GIF fails
+      }
     }
 
     if (posted) {
