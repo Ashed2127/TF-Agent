@@ -1,39 +1,38 @@
 # TF-Agent
 
-Telegram bot for True Feed channel that generates Amharic business ideas, content ideas, and translates news using AI, with admin approval workflow.
+Telegram bot for True Feed channel that generates Amharic business ideas, content ideas, and curates news using AI, with admin approval workflow. Built on Telegram's serverless platform (tgcloud).
 
 ## Features
 
 - **AI-Generated Content**: Creates Amharic business ideas and content suggestions using OpenRouter API
-- **News Translation**: Fetches news from 50+ tech sources and translates titles/sources to Amharic with Ethiopian context
-- **Telegram Approval Workflow**: Admin can review, approve, or reject content before posting
-- **Multiple News Sources**: TechCrunch, The Verge, BBC Tech, Wired, VentureBeat, and many more
+- **AI News Translation**: Fetches news from 30+ tech sources and generates Amharic content with Ethiopian context using AI
+- **Smart News Formatting**: Amharic titles with emojis, bullet point summaries, and bold @true_feed attribution
+- **Telegram Approval Workflow**: Admin can review, approve, or reject content before posting to channels
+- **Multiple News Sources**: TechCrunch, The Verge, BBC Tech, Wired, VentureBeat, Sifted, and many more
 - **Category Rotation**: Cycles through different business categories for diverse content
 - **Image Support**: Posts news articles with images when available
 - **Web Dashboard**: Monitor bot activity and posts
-- **Vercel Deployment**: Serverless deployment with webhook support
-- **Local Development**: Support for both polling (local) and webhook (Vercel) modes
+- **Tgcloud Deployment**: Serverless deployment on Telegram's platform
+- **Local Development**: Express server for web dashboard development
 
 ## News Sources
 
-The bot fetches news from over 50 sources including:
-- **Major Tech**: TechCrunch, The Verge, BBC Tech, Wired, VentureBeat, Engadget, Ars Technica
-- **Industry**: The Information, MIT Technology Review, Fast Company, The New Stack
-- **Startup**: Hacker News, Techmeme, Sifted, Tech.eu, YourStory
-- **Regional**: Rest of World, Morning Context, Entrackr, TechNode, KrASIA
-- **Africa**: TechCabal, Disrupt Africa, Techpoint Africa, Wamda, Magnitt
-- **Latin America**: Contxto, Startups Latam, Brazil Journal, LatamList
-- **Reviews**: CNET, TechRadar, Gizmodo, Mashable, Digital Trends, ZDNET
-- **Enterprise**: InfoWorld, TechRepublic, Gartner
-- **Community**: HackerNoon, DEV Community, Slashdot, DZone
-- **Security**: Krebs on Security
-- **Blogs**: Daring Fireball, The Pragmatic Engineer, Netflix Tech Blog, Cloudflare Blog
-- **Telegram**: Telegram Gram
+The bot fetches news from 30+ sources including:
+- **Major Tech**: TechCrunch, The Verge, BBC Tech, Wired, VentureBeat, Engadget, Ars Technica, WIRED
+- **Industry**: The Information, MIT Technology Review, Fast Company, The New Stack, Bloomberg Technology
+- **Startup**: Hacker News, Techmeme, Sifted, Product Hunt, BetaList
+- **Regional**: Rest of World, Tech in Asia, GeekWire
+- **Africa**: TechCabal, Disrupt Africa, Tech In Africa
+- **India**: YourStory, Inc42, Entrackr
+- **UAE**: Wamda, Arabian Business
+- **China**: TechNode, Pandaily, Caixin Global
+- **Latin America**: LatamList, Contxto
+- **Russia**: Rusbase
 
 ## Prerequisites
 
 - Node.js >= 20.0.0
-- MongoDB database
+- @tgcloud/cli (for deployment)
 - Telegram Bot Token (from [@BotFather](https://t.me/botfather))
 - OpenRouter API Key
 - (Optional) Giphy API Key for GIF features
@@ -51,23 +50,20 @@ cd TF-Agent
 npm install
 ```
 
-3. Create `.env` file from the example:
-```bash
-cp .env.example .env
+3. Configure secrets in `tgcloud/lib/secrets.js`:
+```javascript
+export const OPENROUTER_API_KEY = 'your_openrouter_key';
+export const TRUE_FEED_CHANNEL_ID = '-1002467061421'; // Your channel ID
+export const TEST_CHANNEL_ID = '-1002379106699'; // Test channel ID
+export const GIPHY_API_KEY = 'your_giphy_key'; // Optional
 ```
 
-4. Configure environment variables in `.env`:
-```
-TELEGRAM_BOT_TOKEN=your_bot_token
-OWNER_CHAT_ID=your_chat_id
-TRUE_FEED_CHANNEL_ID=@true_feed
-OPENROUTER_API_KEY=your_openrouter_key
-MONGODB_URI=mongodb://localhost:27017/tf-agent
-PORT=3000
-GIPHY_API_KEY=your_giphy_key  # Optional
+4. Set your owner chat ID in `tgcloud/handlers/message.js`:
+```javascript
+const OWNER_CHAT_ID = 685669468; // Your Telegram chat ID
 ```
 
-5. Start the bot with polling:
+5. Run local development server (for web dashboard):
 ```bash
 npm start
 ```
@@ -77,50 +73,93 @@ Or use nodemon for development:
 npm run dev
 ```
 
-## Vercel Deployment
+## Tgcloud Deployment
 
-### Quick Deploy
+The bot runs on Telegram's serverless platform using the tgcloud CLI.
 
-1. Push this repository to GitHub
-2. Import the project in [Vercel](https://vercel.com)
-3. Add environment variables in Vercel dashboard:
-   - `TELEGRAM_BOT_TOKEN`
-   - `OWNER_CHAT_ID`
-   - `TRUE_FEED_CHANNEL_ID`
-   - `OPENROUTER_API_KEY`
-   - `MONGODB_URI`
-   - `GIPHY_API_KEY` (optional)
-4. Deploy
+### Initial Setup
 
-### Webhook Setup
-
-After deploying to Vercel, set up the Telegram webhook:
-
+1. Install tgcloud CLI (if not already installed):
 ```bash
-# Replace YOUR_VERCEL_URL with your actual Vercel deployment URL
-curl -F "url=https://YOUR_VERCEL_URL/api/webhook" \
-  https://api.telegram.org/bot<YOUR_BOT_TOKEN>/setWebhook
+npm install -g @tgcloud/cli
 ```
 
-Verify the webhook:
+2. Login to your Telegram bot account:
 ```bash
-curl https://api.telegram.org/bot<YOUR_BOT_TOKEN>/getWebhookInfo
+npx tgcloud login
 ```
 
-For detailed webhook setup instructions, see [WEBHOOK_SETUP.md](WEBHOOK_SETUP.md).
+3. Configure secrets in `tgcloud/lib/secrets.js` (as shown in Local Development Setup)
+
+### Deploying
+
+1. Check what will be deployed:
+```bash
+npx tgcloud status
+```
+
+2. Deploy your bot code to Telegram's platform:
+```bash
+npx tgcloud push
+```
+
+3. If you made schema changes to `tgcloud/schema.js`, apply database migrations:
+```bash
+npx tgcloud migrate
+```
+
+### Useful Commands
+
+```bash
+npx tgcloud status       # Check deployment status
+npx tgcloud push         # Deploy code and static files
+npx tgcloud migrate      # Apply database schema changes
+npx tgcloud pull         # Sync local project with cloud
+npx tgcloud webhook      # Check webhook configuration
+npx tgcloud webhook sync # Repair webhook if mismatched
+npx tgcloud run <module> # Test a handler/endpoint locally
+```
+
+### Project Structure (tgcloud)
+
+The platform deploys everything in the `tgcloud/` folder:
+
+- `tgcloud/schema.js` - Database schema (tables as named exports)
+- `tgcloud/lib/` - Shared modules (can have subdirectories)
+- `tgcloud/handlers/` - Update handlers (one level only, named by Telegram update type)
+- `tgcloud/endpoints/` - Mini App API endpoints (POST /api/<name>)
+
+Everything else (src/, public/, docs/) is local-only and not deployed.
+
+For full documentation, see [AGENTS.md](AGENTS.md) and [docs/tgcloud-sdk.md](docs/tgcloud-sdk.md).
 
 ## Usage
 
 ### Telegram Bot Commands
 
 - `/start` - Initialize the bot and show main menu
-- **Generate Idea** - AI generates Amharic business ideas
-- **News** - Browse news from 50+ sources
+- **idea** - AI generates Amharic business ideas
+- **news** - Browse news from 30+ sources
 - **Approve/Reject** - Review content before posting to channel
+- **Post to TrueFeed** - Send approved content to main channel
+- **Post to Test** - Send to test channel for review
+
+### News Format
+
+News articles are automatically formatted in Amharic:
+```
+🚨 **[Amharic Title with Emojis]**
+
+• Bullet point 1
+• Bullet point 2
+• Bullet point 3
+
+**@true_feed**
+```
 
 ### Web Dashboard
 
-Access the dashboard at `http://localhost:3000` (local) or your Vercel URL to:
+Access the dashboard at `http://localhost:3000` (local) to:
 - View generated ideas
 - Check bot statistics
 - Monitor activity
@@ -129,32 +168,67 @@ Access the dashboard at `http://localhost:3000` (local) or your Vercel URL to:
 
 ```
 TF-Agent/
-├── api/
-│   └── webhook.js          # Vercel webhook endpoint
-├── public/
-│   └── dashboard.html      # Web dashboard
-├── src/
-│   ├── agent.js            # AI content generation
+├── tgcloud/                # Deployed to Telegram's serverless platform
+│   ├── schema.js           # Database schema
+│   ├── handlers/           # Telegram update handlers
+│   │   ├── message.js      # Message handler
+│   │   └── callback_query.js # Button click handler
+│   └── lib/                # Shared modules
+│       ├── agent.js        # AI content generation
+│       ├── database.js     # Database operations
+│       ├── news.js         # News fetching and formatting
+│       └── secrets.js      # API keys and secrets
+├── src/                    # Local development only
+│   ├── agent.js            # AI content generation (legacy)
 │   ├── bot.js              # Original bot (polling mode)
-│   ├── bot-webhook.js      # Webhook bot (Vercel mode)
-│   ├── database.js         # MongoDB operations
+│   ├── bot-webhook.js      # Webhook bot (legacy)
+│   ├── database.js         # MongoDB operations (legacy)
 │   ├── imageEditor.js      # Image processing
-│   ├── newsScraper.js      # News source scrapers
+│   ├── newsScraper.js      # News source scrapers (legacy)
 │   ├── postGenerator.js    # Post generation logic
 │   ├── postParser.js       # Post parsing utilities
 │   └── prompts.js          # AI prompts
-├── server.js               # Express server
-├── vercel.json             # Vercel configuration
+├── public/
+│   └── dashboard.html      # Web dashboard
+├── api/
+│   └── index.js            # Vercel API endpoint (legacy)
+├── server.js               # Express server (local dev)
+├── tgcloud.jsonc           # Tgcloud project config
 ├── package.json
-└── .env.example
+├── AGENTS.md               # Agent orientation guide
+└── docs/
+    └── tgcloud-sdk.md      # Tgcloud SDK documentation
 ```
 
-## Environment Variables
+## Configuration
+
+### Tgcloud Secrets (tgcloud/lib/secrets.js)
+
+Configure these secrets in `tgcloud/lib/secrets.js`:
+
+```javascript
+export const OPENROUTER_API_KEY = 'your_openrouter_key';      // Required - AI generation
+export const TRUE_FEED_CHANNEL_ID = '-1002467061421';         // Required - Main channel
+export const TEST_CHANNEL_ID = '-1002379106699';             // Required - Test channel
+export const GIPHY_API_KEY = 'your_giphy_key';               // Optional - GIF features
+```
+
+### Owner Authorization
+
+Set your Telegram chat ID in `tgcloud/handlers/message.js`:
+
+```javascript
+const OWNER_CHAT_ID = 685669468; // Only this user can control the bot
+```
+
+### Environment Variables (Local Development Only)
+
+For local development with the Express server (web dashboard):
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `TELEGRAM_BOT_TOKEN` | Yes | Bot token from @BotFather |
-| `OWNER_CHAT_ID` | Yes | Your Telegram chat ID (only authorized user) |
+| `OWNER_CHAT_ID` | Yes | Your Telegram chat ID |
 | `TRUE_FEED_CHANNEL_ID` | No | Channel ID to post approved content |
 | `OPENROUTER_API_KEY` | Yes | API key for AI content generation |
 | `MONGODB_URI` | Yes | MongoDB connection string |
@@ -164,28 +238,35 @@ TF-Agent/
 ## Important Notes
 
 - **Authorization**: Only the `OWNER_CHAT_ID` can use the bot. Other users will receive an "Unauthorized" message.
-- **Session Storage**: Webhook mode uses in-memory sessions (reset on function restart). For production, consider Redis.
-- **Database**: MongoDB connection is established per request. For high traffic, implement connection pooling.
-- **Local vs Vercel**: Use `src/bot.js` for local development (polling) and `api/webhook.js` for Vercel (webhook).
+- **Tgcloud Platform**: The bot runs on Telegram's serverless platform - no server to manage, no MongoDB required.
+- **Database**: Uses tgcloud's built-in database (managed by the platform).
+- **Webhook Management**: Tgcloud automatically manages webhooks based on your deployed handlers.
+- **Module System**: Imports must use relative paths with `.js` extension (e.g., `import { x } from '../lib/file.js'`).
+- **No Filesystem**: Tgcloud modules cannot access the filesystem or npm packages at runtime.
 
 ## Troubleshooting
 
-### Bot not responding on Vercel
-1. Check Vercel function logs
-2. Verify webhook URL is set correctly
-3. Ensure all environment variables are configured
-4. Check MongoDB connectivity
+### Deployment issues
+1. Run `npx tgcloud status` to check what will be deployed
+2. Ensure you're logged in with `npx tgcloud login`
+3. Check that secrets are configured in `tgcloud/lib/secrets.js`
+4. Verify handler names match Telegram update types (message, callback_query, etc.)
+
+### Bot not responding
+1. Check webhook status with `npx tgcloud webhook`
+2. If webhook is mismatched, run `npx tgcloud webhook sync`
+3. Verify OWNER_CHAT_ID is correct in `tgcloud/handlers/message.js`
+4. Check tgcloud logs for errors
+
+### AI generation failing
+1. Verify OPENROUTER_API_KEY is valid in `tgcloud/lib/secrets.js`
+2. Check if the API has available credits
+3. Review error messages in the console
 
 ### Local development issues
-1. Ensure MongoDB is running
-2. Verify `.env` file exists and is configured
-3. Check that Node.js version is >= 20.0.0
-
-### Switching between polling and webhook
-To switch from webhook back to polling (local):
-```bash
-curl https://api.telegram.org/bot<YOUR_BOT_TOKEN>/deleteWebhook
-```
+1. Ensure Node.js version is >= 20.0.0
+2. Run `npm install` to install dependencies
+3. For web dashboard, ensure MongoDB is running if using legacy src/ files
 
 ## License
 
