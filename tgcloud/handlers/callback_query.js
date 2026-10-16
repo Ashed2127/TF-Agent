@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit } from '../lib/database.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
 
@@ -494,6 +494,10 @@ export default async function (callbackQuery, ctx) {
     const platformId = parts[0];
     const currentIndex = parseInt(parts[1]);
 
+    // Create a placeholder pending edit so the message handler knows
+    // the user's next message is an edit (not a random message)
+    await savePendingEdit(callbackQuery.from.id, '__waiting__');
+
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: '✏️ Please send your edited version of the news.\n\nReply with the text you want to post.',
@@ -521,14 +525,22 @@ export default async function (callbackQuery, ctx) {
   // Handle post edited news to TrueFeed
   else if (data.startsWith('post_edit_truefeed:')) {
     try {
-      const encodedText = data.replace('post_edit_truefeed:', '');
-      const editedText = decodeURIComponent(encodedText);
+      const pendingEdit = await getPendingEdit(callbackQuery.from.id);
+      if (!pendingEdit || pendingEdit.text === '__waiting__') {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ No edited text found. Please try editing again.',
+        });
+        return;
+      }
 
       await api.sendMessage({
         chat_id: TRUE_FEED_CHANNEL_ID,
-        text: editedText,
+        text: pendingEdit.text,
         parse_mode: 'HTML',
       });
+
+      await deletePendingEdit(callbackQuery.from.id);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -546,14 +558,22 @@ export default async function (callbackQuery, ctx) {
   // Handle post edited news to Test
   else if (data.startsWith('post_edit_test:')) {
     try {
-      const encodedText = data.replace('post_edit_test:', '');
-      const editedText = decodeURIComponent(encodedText);
+      const pendingEdit = await getPendingEdit(callbackQuery.from.id);
+      if (!pendingEdit || pendingEdit.text === '__waiting__') {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ No edited text found. Please try editing again.',
+        });
+        return;
+      }
 
       await api.sendMessage({
         chat_id: TEST_CHANNEL_ID,
-        text: editedText,
+        text: pendingEdit.text,
         parse_mode: 'HTML',
       });
+
+      await deletePendingEdit(callbackQuery.from.id);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -570,6 +590,7 @@ export default async function (callbackQuery, ctx) {
 
   // Handle cancel edit
   else if (data === 'cancel_edit') {
+    await deletePendingEdit(callbackQuery.from.id);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: '❌ Edit cancelled.',

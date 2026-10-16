@@ -1,6 +1,6 @@
 import { db } from 'sdk';
 import { eq, desc, sql } from 'sdk/db';
-import { ideas } from '../schema.js';
+import { ideas, pendingEdits } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -107,4 +107,35 @@ export async function deleteLastIdea() {
     return true;
   }
   return false;
+}
+
+// Pending edit helpers — store edited news text in the DB
+// so it doesn't need to fit in callback_data (64-byte limit)
+
+export async function savePendingEdit(userId, text) {
+  // Delete any existing pending edit for this user first
+  await db.delete(pendingEdits)
+    .where(eq(pendingEdits.user_id, userId))
+    .run();
+  const [edit] = await db.insert(pendingEdits)
+    .values({ user_id: userId, text })
+    .returning()
+    .run();
+  return edit.id;
+}
+
+export async function getPendingEdit(userId) {
+  const result = await db.select()
+    .from(pendingEdits)
+    .where(eq(pendingEdits.user_id, userId))
+    .orderBy(desc(pendingEdits.created_at))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+export async function deletePendingEdit(userId) {
+  await db.delete(pendingEdits)
+    .where(eq(pendingEdits.user_id, userId))
+    .run();
 }

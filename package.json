@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "deploy": "tgcloud push"
   },
   "keywords": [
     "telegram",
@@ -29,6 +30,7 @@
     "telegraf": "^4.15.1"
   },
   "devDependencies": {
+    "@tgcloud/cli": "^0.2.0",
     "nodemon": "^3.0.2"
   }
 }

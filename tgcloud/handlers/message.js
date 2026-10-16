@@ -5,6 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit } from '../lib/database.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
 
@@ -22,6 +23,8 @@ export default async function (message, ctx) {
 
   // Handle /start command
   if (message.text === '/start') {
+    // Cancel any pending edit on /start
+    await deletePendingEdit(userId);
     await api.sendMessage({
       chat_id: message.chat.id,
       text: '🌱 TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
@@ -64,26 +67,30 @@ export default async function (message, ctx) {
     return;
   }
 
-  // Handle edited news post (after clicking Edit button)
-  // Only trigger if not a command (doesn't start with /)
-  if (message.text && !message.text.startsWith('/') && message.text.length > 10) {
-    // Show buttons to choose where to post
-    const encodedText = encodeURIComponent(message.text);
-    await api.sendMessage({
-      chat_id: message.chat.id,
-      text: 'Where do you want to post this edited news?',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${encodedText}` },
-            { text: '🧪 Test', callback_data: `post_edit_test:${encodedText}` }
-          ],
-          [
-            { text: '❌ Cancel', callback_data: 'cancel_edit' }
+  // Handle edited news post — only if user previously clicked the Edit button
+  // (tracked via a pending_edits row in the DB)
+  if (message.text && !message.text.startsWith('/')) {
+    const pendingEdit = await getPendingEdit(userId);
+    if (pendingEdit) {
+      // User is in edit mode — save their text and show post buttons
+      const editId = await savePendingEdit(userId, message.text);
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: 'Where do you want to post this edited news?',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
+              { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
+            ],
+            [
+              { text: '❌ Cancel', callback_data: 'cancel_edit' }
+            ]
           ]
-        ]
-      }
-    });
-    return;
+        }
+      });
+      return;
+    }
   }
 }
+

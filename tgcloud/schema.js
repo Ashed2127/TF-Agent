@@ -9,3 +9,10 @@ export const ideas = table('ideas', {
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
   posted_at: integer('posted_at', { mode: 'timestamp' }),
 });
+
+export const pendingEdits = table('pending_edits', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  text: text('text').notNull(),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});

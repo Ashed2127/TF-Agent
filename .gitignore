@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.log
+.tgcloud/
+tgcloud/lib/secrets.js
