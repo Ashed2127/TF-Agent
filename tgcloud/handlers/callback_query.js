@@ -517,7 +517,65 @@ export default async function (callbackQuery, ctx) {
 
     await showNextArticle(callbackQuery, platformId, currentIndex);
   }
-  
+
+  // Handle post edited news to TrueFeed
+  else if (data.startsWith('post_edit_truefeed:')) {
+    try {
+      const encodedText = data.replace('post_edit_truefeed:', '');
+      const editedText = decodeURIComponent(encodedText);
+
+      await api.sendMessage({
+        chat_id: TRUE_FEED_CHANNEL_ID,
+        text: editedText,
+        parse_mode: 'HTML',
+      });
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '✅ Edited news posted to TrueFeed!',
+      });
+    } catch (error) {
+      console.error('Error posting edited news:', error);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Failed to post: ${error.message}`,
+      });
+    }
+  }
+
+  // Handle post edited news to Test
+  else if (data.startsWith('post_edit_test:')) {
+    try {
+      const encodedText = data.replace('post_edit_test:', '');
+      const editedText = decodeURIComponent(encodedText);
+
+      await api.sendMessage({
+        chat_id: TEST_CHANNEL_ID,
+        text: editedText,
+        parse_mode: 'HTML',
+      });
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '🧪 Edited news posted to Test channel!',
+      });
+    } catch (error) {
+      console.error('Error posting edited news:', error);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Failed to post: ${error.message}`,
+      });
+    }
+  }
+
+  // Handle cancel edit
+  else if (data === 'cancel_edit') {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Edit cancelled.',
+    });
+  }
+
   // Handle approve button
   else if (data.startsWith('approve_')) {
     const ideaId = parseInt(data.replace('approve_', ''));

@@ -65,16 +65,18 @@ export default async function (message, ctx) {
   }
 
   // Handle edited news post (after clicking Edit button)
-  if (message.text && message.text.length > 10) {
+  // Only trigger if not a command (doesn't start with /)
+  if (message.text && !message.text.startsWith('/') && message.text.length > 10) {
     // Show buttons to choose where to post
+    const encodedText = encodeURIComponent(message.text);
     await api.sendMessage({
       chat_id: message.chat.id,
       text: 'Where do you want to post this edited news?',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '📢 TrueFeed', callback_data: `post_edit_truefeed` },
-            { text: '🧪 Test', callback_data: `post_edit_test` }
+            { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${encodedText}` },
+            { text: '🧪 Test', callback_data: `post_edit_test:${encodedText}` }
           ],
           [
             { text: '❌ Cancel', callback_data: 'cancel_edit' }
