@@ -337,17 +337,22 @@ async function generateAmharicNews(article) {
     const prompt = `You are a news writer for True Feed, an Ethiopian tech/business news channel. Convert the following English news article into Amharic.
 
 Structure:
-1. Write an impressive Amharic title with relevant emojis (keep Ethiopian context, use emotional/impressive emojis like 🚨🔥💡🎉)
-2. Below the title, write 2-3 short bullet points summarizing the news in Amharic
-3. At the end, add "**@true_feed**" in bold
+1. Write an impressive Amharic title in BOLD using <b> tags (NO emojis)
+2. Add ONE BLANK LINE after the title
+3. Below the blank line, write 2-3 short bullet points summarizing the news in Amharic (NO emojis)
+4. Add ONE BLANK LINE after the bullet points
+5. On the new line, add "<b>@true_feed</b>" in bold (use HTML <b> tags)
 
 Requirements:
 - Keep the news truthful but write it in your own words
 - Make the title catchy and impressive
 - Use Ethiopian context where appropriate
 - Bullet points should be concise (10-15 words each)
+- NO emojis anywhere in the text
 - No platform attribution or source links
 - Maximum 5 lines of text total
+- Use HTML <b> tags for bold title and @true_feed
+- Add blank lines: one after title, one before @true_feed
 
 Original English news:
 Title: ${article.title}
@@ -374,22 +379,22 @@ Generate the Amharic news following the structure above. Do not include any expl
     if (!response.ok) {
       console.error('AI generation failed:', response.status);
       // Fallback to simple format if AI fails
-      return `📰 ${article.title}
+      return `<b>${article.title}</b>
 
 • ${cleanDescription.substring(0, 100)}...
 
-**@true_feed**`;
+<b>@true_feed</b>`;
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      return `📰 ${article.title}
+      return `<b>${article.title}</b>
 
 • ${cleanDescription.substring(0, 100)}...
 
-**@true_feed**`;
+<b>@true_feed</b>`;
     }
 
     const content = data.choices[0].message.content.trim();
@@ -401,11 +406,11 @@ Generate the Amharic news following the structure above. Do not include any expl
     const cleanDescription = article.description
       ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 100)
       : '';
-    return `📰 ${article.title}
+    return `<b>${article.title}</b>
 
 • ${cleanDescription}...
 
-**@true_feed**`;
+<b>@true_feed</b>`;
   }
 }
 

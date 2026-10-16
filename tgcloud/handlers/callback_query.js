@@ -58,7 +58,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
         { text: '🧪 Test', callback_data: `news_test_${platformId}_${nextIndex}` }
       ],
       [
-        { text: '❌ Reject', callback_data: `news_reject_${platformId}_${nextIndex}` },
+        { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
         { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
       ],
       [
@@ -73,7 +73,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           chat_id: callbackQuery.message.chat.id,
           photo: article.image,
           caption: articleText,
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
           }
@@ -84,7 +84,6 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
           text: articleText,
-          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: keyboard
           }
@@ -94,7 +93,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: articleText,
-        parse_mode: 'Markdown',
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: keyboard
         }
@@ -154,7 +153,6 @@ export default async function (callbackQuery, ctx) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: idea.content,
-        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
@@ -285,7 +283,7 @@ export default async function (callbackQuery, ctx) {
           { text: '🧪 Test', callback_data: `news_test_${platformId}_0` }
         ],
         [
-          { text: '❌ Reject', callback_data: `news_reject_${platformId}_0` },
+          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
           { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
         ],
         [
@@ -300,7 +298,7 @@ export default async function (callbackQuery, ctx) {
             chat_id: callbackQuery.message.chat.id,
             photo: article.image,
             caption: articleText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: keyboard
             }
@@ -311,7 +309,7 @@ export default async function (callbackQuery, ctx) {
           await api.sendMessage({
             chat_id: callbackQuery.message.chat.id,
             text: articleText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             reply_markup: {
               inline_keyboard: keyboard
             }
@@ -321,7 +319,7 @@ export default async function (callbackQuery, ctx) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
           text: articleText,
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
           }
@@ -381,21 +379,21 @@ export default async function (callbackQuery, ctx) {
             chat_id: TRUE_FEED_CHANNEL_ID,
             photo: article.image,
             caption: articleText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           });
         } catch (photoError) {
           console.error('Failed to send photo to channel, falling back to text:', photoError.message);
           await api.sendMessage({
             chat_id: TRUE_FEED_CHANNEL_ID,
             text: articleText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           });
         }
       } else {
         await api.sendMessage({
           chat_id: TRUE_FEED_CHANNEL_ID,
           text: articleText,
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
         });
       }
       
@@ -454,21 +452,21 @@ export default async function (callbackQuery, ctx) {
             chat_id: TEST_CHANNEL_ID,
             photo: article.image,
             caption: articleText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           });
         } catch (photoError) {
           console.error('Failed to send photo to test channel, falling back to text:', photoError.message);
           await api.sendMessage({
             chat_id: TEST_CHANNEL_ID,
             text: articleText,
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
           });
         }
       } else {
         await api.sendMessage({
           chat_id: TEST_CHANNEL_ID,
           text: articleText,
-          parse_mode: 'Markdown',
+          parse_mode: 'HTML',
         });
       }
       
@@ -490,21 +488,33 @@ export default async function (callbackQuery, ctx) {
     await showNextArticle(callbackQuery, platformId, currentIndex);
   }
   
+  // Handle news edit - prompt user to send edited version
+  else if (data.startsWith('news_edit_')) {
+    const parts = data.replace('news_edit_', '').split('_');
+    const platformId = parts[0];
+    const currentIndex = parseInt(parts[1]);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '✏️ Please send your edited version of the news.\n\nReply with the text you want to post.',
+    });
+  }
+
   // Handle news reject - just show next article
   else if (data.startsWith('news_reject_')) {
     const parts = data.replace('news_reject_', '').split('_');
     const platformId = parts[0];
     const currentIndex = parseInt(parts[1]);
-    
+
     await showNextArticle(callbackQuery, platformId, currentIndex);
   }
-  
+
   // Handle news skip - just show next article
   else if (data.startsWith('news_skip_')) {
     const parts = data.replace('news_skip_', '').split('_');
     const platformId = parts[0];
     const currentIndex = parseInt(parts[1]);
-    
+
     await showNextArticle(callbackQuery, platformId, currentIndex);
   }
   
@@ -532,7 +542,6 @@ export default async function (callbackQuery, ctx) {
       await api.sendMessage({
         chat_id: TRUE_FEED_CHANNEL_ID,
         text: idea.content,
-        parse_mode: 'Markdown',
       });
       
       await markPosted(ideaId);
@@ -569,7 +578,6 @@ export default async function (callbackQuery, ctx) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: idea.content,
-        parse_mode: 'Markdown',
         reply_markup: {
           inline_keyboard: [
             [
