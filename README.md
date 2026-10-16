@@ -148,13 +148,13 @@ For full documentation, see [AGENTS.md](AGENTS.md) and [docs/tgcloud-sdk.md](doc
 
 News articles are automatically formatted in Amharic:
 ```
-🚨 **[Amharic Title with Emojis]**
+<b>[Amharic Title in Bold]</b>
 
 • Bullet point 1
 • Bullet point 2
 • Bullet point 3
 
-**@true_feed**
+<b>@true_feed</b>
 ```
 
 ### Web Dashboard
