@@ -1,6 +1,6 @@
 const { bot } = require('../src/bot-webhook');
 
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   try {
     // Handle Telegram webhook updates
     await bot.handleUpdate(req.body);
@@ -9,4 +9,4 @@ module.exports = async (req, res) => {
     console.error('Webhook error:', error);
     res.status(500).send('Error');
   }
-};
+}
