@@ -37,42 +37,6 @@ The bot fetches news from 30+ sources including:
 - OpenRouter API Key
 - (Optional) Giphy API Key for GIF features
 
-## Local Development Setup
-
-1. Clone the repository:
-```bash
-git clone <your-repo-url>
-cd TF-Agent
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-3. Configure secrets in `tgcloud/lib/secrets.js`:
-```javascript
-export const OPENROUTER_API_KEY = 'your_openrouter_key';
-export const TRUE_FEED_CHANNEL_ID = '-1002467061421'; // Your channel ID
-export const TEST_CHANNEL_ID = '-1002379106699'; // Test channel ID
-export const GIPHY_API_KEY = 'your_giphy_key'; // Optional
-```
-
-4. Set your owner chat ID in `tgcloud/handlers/message.js`:
-```javascript
-const OWNER_CHAT_ID = 685669468; // Your Telegram chat ID
-```
-
-5. Run local development server (for web dashboard):
-```bash
-npm start
-```
-
-Or use nodemon for development:
-```bash
-npm run dev
-```
-
 ## Tgcloud Deployment
 
 The bot runs on Telegram's serverless platform using the tgcloud CLI.
@@ -208,8 +172,8 @@ Configure these secrets in `tgcloud/lib/secrets.js`:
 
 ```javascript
 export const OPENROUTER_API_KEY = 'your_openrouter_key';      // Required - AI generation
-export const TRUE_FEED_CHANNEL_ID = '-1002467061421';         // Required - Main channel
-export const TEST_CHANNEL_ID = '-1002379106699';             // Required - Test channel
+export const TRUE_FEED_CHANNEL_ID = 'your_channel_id';        // Required - Main channel
+export const TEST_CHANNEL_ID = 'your_test_channel_id';        // Required - Test channel
 export const GIPHY_API_KEY = 'your_giphy_key';               // Optional - GIF features
 ```
 
