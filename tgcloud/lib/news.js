@@ -353,6 +353,7 @@ Requirements:
 - Maximum 5 lines of text total
 - Use HTML <b> tags for bold title and @true_feed
 - Add blank lines: one after title, one before @true_feed
+- NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". ." or ". . ." for pauses instead
 
 Original English news:
 Title: ${article.title}
@@ -398,7 +399,17 @@ Generate the Amharic news following the structure above. Do not include any expl
     }
 
     const content = data.choices[0].message.content.trim();
-    return content;
+    
+    // Replace Amharic punctuation with . . and . . . pauses
+    const cleaned = content
+      .replace(/[።፤]/g, ' . . . ')
+      .replace(/[፣፡]/g, ' . . ')
+      .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+      .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+      .replace(/[ ]{2,}/g, ' ')
+      .trim();
+    
+    return cleaned;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);

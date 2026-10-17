@@ -10,14 +10,14 @@ function buildPrompt(previousTopics, category) {
   return `Generate business idea post in SIMPLE Amharic. Keep it SHORT but clear.
 
 FORMAT:
-🟢 Hybrid፡ [Name]
+🟢 Hybrid: [Name]
 
 Value [at least 5 lines of deep insightful idea]
 
 @true_feed
 
 EXAMPLE:
-🟢 Hybrid፡ ለህፃናት አስተማሪ እቃ
+🟢 Hybrid: ለህፃናት አስተማሪ እቃ
 
 Value ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል የእጅ እና የአይን ችሎታ ይሻሻላል
 እያንዳንዱ እቃ የተለየ ትምህርት ያስተምራል . . . ከትዳር ጀምሮ የሚያዳብር መሆን አለበት አዳዲስ ነገሮችን ማግኘት ይፈልጋል
@@ -30,7 +30,7 @@ ${previousTopicsList}
 
 CATEGORY: ${category}
 
-Generate post in Amharic. Keep sentences short and clear. MUST use at most 2-3 ". . ." for pauses in the entire post. NEVER use ። (Ethiopian period) - use ". . ." instead. Focus ONLY on Value section with at least 5 lines of deep insightful content. Output ONLY from 🟢 to @true_feed. Do NOT use any HTML tags or formatting - just plain text. The @true_feed will be automatically formatted as bold.`;
+Generate post in Amharic. Keep sentences short and clear. MUST use at most 2-3 ". . ." or ". ." for pauses in the entire post. NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". . ." or ". ." instead (use regular ":" only after Hybrid in the title). Focus ONLY on Value section with at least 5 lines of deep insightful content. Output ONLY from 🟢 to @true_feed. Do NOT use any HTML tags or formatting - just plain text. The @true_feed will be automatically formatted as bold.`;
 }
 
 export async function generateIdea() {
@@ -95,16 +95,22 @@ export async function generateIdea() {
       throw new Error('AI response missing required structure (Title section)');
     }
     
-    // Validate that content includes at least one ". . ."
-    if (!cleanContent.includes('. . .')) {
-      console.error('❌ AI response missing required pauses (. . .):', cleanContent);
-      throw new Error('AI response missing required pauses (. . .)');
-    }
+    // Normalize Hybrid colon in title if needed
+    cleanContent = cleanContent.replace(/🟢\s*Hybrid[፡:]/g, '🟢 Hybrid:');
+
+    // Replace Amharic punctuation with . . and . . . pauses
+    cleanContent = cleanContent.replace(/[።፤]/g, ' . . . ');
+    cleanContent = cleanContent.replace(/[፣፡]/g, ' . . ');
+
+    // Normalize spacing around pauses (. . . and . .)
+    cleanContent = cleanContent.replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ');
+    cleanContent = cleanContent.replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2');
+    cleanContent = cleanContent.replace(/[ ]{2,}/g, ' ').trim();
     
-    // Validate that content does NOT contain Ethiopian period ።
-    if (cleanContent.includes('።')) {
-      console.error('❌ AI response contains forbidden Ethiopian period ።:', cleanContent);
-      throw new Error('AI response contains forbidden Ethiopian period ። - use ". . ." instead');
+    // Validate that content includes required pauses (. . . or . .)
+    if (!cleanContent.includes('. . .') && !cleanContent.includes('. .')) {
+      console.error('❌ AI response missing required pauses (. . . or . .):', cleanContent);
+      throw new Error('AI response missing required pauses (. . .)');
     }
     
     // Validate that content includes *@true_feed*
@@ -117,7 +123,7 @@ export async function generateIdea() {
     const firstLine = lines[0];
     
     let topic = '';
-    const colonIndex = firstLine.indexOf('፡');
+    const colonIndex = firstLine.indexOf(':');
     if (colonIndex !== -1) {
       topic = firstLine.substring(colonIndex + 1).trim();
     } else {
@@ -126,7 +132,6 @@ export async function generateIdea() {
         .replace('🟢', '')
         .replace('Hybrid -', '')
         .replace(/<[^>]*>/g, '')
-        .replace(/፡/, '')
         .replace('</strong>', '')
         .replace('<strong>', '')
         .trim();
