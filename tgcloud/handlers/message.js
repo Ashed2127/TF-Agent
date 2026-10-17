@@ -6,6 +6,7 @@ import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { savePendingEdit, getPendingEdit, deletePendingEdit } from '../lib/database.js';
+import { formatEditedNewsText } from '../lib/news.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
 
@@ -79,20 +80,48 @@ export default async function (message, ctx) {
         : null;
       const imageToUse = newPhotoId || pendingEdit.image_url;
 
-      const editId = await savePendingEdit(userId, incomingText, imageToUse);
+      // Extract entities (from text or photo caption)
+      const entities = message.entities || message.caption_entities || [];
+
+      // Format text to preserve and enforce HTML boldness (title, @true_feed, entities)
+      const formattedText = formatEditedNewsText(incomingText, entities);
+
+      const editId = await savePendingEdit(userId, formattedText, imageToUse);
+
+      const keyboard = [
+        [
+          { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
+          { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
+        ],
+        [
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]
+      ];
+
+      // Send formatted preview with buttons so user can see boldness and image
+      if (imageToUse) {
+        try {
+          await api.sendPhoto({
+            chat_id: message.chat.id,
+            photo: imageToUse,
+            caption: formattedText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+          return;
+        } catch (photoErr) {
+          console.error('Failed to send preview photo, falling back to message:', photoErr.message);
+        }
+      }
+
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: 'Where do you want to post this edited news?',
+        text: formattedText,
+        parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
-              { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
-            ],
-            [
-              { text: '❌ Cancel', callback_data: 'cancel_edit' }
-            ]
-          ]
+          inline_keyboard: keyboard
         }
       });
       return;
