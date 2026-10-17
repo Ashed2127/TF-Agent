@@ -112,13 +112,13 @@ export async function deleteLastIdea() {
 // Pending edit helpers — store edited news text in the DB
 // so it doesn't need to fit in callback_data (64-byte limit)
 
-export async function savePendingEdit(userId, text) {
+export async function savePendingEdit(userId, text, imageUrl = null) {
   // Delete any existing pending edit for this user first
   await db.delete(pendingEdits)
     .where(eq(pendingEdits.user_id, userId))
     .run();
   const [edit] = await db.insert(pendingEdits)
-    .values({ user_id: userId, text })
+    .values({ user_id: userId, text, image_url: imageUrl || null })
     .returning()
     .run();
   return edit.id;

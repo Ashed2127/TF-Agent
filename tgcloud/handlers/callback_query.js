@@ -494,9 +494,28 @@ export default async function (callbackQuery, ctx) {
     const platformId = parts[0];
     const currentIndex = parseInt(parts[1]);
 
+    // Extract image from the current message if it was a photo message
+    let imageUrl = null;
+    if (callbackQuery.message?.photo && callbackQuery.message.photo.length > 0) {
+      imageUrl = callbackQuery.message.photo[callbackQuery.message.photo.length - 1].file_id;
+    } else {
+      // Fallback: look up article from RSS feed
+      const platform = getPlatformById(platformId);
+      if (platform) {
+        try {
+          const articles = await fetchRSSFeed(platform.url, platform.name);
+          if (articles && articles[currentIndex] && articles[currentIndex].image) {
+            imageUrl = articles[currentIndex].image;
+          }
+        } catch (e) {
+          console.error('Error fetching article image for edit:', e);
+        }
+      }
+    }
+
     // Create a placeholder pending edit so the message handler knows
-    // the user's next message is an edit (not a random message)
-    await savePendingEdit(callbackQuery.from.id, '__waiting__');
+    // the user's next message is an edit (not a random message) and retains the image
+    await savePendingEdit(callbackQuery.from.id, '__waiting__', imageUrl);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
@@ -534,11 +553,30 @@ export default async function (callbackQuery, ctx) {
         return;
       }
 
-      await api.sendMessage({
-        chat_id: TRUE_FEED_CHANNEL_ID,
-        text: pendingEdit.text,
-        parse_mode: 'HTML',
-      });
+      // Post with image if available, otherwise just text
+      if (pendingEdit.image_url) {
+        try {
+          await api.sendPhoto({
+            chat_id: TRUE_FEED_CHANNEL_ID,
+            photo: pendingEdit.image_url,
+            caption: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        } catch (photoError) {
+          console.error('Failed to post edited photo to TrueFeed, falling back to text:', photoError);
+          await api.sendMessage({
+            chat_id: TRUE_FEED_CHANNEL_ID,
+            text: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        }
+      } else {
+        await api.sendMessage({
+          chat_id: TRUE_FEED_CHANNEL_ID,
+          text: pendingEdit.text,
+          parse_mode: 'HTML',
+        });
+      }
 
       await deletePendingEdit(callbackQuery.from.id);
 
@@ -567,11 +605,30 @@ export default async function (callbackQuery, ctx) {
         return;
       }
 
-      await api.sendMessage({
-        chat_id: TEST_CHANNEL_ID,
-        text: pendingEdit.text,
-        parse_mode: 'HTML',
-      });
+      // Post with image if available, otherwise just text
+      if (pendingEdit.image_url) {
+        try {
+          await api.sendPhoto({
+            chat_id: TEST_CHANNEL_ID,
+            photo: pendingEdit.image_url,
+            caption: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        } catch (photoError) {
+          console.error('Failed to post edited photo to Test channel, falling back to text:', photoError);
+          await api.sendMessage({
+            chat_id: TEST_CHANNEL_ID,
+            text: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        }
+      } else {
+        await api.sendMessage({
+          chat_id: TEST_CHANNEL_ID,
+          text: pendingEdit.text,
+          parse_mode: 'HTML',
+        });
+      }
 
       await deletePendingEdit(callbackQuery.from.id);
 

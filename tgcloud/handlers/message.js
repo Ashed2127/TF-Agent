@@ -69,11 +69,17 @@ export default async function (message, ctx) {
 
   // Handle edited news post — only if user previously clicked the Edit button
   // (tracked via a pending_edits row in the DB)
-  if (message.text && !message.text.startsWith('/')) {
+  const incomingText = message.text || message.caption;
+  if (incomingText && !incomingText.startsWith('/')) {
     const pendingEdit = await getPendingEdit(userId);
     if (pendingEdit) {
-      // User is in edit mode — save their text and show post buttons
-      const editId = await savePendingEdit(userId, message.text);
+      // User is in edit mode — preserve original image or use newly uploaded photo
+      const newPhotoId = (message.photo && message.photo.length > 0)
+        ? message.photo[message.photo.length - 1].file_id
+        : null;
+      const imageToUse = newPhotoId || pendingEdit.image_url;
+
+      const editId = await savePendingEdit(userId, incomingText, imageToUse);
       await api.sendMessage({
         chat_id: message.chat.id,
         text: 'Where do you want to post this edited news?',

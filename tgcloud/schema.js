@@ -14,5 +14,6 @@ export const pendingEdits = table('pending_edits', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   user_id: integer('user_id').notNull(),
   text: text('text').notNull(),
+  image_url: text('image_url'),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
