@@ -6,7 +6,7 @@ import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource } from '../lib/database.js';
-import { formatEditedNewsText } from '../lib/news.js';
+import { formatEditedNewsText, NEWS_CATEGORIES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
@@ -471,21 +471,17 @@ async function showDisplayNameInstructions(chatId) {
 }
 
 async function showCategorySelection(chatId) {
-  const categories = [
-    'tech', 'entertainment', 'education', 'beauty', 'joke', 'fact'
-  ];
-
   const keyboard = [];
-  for (let i = 0; i < categories.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
     row.push({
-      text: categories[i].charAt(0).toUpperCase() + categories[i].slice(1),
-      callback_data: `select_category_${categories[i]}`
+      text: NEWS_CATEGORIES[i].name,
+      callback_data: `select_category_${NEWS_CATEGORIES[i].id}`
     });
-    if (i + 1 < categories.length) {
+    if (i + 1 < NEWS_CATEGORIES.length) {
       row.push({
-        text: categories[i + 1].charAt(0).toUpperCase() + categories[i + 1].slice(1),
-        callback_data: `select_category_${categories[i + 1]}`
+        text: NEWS_CATEGORIES[i + 1].name,
+        callback_data: `select_category_${NEWS_CATEGORIES[i + 1].id}`
       });
     }
     keyboard.push(row);

@@ -5,7 +5,7 @@ import { generateIdea } from '../lib/agent.js';
 import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { NEWS_PLATFORMS, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
+import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
 import { normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468;
@@ -275,29 +275,66 @@ export default async function (callbackQuery, ctx) {
 
   // Public news handlers (before owner check)
   if (data === 'get_news') {
-    // Organize platforms in rows of 2
     const keyboard = [];
-    for (let i = 0; i < NEWS_PLATFORMS.length; i += 2) {
+    for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
       const row = [];
       row.push({
-        text: NEWS_PLATFORMS[i].name,
-        callback_data: `news_platform_${NEWS_PLATFORMS[i].id}`
+        text: NEWS_CATEGORIES[i].name,
+        callback_data: `news_cat_${NEWS_CATEGORIES[i].id}`
       });
-      if (i + 1 < NEWS_PLATFORMS.length) {
+      if (i + 1 < NEWS_CATEGORIES.length) {
         row.push({
-          text: NEWS_PLATFORMS[i + 1].name,
-          callback_data: `news_platform_${NEWS_PLATFORMS[i + 1].id}`
+          text: NEWS_CATEGORIES[i + 1].name,
+          callback_data: `news_cat_${NEWS_CATEGORIES[i + 1].id}`
         });
       }
       keyboard.push(row);
     }
     keyboard.push([
+      { text: '🌐 All Sources', callback_data: 'news_cat_all' },
       { text: '↩️ Back', callback_data: 'back' }
     ]);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '📰 Select a news platform:',
+      text: '📂 Select a news category:',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+
+  if (data.startsWith('news_cat_')) {
+    const catId = data.replace('news_cat_', '');
+    const platforms = catId === 'all'
+      ? NEWS_PLATFORMS
+      : NEWS_PLATFORMS.filter(p => p.category === catId);
+
+    const keyboard = [];
+    for (let i = 0; i < platforms.length; i += 2) {
+      const row = [];
+      row.push({
+        text: platforms[i].name,
+        callback_data: `news_platform_${platforms[i].id}`
+      });
+      if (i + 1 < platforms.length) {
+        row.push({
+          text: platforms[i + 1].name,
+          callback_data: `news_platform_${platforms[i + 1].id}`
+        });
+      }
+      keyboard.push(row);
+    }
+    keyboard.push([
+      { text: '↩️ Categories', callback_data: 'get_news' }
+    ]);
+
+    const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
+    const catTitle = catObj ? catObj.name : '🌐 All Sources';
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📰 ${catTitle} — Choose a source to scrape:`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -1279,7 +1316,7 @@ async function handleCheckJoin(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_channel_id');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '✅ You\'ve joined the channel!\n\n📝 Step 1: Provide Your Channel ID\n\nPlease send your Telegram channel ID (e.g., @yourchannel or -100xxxxxxxxxx).\n\nYou can find your channel ID by forwarding a message from your channel to @userinfobot',
+      text: '✅ You\'ve joined the channel!\n\n📝 Step 1: Connect Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or simply forward any post from your channel to this chat.',
     });
   } catch (error) {
     console.error('Error checking channel membership:', error);
@@ -1409,22 +1446,21 @@ async function handleSelectCategory(callbackQuery, userId, data) {
   });
 
   // Show category selection again
-  const allCategories = ['tech', 'entertainment', 'education', 'beauty', 'joke', 'fact'];
   const keyboard = [];
-  for (let i = 0; i < allCategories.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
-    const cat1 = allCategories[i];
-    const isSelected1 = categories.includes(cat1);
+    const cat1 = NEWS_CATEGORIES[i];
+    const isSelected1 = categories.includes(cat1.id);
     row.push({
-      text: `${isSelected1 ? '✅ ' : ''}${cat1.charAt(0).toUpperCase() + cat1.slice(1)}`,
-      callback_data: `select_category_${cat1}`
+      text: `${isSelected1 ? '✅ ' : ''}${cat1.name}`,
+      callback_data: `select_category_${cat1.id}`
     });
-    if (i + 1 < allCategories.length) {
-      const cat2 = allCategories[i + 1];
-      const isSelected2 = categories.includes(cat2);
+    if (i + 1 < NEWS_CATEGORIES.length) {
+      const cat2 = NEWS_CATEGORIES[i + 1];
+      const isSelected2 = categories.includes(cat2.id);
       row.push({
-        text: `${isSelected2 ? '✅ ' : ''}${cat2.charAt(0).toUpperCase() + cat2.slice(1)}`,
-        callback_data: `select_category_${cat2}`
+        text: `${isSelected2 ? '✅ ' : ''}${cat2.name}`,
+        callback_data: `select_category_${cat2.id}`
       });
     }
     keyboard.push(row);
@@ -1491,29 +1527,29 @@ async function handleGenerateContent(callbackQuery, userId) {
     return;
   }
 
-  // Show platform selection (same as owner's news flow)
   const keyboard = [];
-  for (let i = 0; i < NEWS_PLATFORMS.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
     row.push({
-      text: NEWS_PLATFORMS[i].name,
-      callback_data: `news_platform_${NEWS_PLATFORMS[i].id}`
+      text: NEWS_CATEGORIES[i].name,
+      callback_data: `news_cat_${NEWS_CATEGORIES[i].id}`
     });
-    if (i + 1 < NEWS_PLATFORMS.length) {
+    if (i + 1 < NEWS_CATEGORIES.length) {
       row.push({
-        text: NEWS_PLATFORMS[i + 1].name,
-        callback_data: `news_platform_${NEWS_PLATFORMS[i + 1].id}`
+        text: NEWS_CATEGORIES[i + 1].name,
+        callback_data: `news_cat_${NEWS_CATEGORIES[i + 1].id}`
       });
     }
     keyboard.push(row);
   }
   keyboard.push([
-    { text: '↩️ Back', callback_data: 'back' }
+    { text: '🌐 All Sources', callback_data: 'news_cat_all' },
+    { text: '↩️ Main Menu', callback_data: 'back' }
   ]);
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '📰 Select a news platform to generate content from:',
+    text: '📂 Select a category to scrape and generate content:',
     reply_markup: {
       inline_keyboard: keyboard
     }

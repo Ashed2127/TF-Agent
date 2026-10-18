@@ -60,53 +60,129 @@ async function scrapeImageFromPage(url) {
 }
 
 /**
- * News platforms configuration
+ * Scrape full article text from webpage to provide rich context to AI
+ */
+export async function scrapeArticleBody(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return '';
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
+      }
+    });
+
+    if (!response.ok) return '';
+    const html = await response.text();
+
+    // Strip script, style, nav, footer, header, noscript
+    let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
+    clean = clean.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
+    clean = clean.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ');
+    clean = clean.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
+    clean = clean.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ');
+
+    // Extract all <p> paragraphs
+    const paragraphs = [];
+    const pMatches = clean.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi);
+    for (const match of pMatches) {
+      let pText = match[1]
+        .replace(/<[^>]*>/g, '')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>')
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (pText.length > 50 &&
+          !pText.toLowerCase().includes('cookie') &&
+          !pText.toLowerCase().includes('subscribe to our') &&
+          !pText.toLowerCase().includes('sign up for') &&
+          !pText.toLowerCase().includes('all rights reserved')) {
+        paragraphs.push(pText);
+      }
+    }
+
+    return paragraphs.slice(0, 5).join('\n\n');
+  } catch (error) {
+    console.error('Error scraping article body:', error.message);
+    return '';
+  }
+}
+
+/**
+ * Top News Categories
+ */
+export const NEWS_CATEGORIES = [
+  { id: 'tech', name: '💻 Tech & AI', description: 'AI, software, computing & gadgets' },
+  { id: 'business', name: '📈 Business & Finance', description: 'Markets, economy, banking & commerce' },
+  { id: 'world', name: '🌍 World News', description: 'Global headlines & international events' },
+  { id: 'startups', name: '🚀 Startups & Africa', description: 'African tech, VC funding & innovation' },
+  { id: 'science', name: '🔬 Science & Space', description: 'Science breakthroughs, health & space' },
+  { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
+  { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
+  { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' }
+];
+
+/**
+ * News platforms configuration mapped by category
  */
 export const NEWS_PLATFORMS = [
-  // Global
-  { id: 'techcrunch', name: 'TechCrunch', url: 'https://techcrunch.com/feed/' },
-  { id: 'venturebeat', name: 'VentureBeat', url: 'https://venturebeat.com/feed/' },
-  { id: 'theinformation', name: 'The Information', url: 'https://www.theinformation.com/feed' },
-  { id: 'restofworld', name: 'Rest of World', url: 'https://restofworld.org/feed/latest/' },
-  { id: 'bloomberg', name: 'Bloomberg Technology', url: 'https://www.bloomberg.com/feeds/technology/news.rss' },
-  { id: 'sifted', name: 'Sifted', url: 'https://sifted.eu/feed/' },
-  { id: 'theverge', name: 'The Verge', url: 'https://www.theverge.com/rss/index.xml' },
-  { id: 'arstechnica', name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index' },
-  { id: 'techmeme', name: 'Techmeme', url: 'https://www.techmeme.com/feed.xml' },
-  { id: 'hackernews', name: 'Hacker News', url: 'https://news.ycombinator.com/rss' },
-  { id: 'wired', name: 'WIRED', url: 'https://www.wired.com/feed/rss' },
-  { id: 'techinasia', name: 'Tech in Asia', url: 'https://www.techinasia.com/feed' },
-  { id: 'geekwire', name: 'GeekWire', url: 'https://www.geekwire.com/feed/' },
-  { id: 'betalist', name: 'BetaList', url: 'https://betalist.com/posts.rss' },
-  { id: 'zdnet', name: 'ZDNet', url: 'https://www.zdnet.com/news/rss.xml' },
-  { id: 'tnw', name: 'TNW', url: 'https://thenextweb.com/feed/' },
-  { id: 'producthunt', name: 'Product Hunt', url: 'https://www.producthunt.com/feed' },
-  
-  // Africa
-  { id: 'techcabal', name: 'TechCabal', url: 'https://techcabal.com/feed/' },
-  { id: 'disruptafrica', name: 'Disrupt Africa', url: 'https://disrupt-africa.com/feed/' },
-  { id: 'techinafrica', name: 'Tech In Africa', url: 'https://techinafrica.com/feed' },
-  
-  // India
-  { id: 'yourstory', name: 'YourStory', url: 'https://yourstory.com/feed' },
-  { id: 'inc42', name: 'Inc42', url: 'https://inc42.com/feed/' },
-  { id: 'entrackr', name: 'Entrackr', url: 'https://entrackr.com/rss' },
-  
-  // UAE
-  { id: 'wamda', name: 'Wamda', url: 'https://www.wamda.com/feed' },
-  { id: 'arabianbusiness', name: 'Arabian Business', url: 'https://arabianbusiness.com/feed' },
-  
-  // China
-  { id: 'technode', name: 'TechNode', url: 'https://technode.com/feed/' },
-  { id: 'pandaily', name: 'Pandaily', url: 'https://pandaily.com/feed/' },
-  { id: 'caixin', name: 'Caixin Global', url: 'https://gateway.caixin.com/api/data/global/feedlyRss.xml' },
-  
-  // Latin America
-  { id: 'latamlist', name: 'LatamList', url: 'https://latamlist.com/feed/' },
-  { id: 'contxto', name: 'Contxto', url: 'https://contxto.com/en/feed/' },
-  
-  // Russia
-  { id: 'rusbase', name: 'Rusbase', url: 'https://rb.ru/feeds/all/' }
+  // Tech & AI
+  { id: 'techcrunch', name: 'TechCrunch', category: 'tech', url: 'https://techcrunch.com/feed/' },
+  { id: 'theverge', name: 'The Verge', category: 'tech', url: 'https://www.theverge.com/rss/index.xml' },
+  { id: 'wired', name: 'WIRED', category: 'tech', url: 'https://www.wired.com/feed/rss' },
+  { id: 'arstechnica', name: 'Ars Technica', category: 'tech', url: 'https://feeds.arstechnica.com/arstechnica/index' },
+  { id: 'venturebeat', name: 'VentureBeat', category: 'tech', url: 'https://venturebeat.com/feed/' },
+  { id: 'hackernews', name: 'Hacker News', category: 'tech', url: 'https://news.ycombinator.com/rss' },
+  { id: 'engadget', name: 'Engadget', category: 'tech', url: 'https://www.engadget.com/rss.xml' },
+  { id: 'zdnet', name: 'ZDNet', category: 'tech', url: 'https://www.zdnet.com/news/rss.xml' },
+
+  // Business & Finance
+  { id: 'bloomberg', name: 'Bloomberg Tech', category: 'business', url: 'https://www.bloomberg.com/feeds/technology/news.rss' },
+  { id: 'cnbc', name: 'CNBC Business', category: 'business', url: 'https://search.cnbc.com/rs/search/view.html?partnerId=2000&keywords=business&sort=date' },
+  { id: 'inc42', name: 'Inc42', category: 'business', url: 'https://inc42.com/feed/' },
+  { id: 'yourstory', name: 'YourStory', category: 'business', url: 'https://yourstory.com/feed' },
+  { id: 'marketwatch', name: 'MarketWatch', category: 'business', url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories' },
+
+  // World News
+  { id: 'bbcworld', name: 'BBC World News', category: 'world', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
+  { id: 'aljazeera', name: 'Al Jazeera', category: 'world', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { id: 'theguardian', name: 'The Guardian', category: 'world', url: 'https://www.theguardian.com/world/rss' },
+  { id: 'africanews', name: 'Africanews', category: 'world', url: 'https://www.africanews.com/feed/' },
+  { id: 'dw', name: 'DW News', category: 'world', url: 'https://rss.dw.com/rdf/rss-en-all' },
+
+  // Startups & Africa
+  { id: 'techcabal', name: 'TechCabal', category: 'startups', url: 'https://techcabal.com/feed/' },
+  { id: 'disruptafrica', name: 'Disrupt Africa', category: 'startups', url: 'https://disrupt-africa.com/feed/' },
+  { id: 'techinafrica', name: 'Tech In Africa', category: 'startups', url: 'https://techinafrica.com/feed' },
+  { id: 'restofworld', name: 'Rest of World', category: 'startups', url: 'https://restofworld.org/feed/latest/' },
+  { id: 'producthunt', name: 'Product Hunt', category: 'startups', url: 'https://www.producthunt.com/feed' },
+  { id: 'entrackr', name: 'Entrackr', category: 'startups', url: 'https://entrackr.com/rss' },
+
+  // Science & Space
+  { id: 'sciencedaily', name: 'ScienceDaily', category: 'science', url: 'https://www.sciencedaily.com/rss/all.xml' },
+  { id: 'physorg', name: 'Phys.org', category: 'science', url: 'https://phys.org/rss-feed/' },
+  { id: 'spacecom', name: 'Space.com', category: 'science', url: 'https://www.space.com/feeds/all' },
+  { id: 'nature', name: 'Nature News', category: 'science', url: 'https://www.nature.com/nature.rss' },
+
+  // Crypto & Web3
+  { id: 'coindesk', name: 'CoinDesk', category: 'crypto', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/' },
+  { id: 'cointelegraph', name: 'Cointelegraph', category: 'crypto', url: 'https://cointelegraph.com/rss' },
+  { id: 'decrypt', name: 'Decrypt', category: 'crypto', url: 'https://decrypt.co/feed' },
+
+  // Entertainment
+  { id: 'variety', name: 'Variety', category: 'entertainment', url: 'https://variety.com/feed/' },
+  { id: 'hollywoodreporter', name: 'Hollywood Reporter', category: 'entertainment', url: 'https://www.hollywoodreporter.com/feed/' },
+  { id: 'rollingstone', name: 'Rolling Stone', category: 'entertainment', url: 'https://www.rollingstone.com/feed/' },
+  { id: 'ign', name: 'IGN', category: 'entertainment', url: 'https://feeds.feedburner.com/ign/news' },
+
+  // Sports
+  { id: 'espn', name: 'ESPN', category: 'sports', url: 'https://www.espn.com/espn/rss/news' },
+  { id: 'bbcsport', name: 'BBC Sport', category: 'sports', url: 'https://feeds.bbci.co.uk/sport/rss.xml' }
 ];
 
 /**
@@ -330,10 +406,22 @@ export function getPlatformById(platformId) {
  */
 async function generateAmharicNews(article, userChannelLink = null, botDisplayName = null, showSourceLink = true, useDotPunctuation = false) {
   try {
-    // Clean description - remove HTML tags
-    const cleanDescription = article.description
+    // Scrape live webpage for full context
+    let articleContext = article.description
       ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 500)
-      : article.title;
+      : '';
+
+    if (article.link) {
+      console.log(`Scraping webpage text from: ${article.link}...`);
+      const scrapedText = await scrapeArticleBody(article.link);
+      if (scrapedText && scrapedText.length > 50) {
+        articleContext = scrapedText.substring(0, 1800);
+      }
+    }
+
+    if (!articleContext) {
+      articleContext = article.title;
+    }
 
     // Build the source line with user channel link if provided
     let sourceLine = '';
@@ -352,40 +440,28 @@ async function generateAmharicNews(article, userChannelLink = null, botDisplayNa
       botAttribution = `\n<b>${botDisplayName}</b>`;
     }
 
-    const prompt = `You are a news writer for True Feed, an Ethiopian tech/business news channel. Convert the following English news article into Amharic.
+    const prompt = `You are a professional Amharic news translator and journalist for True Feed. Provide a DIRECT, ACCURATE, and FAITHFUL Amharic translation of the following news story.
+
+CRITICAL TRANSLATION & CONTEXT RULES:
+- Provide a DIRECT, TRUTHFUL translation of the facts, events, and background from the original article.
+- Preserve the EXACT context, meaning, company/person names, data, and details. Do NOT distort facts, do NOT hallucinate, and do NOT inject unrelated Ethiopian context unless the article explicitly discusses Ethiopia.
+- Title: Directly translate the headline into a compelling, accurate Amharic title in BOLD using HTML <b> tags (NO emojis).
+- Bullet Points: Write 2-3 clear bullet points directly translating the key facts, developments, and takeaways in fluent, natural Amharic (NO emojis).
 
 Structure:
-1. Write an impressive Amharic title in BOLD using <b> tags (NO emojis)
+1. Impressive Amharic title in BOLD using <b> tags (NO emojis)
 2. Add ONE BLANK LINE after the title
-3. Below the blank line, write 2-3 short bullet points summarizing the news in Amharic (NO emojis)
+3. Below the blank line, write 2-3 short bullet points directly translating the news into Amharic (NO emojis)
 ${showSourceLink ? `4. Add ONE BLANK LINE after the bullet points\n5. On the new line, add the source link as clickable text using HTML <a> tags: <a href="${article.link}">${article.platform}</a>\n6. Add ONE BLANK LINE after the source link\n7. On the new line, add the content creator's channel link: ${userChannelLink || 'N/A'}` : `4. Add ONE BLANK LINE after the bullet points\n5. On the new line, add the content creator's channel link: ${userChannelLink || 'N/A'}`}
 ${botAttribution ? `\n${showSourceLink ? '8' : '6'}. Add ONE BLANK LINE after the content creator channel link\n${showSourceLink ? '9' : '7'}. On the new line, add the bot attribution in bold: <b>${botDisplayName}</b>` : ''}
 
-Requirements:
-- Keep the news truthful but write it in your own words
-- Make the title catchy and impressive
-- Use Ethiopian context where appropriate
-- Bullet points should be concise (10-15 words each)
-- NO emojis anywhere in the text
-${showSourceLink ? `- Include the source link exactly as shown: <a href="${article.link}">${article.platform}</a>` : ''}
-- Include the content creator's channel link exactly as shown: ${userChannelLink || 'N/A'}
-${botAttribution ? `- Include the bot attribution exactly as shown: <b>${botDisplayName}</b>` : ''}
-- Maximum ${botAttribution ? '8' : '6'} lines of text total
-- Use HTML <b> tags for bold title${botAttribution ? ' and bot attribution' : ''}
-${showSourceLink ? '- Use HTML <a> tags for the source link' : ''}
-- Add blank lines: one after title, one after bullet points${showSourceLink ? ', one after source link' : ''}${userChannelLink ? ', one after content creator channel link' : ''}
-${useDotPunctuation ? '- NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". ." or ". . ." for pauses instead' : '- Use proper Amharic punctuation (። ፤ ፣ ፡) as appropriate'}
-
 Original English news:
 Title: ${article.title}
-Description: ${cleanDescription}
-Link: ${article.link}
 Platform: ${article.platform}
-Content Creator Channel: ${userChannelLink || 'N/A'}
-Bot Display Name: ${botDisplayName || 'Default'}
-Show Source Link: ${showSourceLink ? 'Yes' : 'No'}
+Full Article Text / Context:
+${articleContext}
 
-Generate the Amharic news following the structure above. Do not include any explanations, just the formatted news.`;
+Output ONLY the formatted Amharic news following the structure above. Do not include any explanations.`;
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
