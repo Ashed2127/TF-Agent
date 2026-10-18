@@ -2,10 +2,11 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
+import { normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -229,6 +230,11 @@ export default async function (callbackQuery, ctx) {
   // Handle public onboarding callbacks (no auth check)
   if (data === 'check_join') {
     await handleCheckJoin(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'change_channel') {
+    await handleChangeChannel(callbackQuery, userId);
     return;
   }
 
@@ -1284,15 +1290,38 @@ async function handleCheckJoin(callbackQuery, userId) {
   }
 }
 
+async function handleChangeChannel(callbackQuery, userId) {
+  await updateUserOnboardingStep(userId, 'provide_channel_id');
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '📝 Step 1: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+  });
+}
+
 async function handleBotAdminAdded(callbackQuery, userId) {
   const user = await getUserByTelegramId(userId);
 
-  if (!user.channel_id) {
+  if (!user || !user.channel_id) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '❌ Channel ID not found. Please start over.',
+      text: '❌ Channel ID not found. Please provide your channel first.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📝 Provide Channel', callback_data: 'change_channel' }
+          ]
+        ]
+      }
     });
     return;
+  }
+
+  // Normalize channel ID in case it was stored as a URL, link, or bare username
+  let channelId = normalizeChannelId(user.channel_id);
+  if (channelId && channelId !== user.channel_id) {
+    await updateUserChannelId(userId, channelId, user.channel_name || channelId);
+  } else if (!channelId) {
+    channelId = user.channel_id;
   }
 
   try {
@@ -1302,18 +1331,23 @@ async function handleBotAdminAdded(callbackQuery, userId) {
 
     // Check if bot is admin in the user's channel
     const botMember = await api.getChatMember({
-      chat_id: user.channel_id,
+      chat_id: channelId,
       user_id: botId
     });
 
-    if (botMember.status !== 'administrator') {
+    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
+
+    if (!isAdmin) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: '❌ The bot is not yet an administrator in your channel.\n\nPlease add this bot as an administrator to your channel with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:',
+        text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, click the button below:`,
         reply_markup: {
           inline_keyboard: [
             [
               { text: '✅ Done', callback_data: 'bot_admin_added' }
+            ],
+            [
+              { text: '🔄 Change Channel', callback_data: 'change_channel' }
             ]
           ]
         }
@@ -1325,17 +1359,25 @@ async function handleBotAdminAdded(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_display_name');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '✅ Great! Bot is now an admin.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)',
+      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)`,
     });
   } catch (error) {
     console.error('Error checking bot admin status:', error);
+    const errText = error?.description || error?.message || '';
+    let detailMsg = '';
+    if (errText.includes('chat not found')) {
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+    }
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '❌ Failed to verify bot admin status. Please make sure:\n\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:',
+      text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:`,
       reply_markup: {
         inline_keyboard: [
           [
             { text: '✅ Done', callback_data: 'bot_admin_added' }
+          ],
+          [
+            { text: '🔄 Change Channel', callback_data: 'change_channel' }
           ]
         ]
       }
