@@ -17,3 +17,42 @@ export const pendingEdits = table('pending_edits', {
   image_url: text('image_url'),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
+
+export const users = table('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  telegram_id: integer('telegram_id').notNull().unique(),
+  username: text('username'),
+  onboarding_step: text('onboarding_step').default('join_channel'),
+  channel_id: text('channel_id'),
+  channel_name: text('channel_name'),
+  test_channel_id: text('test_channel_id'),
+  test_channel_name: text('test_channel_name'),
+  display_name: text('display_name'),
+  bot_display_name: text('bot_display_name'),
+  show_source_link: integer('show_source_link').default(1),
+  use_dot_punctuation: integer('use_dot_punctuation').default(0),
+  categories: text('categories'),
+  posts_count: integer('posts_count').default(0),
+  last_posted_at: integer('last_posted_at', { mode: 'timestamp' }),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  completed_at: integer('completed_at', { mode: 'timestamp' }),
+});
+
+export const customSources = table('custom_sources', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  source_name: text('source_name').notNull(),
+  source_url: text('source_url').notNull(),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const posts = table('posts', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  channel_id: text('channel_id').notNull(),
+  content: text('content').notNull(),
+  category: text('category').notNull(),
+  source: text('source'),
+  image_url: text('image_url'),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});

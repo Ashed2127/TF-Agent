@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>True Feed Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      padding: 15px;
+      color: #ffffff;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 10px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 25px;
+      animation: fadeInDown 0.6s ease;
+    }
+
+    .header h1 {
+      font-size: 2em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      font-weight: 800;
+    }
+
+    .header p {
+      color: #a0a0a0;
+      font-size: 0.9em;
+    }
+
+    .refresh-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 10px 25px;
+      border-radius: 25px;
+      cursor: pointer;
+      font-size: 0.9em;
+      font-weight: 600;
+      margin-bottom: 20px;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+    }
+
+    .refresh-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+
+    .refresh-btn:active {
+      transform: translateY(0);
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 25px;
+      animation: fadeInUp 0.6s ease 0.1s both;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #667eea, #764ba2);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+      border-color: rgba(102, 126, 234, 0.5);
+    }
+
+    .stat-card .icon {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .stat-card h3 {
+      color: #a0a0a0;
+      font-size: 0.8em;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      color: #ffffff;
+      font-size: 2.2em;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .section {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      animation: fadeInUp 0.6s ease 0.2s both;
+    }
+
+    .section h2 {
+      color: #ffffff;
+      margin-bottom: 15px;
+      font-size: 1.3em;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section h2::before {
+      content: '';
+      width: 4px;
+      height: 24px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 2px;
+    }
+
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85em;
+    }
+
+    .table th,
+    .table td {
+      padding: 12px 10px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .table th {
+      background: rgba(102, 126, 234, 0.1);
+      font-weight: 600;
+      color: #ffffff;
+      font-size: 0.8em;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .table td {
+      color: #e0e0e0;
+    }
+
+    .table tr:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .table tr:last-child td {
+      border-bottom: none;
+    }
+
+    /* Mobile responsive table */
+    @media (max-width: 768px) {
+      .table {
+        display: block;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+
+      .table th,
+      .table td {
+        padding: 10px 8px;
+        font-size: 0.8em;
+      }
+
+      .desktop-only {
+        display: none;
+      }
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 0.75em;
+      font-weight: 600;
+    }
+
+    .badge-success {
+      background: linear-gradient(135deg, #1e4620 0%, #2d5a27 100%);
+      color: #4ade80;
+      border: 1px solid rgba(74, 222, 128, 0.3);
+    }
+
+    .badge-warning {
+      background: linear-gradient(135deg, #423c03 0%, #5a4f05 100%);
+      color: #facc15;
+      border: 1px solid rgba(250, 204, 21, 0.3);
+    }
+
+    .badge-info {
+      background: linear-gradient(135deg, #0c4a6e 0%, #155c85 100%);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+
+    .loading {
+      text-align: center;
+      color: #ffffff;
+      font-size: 1.1em;
+      padding: 60px 20px;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .error {
+      background: rgba(239, 68, 68, 0.1);
+      color: #f87171;
+      padding: 15px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      font-size: 0.9em;
+    }
+
+    .empty {
+      text-align: center;
+      color: #666;
+      padding: 30px;
+      font-size: 0.9em;
+    }
+
+    @keyframes fadeInDown {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* Mobile responsive adjustments */
+    @media (max-width: 768px) {
+      body {
+        padding: 10px;
+      }
+
+      .header h1 {
+        font-size: 1.5em;
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .stat-card {
+        padding: 15px;
+      }
+
+      .stat-card .value {
+        font-size: 1.8em;
+      }
+
+      .section {
+        padding: 15px;
+        margin-bottom: 15px;
+      }
+
+      .section h2 {
+        font-size: 1.1em;
+      }
+
+      .refresh-btn {
+        width: 100%;
+        padding: 12px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .header h1 {
+        font-size: 1.3em;
+      }
+
+      .stat-card .value {
+        font-size: 1.6em;
+      }
+
+      .table th,
+      .table td {
+        padding: 8px 6px;
+        font-size: 0.75em;
+      }
+
+      .badge {
+        padding: 3px 8px;
+        font-size: 0.7em;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .header h1 {
+        font-size: 1.2em;
+      }
+
+      .stat-card .value {
+        font-size: 1.4em;
+      }
+
+      .table th,
+      .table td {
+        padding: 6px 4px;
+        font-size: 0.7em;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 True Feed Dashboard</h1>
+      <p>Real-time analytics and insights</p>
+    </div>
+
+    <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh Data</button>
+
+    <div id="loading" class="loading">Loading dashboard...</div>
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="content" style="display: none;">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="icon">👥</div>
+          <h3>Total Users</h3>
+          <div class="value" id="totalUsers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">✨</div>
+          <h3>Active Users</h3>
+          <div class="value" id="activeUsers">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="icon">📰</div>
+          <h3>Total Posts</h3>
+          <div class="value" id="totalPosts">0</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>👥 Recent Users</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Channel</th>
+              <th class="desktop-only">Categories</th>
+              <th>Posts</th>
+              <th>Status</th>
+              <th class="desktop-only">Joined</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable">
+          </tbody>
+        </table>
+      </div>
+
+      <div class="section">
+        <h2>📰 Recent Posts</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="desktop-only">User</th>
+              <th>Channel</th>
+              <th>Category</th>
+              <th class="desktop-only">Source</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody id="postsTable">
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script>
+    async function loadDashboard() {
+      const loading = document.getElementById('loading');
+      const error = document.getElementById('error');
+      const content = document.getElementById('content');
+
+      loading.style.display = 'block';
+      error.style.display = 'none';
+      content.style.display = 'none';
+
+      try {
+        let data;
+
+        // Try Telegram WebApp API first
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.Serverless) {
+          const tg = window.Telegram.WebApp;
+          tg.ready();
+          tg.expand();
+
+          const result = await new Promise((resolve, reject) => {
+            tg.Serverless.call('dashboard', {}, (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            });
+          });
+
+          console.log('Dashboard result (Telegram):', result);
+
+          if (!result) {
+            throw new Error('No response from server');
+          }
+
+          if (result.error) {
+            throw new Error(result.error);
+          }
+
+          data = result;
+        } else {
+          // Fallback to regular fetch
+          const response = await fetch('/api/dashboard');
+          data = await response.json();
+
+          console.log('Dashboard result (fetch):', data);
+        }
+
+        // Update stats with animation
+        animateValue('totalUsers', 0, data.users?.total_users || 0, 1000);
+        animateValue('activeUsers', 0, data.users?.active_users || 0, 1000);
+        animateValue('totalPosts', 0, data.users?.total_posts || 0, 1000);
+
+        // Update users table
+        const usersTable = document.getElementById('usersTable');
+        if (data.recentUsers && data.recentUsers.length > 0) {
+          usersTable.innerHTML = data.recentUsers.map(user => {
+            try {
+              const categories = user.categories ? JSON.parse(user.categories).join(', ') : 'None';
+              return `
+                <tr>
+                  <td>${user.username || 'N/A'}</td>
+                  <td>${user.channel_name || user.channel_id || 'N/A'}</td>
+                  <td class="desktop-only">${categories}</td>
+                  <td>${user.posts_count || 0}</td>
+                  <td><span class="badge badge-success">Active</span></td>
+                  <td class="desktop-only">${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</td>
+                </tr>
+              `;
+            } catch (e) {
+              console.error('Error parsing user data:', e);
+              return '';
+            }
+          }).join('');
+        } else {
+          usersTable.innerHTML = '<tr><td colspan="6" class="empty">No users yet</td></tr>';
+        }
+
+        // Update posts table
+        const postsTable = document.getElementById('postsTable');
+        if (data.recentPosts && data.recentPosts.length > 0) {
+          postsTable.innerHTML = data.recentPosts.map(post => `
+            <tr>
+              <td class="desktop-only">User ID: ${post.user_id}</td>
+              <td>${post.channel_id}</td>
+              <td><span class="badge badge-info">${post.category}</span></td>
+              <td class="desktop-only">${post.source || 'N/A'}</td>
+              <td>${post.created_at ? new Date(post.created_at).toLocaleString() : 'N/A'}</td>
+            </tr>
+          `).join('');
+        } else {
+          postsTable.innerHTML = '<tr><td colspan="5" class="empty">No posts yet</td></tr>';
+        }
+
+        loading.style.display = 'none';
+        content.style.display = 'block';
+      } catch (err) {
+        console.error('Error loading dashboard:', err);
+        loading.style.display = 'none';
+        error.style.display = 'block';
+        error.textContent = 'Failed to load dashboard: ' + err.message;
+      }
+    }
+
+    function animateValue(id, start, end, duration) {
+      const obj = document.getElementById(id);
+      const range = end - start;
+      const startTime = performance.now();
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const value = Math.floor(start + range * progress);
+        obj.textContent = value;
+
+        if (progress < 1) {
+          requestAnimationFrame(update);
+        }
+      }
+
+      requestAnimationFrame(update);
+    }
+
+    // Load dashboard on page load
+    loadDashboard();
+  </script>
+</body>
+</html>

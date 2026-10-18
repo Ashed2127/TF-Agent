@@ -183,38 +183,53 @@
 
     <div class="stats" id="stats">
       <div class="stat-card">
-        <h3 id="total">-</h3>
-        <p>Total</p>
+        <h3 id="total-users">-</h3>
+        <p>Total Users</p>
       </div>
       <div class="stat-card">
-        <h3 id="posted">-</h3>
-        <p>Posted ✅</p>
+        <h3 id="active-users">-</h3>
+        <p>Active Users</p>
       </div>
       <div class="stat-card">
-        <h3 id="rejected">-</h3>
-        <p>Rejected ❌</p>
-      </div>
-      <div class="stat-card">
-        <h3 id="pending">-</h3>
-        <p>Pending 🟡</p>
+        <h3 id="total-posts">-</h3>
+        <p>Total Posts</p>
       </div>
     </div>
 
     <div class="table-container">
+      <h3 style="padding: 20px 20px 10px 20px; color: #333;">Recent Posts</h3>
       <table>
         <thead>
           <tr>
-            <th>#</th>
-            <th>Topic</th>
+            <th>User ID</th>
+            <th>Channel ID</th>
             <th>Category</th>
-            <th>Status</th>
             <th>Created</th>
-            <th>Posted</th>
           </tr>
         </thead>
-        <tbody id="ideas-table">
+        <tbody id="posts-table">
           <tr>
-            <td colspan="6" class="loading">Loading...</td>
+            <td colspan="4" class="loading">Loading...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-container" style="margin-top: 30px;">
+      <h3 style="padding: 20px 20px 10px 20px; color: #333;">Recent Users</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Telegram ID</th>
+            <th>Username</th>
+            <th>Channel</th>
+            <th>Posts Count</th>
+            <th>Completed</th>
+          </tr>
+        </thead>
+        <tbody id="users-table">
+          <tr>
+            <td colspan="5" class="loading">Loading...</td>
           </tr>
         </tbody>
       </table>
@@ -222,70 +237,80 @@
   </div>
 
   <script>
-    async function fetchStats() {
+    async function fetchDashboard() {
       try {
-        const response = await fetch('/api/stats');
-        const stats = await response.json();
-        
-        document.getElementById('total').textContent = stats.total || 0;
-        document.getElementById('posted').textContent = stats.posted || 0;
-        document.getElementById('rejected').textContent = stats.rejected || 0;
-        document.getElementById('pending').textContent = stats.pending || 0;
-      } catch (error) {
-        console.error('Error fetching stats:', error);
-      }
-    }
+        const response = await fetch('/api/dashboard');
+        const data = await response.json();
 
-    async function fetchIdeas() {
-      try {
-        const response = await fetch('/api/ideas');
-        const ideas = await response.json();
-        
-        const tbody = document.getElementById('ideas-table');
-        
-        if (ideas.length === 0) {
-          tbody.innerHTML = `
+        // Update stats
+        document.getElementById('total-users').textContent = data.users.total_users || 0;
+        document.getElementById('active-users').textContent = data.users.active_users || 0;
+        document.getElementById('total-posts').textContent = data.users.total_posts || 0;
+
+        // Update posts table
+        const postsTable = document.getElementById('posts-table');
+        if (data.recentPosts && data.recentPosts.length > 0) {
+          postsTable.innerHTML = data.recentPosts.map(post => `
             <tr>
-              <td colspan="6" class="empty-state">
-                <p>No ideas yet. Start generating!</p>
+              <td>${post.user_id}</td>
+              <td>${post.channel_id}</td>
+              <td>${post.category}</td>
+              <td>${new Date(post.created_at * 1000).toLocaleString()}</td>
+            </tr>
+          `).join('');
+        } else {
+          postsTable.innerHTML = `
+            <tr>
+              <td colspan="4" class="empty-state">
+                <p>No posts yet.</p>
               </td>
             </tr>
           `;
-          return;
         }
-        
-        tbody.innerHTML = ideas.map(idea => `
-          <tr>
-            <td>${idea._id.toString().substring(0, 8)}...</td>
-            <td>${idea.topic}</td>
-            <td>${idea.category}</td>
-            <td>
-              <span class="status-badge status-${idea.status}">${idea.status}</span>
-            </td>
-            <td>${new Date(idea.created_at).toLocaleString()}</td>
-            <td>${idea.posted_at ? new Date(idea.posted_at).toLocaleString() : '-'}</td>
-          </tr>
-        `).join('');
-        
+
+        // Update users table
+        const usersTable = document.getElementById('users-table');
+        if (data.recentUsers && data.recentUsers.length > 0) {
+          usersTable.innerHTML = data.recentUsers.map(user => `
+            <tr>
+              <td>${user.telegram_id}</td>
+              <td>${user.username || '-'}</td>
+              <td>${user.channel_name || user.channel_id || '-'}</td>
+              <td>${user.posts_count || 0}</td>
+              <td>${user.completed_at ? new Date(user.completed_at * 1000).toLocaleString() : '-'}</td>
+            </tr>
+          `).join('');
+        } else {
+          usersTable.innerHTML = `
+            <tr>
+              <td colspan="5" class="empty-state">
+                <p>No users yet.</p>
+              </td>
+            </tr>
+          `;
+        }
+
       } catch (error) {
-        console.error('Error fetching ideas:', error);
-        document.getElementById('ideas-table').innerHTML = `
+        console.error('Error fetching dashboard:', error);
+        document.getElementById('posts-table').innerHTML = `
           <tr>
-            <td colspan="6" class="empty-state">
-              <p>Error loading ideas. Please refresh.</p>
+            <td colspan="4" class="empty-state">
+              <p>Error loading data. Please refresh.</p>
+            </td>
+          </tr>
+        `;
+        document.getElementById('users-table').innerHTML = `
+          <tr>
+            <td colspan="5" class="empty-state">
+              <p>Error loading data. Please refresh.</p>
             </td>
           </tr>
         `;
       }
     }
 
-    function loadDashboard() {
-      fetchStats();
-      fetchIdeas();
-    }
-
-    loadDashboard();
-    setInterval(loadDashboard, 30000);
+    fetchDashboard();
+    setInterval(fetchDashboard, 30000);
   </script>
 </body>
 </html>
