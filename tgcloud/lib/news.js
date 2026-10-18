@@ -337,17 +337,23 @@ async function generateAmharicNews(article) {
     const prompt = `You are a news writer for True Feed, an Ethiopian tech/business news channel. Convert the following English news article into Amharic.
 
 Structure:
-1. Write an impressive Amharic title with relevant emojis (keep Ethiopian context, use emotional/impressive emojis like 🚨🔥💡🎉)
-2. Below the title, write 2-3 short bullet points summarizing the news in Amharic
-3. At the end, add "**@true_feed**" in bold
+1. Write an impressive Amharic title in BOLD using <b> tags (NO emojis)
+2. Add ONE BLANK LINE after the title
+3. Below the blank line, write 2-3 short bullet points summarizing the news in Amharic (NO emojis)
+4. Add ONE BLANK LINE after the bullet points
+5. On the new line, add "<b>@true_feed</b>" in bold (use HTML <b> tags)
 
 Requirements:
 - Keep the news truthful but write it in your own words
 - Make the title catchy and impressive
 - Use Ethiopian context where appropriate
 - Bullet points should be concise (10-15 words each)
+- NO emojis anywhere in the text
 - No platform attribution or source links
 - Maximum 5 lines of text total
+- Use HTML <b> tags for bold title and @true_feed
+- Add blank lines: one after title, one before @true_feed
+- NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". ." or ". . ." for pauses instead
 
 Original English news:
 Title: ${article.title}
@@ -374,26 +380,36 @@ Generate the Amharic news following the structure above. Do not include any expl
     if (!response.ok) {
       console.error('AI generation failed:', response.status);
       // Fallback to simple format if AI fails
-      return `📰 ${article.title}
+      return `<b>${article.title}</b>
 
 • ${cleanDescription.substring(0, 100)}...
 
-**@true_feed**`;
+<b>@true_feed</b>`;
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      return `📰 ${article.title}
+      return `<b>${article.title}</b>
 
 • ${cleanDescription.substring(0, 100)}...
 
-**@true_feed**`;
+<b>@true_feed</b>`;
     }
 
     const content = data.choices[0].message.content.trim();
-    return content;
+    
+    // Replace Amharic punctuation with . . and . . . pauses
+    const cleaned = content
+      .replace(/[።፤]/g, ' . . . ')
+      .replace(/[፣፡]/g, ' . . ')
+      .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+      .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+      .replace(/[ ]{2,}/g, ' ')
+      .trim();
+    
+    return cleaned;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);
@@ -401,11 +417,11 @@ Generate the Amharic news following the structure above. Do not include any expl
     const cleanDescription = article.description
       ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 100)
       : '';
-    return `📰 ${article.title}
+    return `<b>${article.title}</b>
 
 • ${cleanDescription}...
 
-**@true_feed**`;
+<b>@true_feed</b>`;
   }
 }
 
@@ -416,4 +432,131 @@ export async function formatNewsArticle(article) {
   // Generate Amharic content with AI
   const amharicContent = await generateAmharicNews(article);
   return amharicContent;
+}
+
+/**
+ * Helper to escape HTML characters in text segments
+ */
+function escapeHTML(str) {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+/**
+ * Convert Telegram entities (bold, italic, etc.) into HTML tags
+ */
+export function entitiesToHTML(text, entities = []) {
+  if (!text) return '';
+  if (!entities || entities.length === 0) {
+    return text;
+  }
+
+  // Create tag boundary events
+  const events = [];
+  for (const entity of entities) {
+    const { type, offset, length } = entity;
+    if (typeof offset !== 'number' || typeof length !== 'number') continue;
+
+    let openTag = '';
+    let closeTag = '';
+    if (type === 'bold') {
+      openTag = '<b>';
+      closeTag = '</b>';
+    } else if (type === 'italic') {
+      openTag = '<i>';
+      closeTag = '</i>';
+    } else if (type === 'underline') {
+      openTag = '<u>';
+      closeTag = '</u>';
+    } else if (type === 'strikethrough') {
+      openTag = '<s>';
+      closeTag = '</s>';
+    } else if (type === 'code') {
+      openTag = '<code>';
+      closeTag = '</code>';
+    } else if (type === 'pre') {
+      openTag = '<pre>';
+      closeTag = '</pre>';
+    } else if (type === 'text_link' && entity.url) {
+      openTag = `<a href="${entity.url}">`;
+      closeTag = '</a>';
+    }
+
+    if (openTag && closeTag) {
+      events.push({ pos: offset, tag: openTag, isClose: false });
+      events.push({ pos: offset + length, tag: closeTag, isClose: true });
+    }
+  }
+
+  if (events.length === 0) return text;
+
+  // Sort by position ascending. At same position: closing tags before opening tags
+  events.sort((a, b) => {
+    if (a.pos !== b.pos) return a.pos - b.pos;
+    if (a.isClose && !b.isClose) return -1;
+    if (!a.isClose && b.isClose) return 1;
+    return 0;
+  });
+
+  let result = '';
+  let lastPos = 0;
+  for (const ev of events) {
+    if (ev.pos > lastPos) {
+      const slice = text.slice(lastPos, ev.pos);
+      result += escapeHTML(slice);
+      lastPos = ev.pos;
+    }
+    result += ev.tag;
+  }
+  if (lastPos < text.length) {
+    result += escapeHTML(text.slice(lastPos));
+  }
+  return result;
+}
+
+/**
+ * Format and sanitize user-edited news text to ensure required True Feed HTML styling (bold title, bold @true_feed)
+ */
+export function formatEditedNewsText(rawText, entities = []) {
+  if (!rawText) return '';
+
+  let formatted = rawText;
+
+  // 1. If Telegram entities exist (user formatted text using Telegram UI), convert to HTML
+  if (entities && entities.length > 0) {
+    formatted = entitiesToHTML(rawText, entities);
+  }
+
+  // 2. Convert common markdown bold/italic syntax if present
+  formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+  formatted = formatted.replace(/(^|[^\*])\*([^\*\n]+)\*([^\*]|$)/g, '$1<b>$2</b>$3');
+
+  // 3. Ensure title (first non-empty line) is bold
+  const lines = formatted.split('\n');
+  const firstLineIdx = lines.findIndex(l => l.trim().length > 0);
+  if (firstLineIdx !== -1) {
+    const trimmedLine = lines[firstLineIdx].trim();
+    // If the line is not already wrapped in <b> or <strong>
+    if (!trimmedLine.includes('<b>') && !trimmedLine.includes('<strong>')) {
+      lines[firstLineIdx] = `<b>${trimmedLine}</b>`;
+    }
+  }
+  formatted = lines.join('\n');
+
+  // 4. Ensure @true_feed is bold
+  if (formatted.includes('@true_feed')) {
+    formatted = formatted.replace(/(?:\*|<b>|<strong>)?@true_feed(?:\*|<\/b>|<\/strong>)?/g, '<b>@true_feed</b>');
+  } else {
+    formatted = formatted.trim() + '\n\n<b>@true_feed</b>';
+  }
+
+  // 5. Replace Amharic punctuation with . . and . . . pauses (consistency)
+  formatted = formatted
+    .replace(/[።፤]/g, ' . . . ')
+    .replace(/[፣፡]/g, ' . . ')
+    .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+    .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+    .replace(/[ ]{2,}/g, ' ')
+    .trim();
+
+  return formatted;
 }
