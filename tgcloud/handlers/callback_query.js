@@ -2,18 +2,42 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, getDashboardStats, getAllUsers, getAllPosts, createPost } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts } from '../lib/database.js';
+import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
 
 const OWNER_CHAT_ID = 685669468;
 
 /**
+ * Helper function to show the main menu for public users
+ */
+async function showMainMenu(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📰 Generate Content', callback_data: 'generate_content' },
+          { text: '⚙️ Settings', callback_data: 'settings' }
+        ],
+        [
+          { text: '📊 My Stats', callback_data: 'my_stats' }
+        ]
+      ]
+    }
+  });
+}
+
+/**
  * Helper function to show the next news article
  */
 async function showNextArticle(callbackQuery, platformId, currentIndex) {
   const platform = getPlatformById(platformId);
-  
+  const userId = callbackQuery.from.id;
+  const user = await getUserByTelegramId(userId);
+
   if (!platform) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
@@ -28,12 +52,22 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
     });
     return;
   }
-  
+
   try {
+    // Show loading message
+    const loadingMessage = await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📰 Fetching next article from ${platform.name}...`,
+    });
+
     const articles = await fetchRSSFeed(platform.url, platform.name);
     const nextIndex = currentIndex + 1;
-    
+
     if (nextIndex >= articles.length) {
+      await api.deleteMessage({
+        chat_id: callbackQuery.message.chat.id,
+        message_id: loadingMessage.message_id,
+      });
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: '📰 No more articles from this platform.',
@@ -48,23 +82,84 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       });
       return;
     }
-    
+
     const article = articles[nextIndex];
-    const articleText = await formatNewsArticle(article);
-    
-    const keyboard = [
-      [
-        { text: '📢 TrueFeed', callback_data: `news_truefeed_${platformId}_${nextIndex}` },
-        { text: '🧪 Test', callback_data: `news_test_${platformId}_${nextIndex}` }
-      ],
-      [
-        { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
-        { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
-      ],
-      [
-        { text: '↩️ Back', callback_data: 'get_news' }
-      ]
-    ];
+
+    // Get user channel link for content creator attribution
+    let userChannelLink = null;
+    if (user && user.channel_name) {
+      // Format as @channelname if it starts with @, otherwise as t.me/channelname
+      if (user.channel_name.startsWith('@')) {
+        userChannelLink = user.channel_name;
+      } else {
+        userChannelLink = `t.me/${user.channel_name}`;
+      }
+    } else if (user && user.channel_id) {
+      // Use channel_id if channel_name is not available
+      userChannelLink = user.channel_id;
+    }
+
+    const showSourceLink = user?.show_source_link === 1;
+    const useDotPunctuation = user?.use_dot_punctuation === 1;
+    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+
+    // Delete loading message
+    await api.deleteMessage({
+      chat_id: callbackQuery.message.chat.id,
+      message_id: loadingMessage.message_id,
+    });
+
+    // Determine keyboard based on user type and test channel availability
+    const isOwner = userId === OWNER_CHAT_ID;
+    let keyboard;
+
+    if (isOwner) {
+      keyboard = [
+        [
+          { text: '📢 TrueFeed', callback_data: `news_truefeed_${platformId}_${nextIndex}` },
+          { text: '🧪 Test', callback_data: `news_test_${platformId}_${nextIndex}` }
+        ],
+        [
+          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+          { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'get_news' }
+        ]
+      ];
+    } else {
+      // Check if user has a test channel configured
+      const hasTestChannel = user && user.test_channel_id;
+
+      if (hasTestChannel) {
+        keyboard = [
+          [
+            { text: '📢 Main Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` },
+            { text: '🧪 Test Channel', callback_data: `news_user_test_channel_${platformId}_${nextIndex}` }
+          ],
+          [
+            { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+            { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'get_news' }
+          ]
+        ];
+      } else {
+        keyboard = [
+          [
+            { text: '📢 Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
+          ],
+          [
+            { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+            { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'get_news' }
+          ]
+        ];
+      }
+    }
     
     // Send with image if available, otherwise just text
     if (article.image) {
@@ -99,7 +194,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
         }
       });
     }
-    
+
   } catch (error) {
     console.error('Error showing next article:', error);
     await api.sendMessage({
@@ -120,7 +215,7 @@ export default async function (callbackQuery, ctx) {
   const userId = callbackQuery.from.id;
 
   const data = callbackQuery.data;
-  console.log('Callback received:', data);
+  console.log('Callback received:', data, 'from user:', userId);
 
   // Answer the callback query (skip if it might be old)
   try {
@@ -167,76 +262,13 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Owner-specific callbacks (authorization check)
-  if (userId !== OWNER_CHAT_ID) {
-    await api.answerCallbackQuery({
-      callback_query_id: callbackQuery.id,
-      text: '⛔ Unauthorized',
-    });
+  if (data.startsWith('news_user_test_channel_')) {
+    await handlePostToUserTestChannel(callbackQuery, userId, data);
     return;
   }
 
-  // Handle new_idea button
-  if (data === 'new_idea') {
-    try {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: '⏳ Generating idea...',
-      });
-      
-      const idea = await generateIdea();
-      
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: idea.content,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '✅ Approve & Post', callback_data: `approve_${idea.id}` },
-              { text: '❌ Reject — New Idea', callback_data: `reject_${idea.id}` }
-            ],
-            [
-              { text: '↩️ Back', callback_data: 'back' }
-            ]
-          ]
-        }
-      });
-      
-    } catch (error) {
-      console.error('Error in new_idea callback:', error);
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: '❌ Failed to generate idea. Please try again.',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'idea', callback_data: 'new_idea' },
-              { text: '📰 news', callback_data: 'get_news' }
-            ]
-          ]
-        }
-      });
-    }
-  }
-  
-  // Handle back button
-  else if (data === 'back') {
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: '🌱 TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'idea', callback_data: 'new_idea' },
-            { text: '📰 news', callback_data: 'get_news' }
-          ]
-        ]
-      }
-    });
-  }
-  
-  // Handle get_news button - show platform selection
-  else if (data === 'get_news') {
+  // Public news handlers (before owner check)
+  if (data === 'get_news') {
     // Organize platforms in rows of 2
     const keyboard = [];
     for (let i = 0; i < NEWS_PLATFORMS.length; i += 2) {
@@ -256,7 +288,7 @@ export default async function (callbackQuery, ctx) {
     keyboard.push([
       { text: '↩️ Back', callback_data: 'back' }
     ]);
-    
+
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: '📰 Select a news platform:',
@@ -264,14 +296,14 @@ export default async function (callbackQuery, ctx) {
         inline_keyboard: keyboard
       }
     });
+    return;
   }
-  
-  // Handle platform selection - fetch and show first news article
-  else if (data.startsWith('news_platform_')) {
+
+  if (data.startsWith('news_platform_')) {
     const platformId = data.replace('news_platform_', '');
     const platform = getPlatformById(platformId);
-    const user = await getUserByTelegramId(userId);
     const isOwner = userId === OWNER_CHAT_ID;
+    const user = await getUserByTelegramId(userId);
 
     if (!platform) {
       await api.sendMessage({
@@ -305,62 +337,109 @@ export default async function (callbackQuery, ctx) {
               [
                 { text: '↩️ Back', callback_data: 'back' }
               ]
-          ]
-        }
-      });
-      return;
-    }
-
-    // Show first article with buttons
-    const article = articles[0];
-    const articleText = await formatNewsArticle(article);
-
-    // Different buttons for owner vs public user
-    let keyboard;
-    if (isOwner) {
-      keyboard = [
-        [
-          { text: '📢 TrueFeed', callback_data: `news_truefeed_${platformId}_0` },
-          { text: '🧪 Test', callback_data: `news_test_${platformId}_0` }
-        ],
-        [
-          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
-          { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
-        ],
-        [
-          { text: '↩️ Back', callback_data: 'back' }
-        ]
-      ];
-    } else {
-      keyboard = [
-        [
-          { text: '📢 Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
-        ],
-        [
-          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
-          { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
-        ],
-        [
-          { text: '↩️ Back', callback_data: 'back' }
-        ]
-      ];
-    }
-
-    // Send with image if available, otherwise just text
-    if (article.image) {
-      try {
-        await api.sendPhoto({
-          chat_id: callbackQuery.message.chat.id,
-          photo: article.image,
-          caption: articleText,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
+            ]
           }
         });
-      } catch (photoError) {
-        console.error('Failed to send photo, falling back to text:', photoError.message);
-        // Fallback to text if photo fails
+        return;
+      }
+
+      // Show first article with buttons
+      const article = articles[0];
+
+      // Get user channel link for content creator attribution
+      let userChannelLink = null;
+      if (user && user.channel_name) {
+        // Format as @channelname if it starts with @, otherwise as t.me/channelname
+        if (user.channel_name.startsWith('@')) {
+          userChannelLink = user.channel_name;
+        } else {
+          userChannelLink = `t.me/${user.channel_name}`;
+        }
+      } else if (user && user.channel_id) {
+        // Use channel_id if channel_name is not available
+        userChannelLink = user.channel_id;
+      }
+
+      const botDisplayName = user?.bot_display_name || null;
+      const showSourceLink = user?.show_source_link === 1;
+      const useDotPunctuation = user?.use_dot_punctuation === 1;
+      const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
+
+      // Different buttons for owner vs public user
+      let keyboard;
+      if (isOwner) {
+        keyboard = [
+          [
+            { text: '📢 TrueFeed', callback_data: `news_truefeed_${platformId}_0` },
+            { text: '🧪 Test', callback_data: `news_test_${platformId}_0` }
+          ],
+          [
+            { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
+            { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ];
+      } else {
+        // Check if user has a test channel configured
+        const hasTestChannel = user && user.test_channel_id;
+
+        if (hasTestChannel) {
+          keyboard = [
+            [
+              { text: '📢 Main Channel', callback_data: `news_user_channel_${platformId}_0` },
+              { text: '🧪 Test Channel', callback_data: `news_user_test_channel_${platformId}_0` }
+            ],
+            [
+              { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
+              { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ];
+        } else {
+          keyboard = [
+            [
+              { text: '📢 Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
+            ],
+            [
+              { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
+              { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ];
+        }
+      }
+
+      // Send with image if available, otherwise just text
+      if (article.image) {
+        try {
+          await api.sendPhoto({
+            chat_id: callbackQuery.message.chat.id,
+            photo: article.image,
+            caption: articleText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        } catch (photoError) {
+          console.error('Failed to send photo, falling back to text:', photoError.message);
+          // Fallback to text if photo fails
+          await api.sendMessage({
+            chat_id: callbackQuery.message.chat.id,
+            text: articleText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        }
+      } else {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
           text: articleText,
@@ -370,22 +449,167 @@ export default async function (callbackQuery, ctx) {
           }
         });
       }
-    } else {
+
+    } catch (error) {
+      console.error('Error fetching news:', error);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: articleText,
-        parse_mode: 'HTML',
+        text: `❌ Failed to fetch news: ${error.message}`,
         reply_markup: {
-          inline_keyboard: keyboard
+          inline_keyboard: [
+            [
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ]
         }
       });
     }
+    return;
+  }
 
-  } catch (error) {
-    console.error('Error fetching news:', error);
+  if (data.startsWith('news_skip_')) {
+    const parts = data.replace('news_skip_', '').split('_');
+    const platformId = parts[0];
+    const currentIndex = parseInt(parts[1]);
+
+    await showNextArticle(callbackQuery, platformId, currentIndex);
+    return;
+  }
+
+  if (data.startsWith('news_edit_')) {
+    console.log('news_edit callback received:', data);
+    const parts = data.replace('news_edit_', '').split('_');
+    const platformId = parts[0];
+    const currentIndex = parseInt(parts[1]);
+
+    // Extract image from the current message if it was a photo message
+    let imageUrl = null;
+    if (callbackQuery.message?.photo && callbackQuery.message.photo.length > 0) {
+      imageUrl = callbackQuery.message.photo[callbackQuery.message.photo.length - 1].file_id;
+    } else {
+      // Fallback: look up article from RSS feed
+      const platform = getPlatformById(platformId);
+      if (platform) {
+        try {
+          const articles = await fetchRSSFeed(platform.url, platform.name);
+          if (articles && articles[currentIndex] && articles[currentIndex].image) {
+            imageUrl = articles[currentIndex].image;
+          }
+        } catch (e) {
+          console.error('Error fetching article image for edit:', e);
+        }
+      }
+    }
+
+    console.log('Saving pending edit with image:', imageUrl);
+
+    // Create a placeholder pending edit so the message handler knows
+    // the user's next message is an edit (not a random message) and retains the image
+    await savePendingEdit(callbackQuery.from.id, '__waiting__', imageUrl);
+
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `❌ Failed to fetch news: ${error.message}`,
+      text: '✏️ Please send your edited version of the news.\n\nReply with the text you want to post.',
+    });
+    return;
+  }
+
+  // Handle settings button (public)
+  if (data === 'settings') {
+    const user = await getUserByTelegramId(userId);
+    const currentBotName = user?.bot_display_name || 'Default';
+    const showSourceLink = user?.show_source_link === 1 ? 'Yes' : 'No';
+    const useDotPunctuation = user?.use_dot_punctuation === 1 ? 'Yes' : 'No';
+
+    const isOwner = userId === OWNER_CHAT_ID;
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `⚙️ Settings\n\n🤖 Bot Display Name: ${currentBotName}\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n\nWhat would you like to change?`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🤖 Change Bot Name', callback_data: 'change_bot_name' },
+            { text: '🔗 Toggle Source Link', callback_data: 'toggle_source_link' }
+          ],
+          ...(isOwner ? [[{ text: '✨ Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle change bot name
+  if (data === 'change_bot_name') {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🤖 Change Bot Display Name\n\nPlease send your preferred bot name (e.g., "My News Bot").\n\nType "skip" to remove custom name and use default.',
+    });
+    // Store the intent in pending edit
+    await savePendingEdit(userId, '__change_bot_name__', null);
+    return;
+  }
+
+  // Handle toggle source link
+  if (data === 'toggle_source_link') {
+    const user = await getUserByTelegramId(userId);
+    const newValue = user?.show_source_link === 1 ? 0 : 1;
+    await updateUserShowSourceLink(userId, newValue === 1);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `✅ Source link ${newValue === 1 ? 'enabled' : 'disabled'}.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '↩️ Back to Settings', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle toggle dot punctuation (owner only)
+  if (data === 'toggle_dot_punctuation') {
+    const user = await getUserByTelegramId(userId);
+    const newValue = user?.use_dot_punctuation === 1 ? 0 : 1;
+    await updateUserDotPunctuation(userId, newValue === 1);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `✅ Dot punctuation ${newValue === 1 ? 'enabled' : 'disabled'}.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '↩️ Back to Settings', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle my stats button (public)
+  if (data === 'my_stats') {
+    const user = await getUserByTelegramId(userId);
+    if (!user) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ User not found.',
+      });
+      return;
+    }
+
+    const userPosts = await getUserPosts(user.id);
+    const categories = user.categories ? JSON.parse(user.categories) : [];
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📊 Your Stats\n\n📰 Total Posts: ${user.posts_count || 0}\n📂 Categories: ${categories.length > 0 ? categories.join(', ') : 'None'}\n📺 Channel: ${user.channel_name || user.channel_id || 'Not set'}\n👤 Display Name: ${user.display_name || 'Not set'}`,
       reply_markup: {
         inline_keyboard: [
           [
@@ -394,17 +618,276 @@ export default async function (callbackQuery, ctx) {
         ]
       }
     });
+    return;
   }
+
+  // Handle post edited news to user's main channel (public)
+  if (data.startsWith('post_edit_user_main:')) {
+    console.log('=== post_edit_user_main handler triggered ===');
+    console.log('Callback data:', data);
+    console.log('User ID:', userId);
+    try {
+      const pendingEdit = await getPendingEdit(callbackQuery.from.id);
+      console.log('Pending edit:', pendingEdit);
+
+      if (!pendingEdit || pendingEdit.text === '__waiting__') {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ No edited text found. Please try editing again.',
+        });
+        return;
+      }
+
+      const user = await getUserByTelegramId(callbackQuery.from.id);
+      console.log('User:', user);
+
+      if (!user || !user.channel_id) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ Channel not found. Please complete onboarding first.',
+        });
+        return;
+      }
+
+      console.log('Posting edited news to user channel:', user.channel_id);
+
+      // Post with image if available, otherwise just text
+      if (pendingEdit.image_url) {
+        try {
+          await api.sendPhoto({
+            chat_id: user.channel_id,
+            photo: pendingEdit.image_url,
+            caption: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        } catch (photoError) {
+          console.error('Failed to post edited photo to user channel, falling back to text:', photoError);
+          await api.sendMessage({
+            chat_id: user.channel_id,
+            text: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        }
+      } else {
+        await api.sendMessage({
+          chat_id: user.channel_id,
+          text: pendingEdit.text,
+          parse_mode: 'HTML',
+        });
+      }
+
+      // Track the post in database
+      await createPost(user.id, user.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+
+      await deletePendingEdit(callbackQuery.from.id);
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '✅ Edited news posted to your channel!',
+      });
+    } catch (error) {
+      console.error('Error posting edited news to user channel:', error);
+      if (error instanceof BotApiError) {
+        console.error('Bot API Error code:', error.code, 'description:', error.description);
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.description}. Make sure the bot is an admin in your channel with "Post Messages" permission.`,
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.message}`,
+        });
+      }
+    }
+    return;
   }
-  
-  // Handle news TrueFeed - post to main channel, then show next article
-  else if (data.startsWith('news_truefeed_')) {
+
+  // Handle post edited news to user's test channel (public)
+  if (data.startsWith('post_edit_user_test:')) {
+    try {
+      const pendingEdit = await getPendingEdit(callbackQuery.from.id);
+      if (!pendingEdit || pendingEdit.text === '__waiting__') {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ No edited text found. Please try editing again.',
+        });
+        return;
+      }
+
+      const user = await getUserByTelegramId(callbackQuery.from.id);
+      if (!user || !user.test_channel_id) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ Test channel not found. Please configure your test channel in settings.',
+        });
+        return;
+      }
+
+      console.log('Posting edited news to user test channel:', user.test_channel_id);
+
+      // Post with image if available, otherwise just text
+      if (pendingEdit.image_url) {
+        try {
+          await api.sendPhoto({
+            chat_id: user.test_channel_id,
+            photo: pendingEdit.image_url,
+            caption: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        } catch (photoError) {
+          console.error('Failed to post edited photo to user test channel, falling back to text:', photoError);
+          await api.sendMessage({
+            chat_id: user.test_channel_id,
+            text: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        }
+      } else {
+        await api.sendMessage({
+          chat_id: user.test_channel_id,
+          text: pendingEdit.text,
+          parse_mode: 'HTML',
+        });
+      }
+
+      // Track the post in database
+      await createPost(user.id, user.test_channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+
+      await deletePendingEdit(callbackQuery.from.id);
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '✅ Edited news posted to your test channel!',
+      });
+    } catch (error) {
+      console.error('Error posting edited news to test channel:', error);
+      if (error instanceof BotApiError) {
+        console.error('Bot API Error code:', error.code, 'description:', error.description);
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.description}. Make sure the bot is an admin in your test channel with "Post Messages" permission.`,
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.message}`,
+        });
+      }
+    }
+    return;
+  }
+
+  // Handle cancel edit (public)
+  if (data === 'cancel_edit') {
+    await deletePendingEdit(callbackQuery.from.id);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Edit cancelled.',
+    });
+    return;
+  }
+
+  // Handle back button (public)
+  if (data === 'back') {
+    const user = await getUserByTelegramId(userId);
+    const isOwner = userId === OWNER_CHAT_ID;
+
+    if (isOwner) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '🌱 TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'idea', callback_data: 'new_idea' },
+              { text: '📰 news', callback_data: 'get_news' }
+            ]
+          ]
+        }
+      });
+    } else if (user && user.onboarding_step === 'completed') {
+      await showMainMenu(callbackQuery.message.chat.id);
+    } else {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📰 Generate Content', callback_data: 'generate_content' },
+              { text: '⚙️ Settings', callback_data: 'settings' }
+            ],
+            [
+              { text: '📊 My Stats', callback_data: 'my_stats' }
+            ]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Owner-specific callbacks (authorization check)
+  if (userId !== OWNER_CHAT_ID) {
+    await api.answerCallbackQuery({
+      callback_query_id: callbackQuery.id,
+      text: '⛔ Unauthorized',
+    });
+    return;
+  }
+
+  // Handle new_idea button (owner only)
+  if (data === 'new_idea') {
+    try {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '⏳ Generating idea...',
+      });
+
+      const idea = await generateIdea();
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: idea.content,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Approve & Post', callback_data: `approve_${idea.id}` },
+              { text: '❌ Reject — New Idea', callback_data: `reject_${idea.id}` }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error in new_idea callback:', error);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ Failed to generate idea. Please try again.',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'idea', callback_data: 'new_idea' },
+              { text: '📰 news', callback_data: 'get_news' }
+            ]
+          ]
+        }
+      });
+    }
+  }
+
+  // Handle news TrueFeed - post to main channel, then show next article (owner only)
+  if (data.startsWith('news_truefeed_')) {
     const parts = data.replace('news_truefeed_', '').split('_');
     const platformId = parts[0];
     const currentIndex = parseInt(parts[1]);
-    
+
     const platform = getPlatformById(platformId);
-    
+
     if (!platform) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -412,10 +895,12 @@ export default async function (callbackQuery, ctx) {
       });
       return;
     }
-    
+
+    const user = await getUserByTelegramId(userId);
+
     try {
       const articles = await fetchRSSFeed(platform.url, platform.name);
-      
+
       if (currentIndex >= articles.length) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
@@ -423,9 +908,11 @@ export default async function (callbackQuery, ctx) {
         });
         return;
       }
-      
+
       const article = articles[currentIndex];
-      const articleText = await formatNewsArticle(article);
+      const showSourceLink = user?.show_source_link === 1;
+      const useDotPunctuation = user?.use_dot_punctuation === 1;
+      const articleText = await formatNewsArticle(article, '@true_feed', null, showSourceLink, useDotPunctuation);
       
       // Post to the True Feed channel
       if (article.image) {
@@ -470,14 +957,14 @@ export default async function (callbackQuery, ctx) {
     await showNextArticle(callbackQuery, platformId, currentIndex);
   }
   
-  // Handle news Test - post to test channel, then show next article
-  else if (data.startsWith('news_test_')) {
+  // Handle news Test - post to test channel, then show next article (owner only)
+  if (data.startsWith('news_test_')) {
     const parts = data.replace('news_test_', '').split('_');
     const platformId = parts[0];
     const currentIndex = parseInt(parts[1]);
-    
+
     const platform = getPlatformById(platformId);
-    
+
     if (!platform) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -485,10 +972,12 @@ export default async function (callbackQuery, ctx) {
       });
       return;
     }
-    
+
+    const user = await getUserByTelegramId(userId);
+
     try {
       const articles = await fetchRSSFeed(platform.url, platform.name);
-      
+
       if (currentIndex >= articles.length) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
@@ -496,10 +985,12 @@ export default async function (callbackQuery, ctx) {
         });
         return;
       }
-      
+
       const article = articles[currentIndex];
-      const articleText = await formatNewsArticle(article);
-      
+      const showSourceLink = user?.show_source_link === 1;
+      const useDotPunctuation = user?.use_dot_punctuation === 1;
+      const articleText = await formatNewsArticle(article, '@true_feed', null, showSourceLink, useDotPunctuation);
+
       // Post to the Test channel
       if (article.image) {
         try {
@@ -524,13 +1015,13 @@ export default async function (callbackQuery, ctx) {
           parse_mode: 'HTML',
         });
       }
-      
+
       // Confirm to the owner
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: '🧪 Posted to Test channel!',
       });
-      
+
     } catch (error) {
       console.error('Error posting article to test channel:', error);
       await api.sendMessage({
@@ -538,66 +1029,13 @@ export default async function (callbackQuery, ctx) {
         text: `❌ Failed to post article: ${error.message}`,
       });
     }
-    
+
     // Show next article
     await showNextArticle(callbackQuery, platformId, currentIndex);
   }
-  
-  // Handle news edit - prompt user to send edited version
-  else if (data.startsWith('news_edit_')) {
-    const parts = data.replace('news_edit_', '').split('_');
-    const platformId = parts[0];
-    const currentIndex = parseInt(parts[1]);
 
-    // Extract image from the current message if it was a photo message
-    let imageUrl = null;
-    if (callbackQuery.message?.photo && callbackQuery.message.photo.length > 0) {
-      imageUrl = callbackQuery.message.photo[callbackQuery.message.photo.length - 1].file_id;
-    } else {
-      // Fallback: look up article from RSS feed
-      const platform = getPlatformById(platformId);
-      if (platform) {
-        try {
-          const articles = await fetchRSSFeed(platform.url, platform.name);
-          if (articles && articles[currentIndex] && articles[currentIndex].image) {
-            imageUrl = articles[currentIndex].image;
-          }
-        } catch (e) {
-          console.error('Error fetching article image for edit:', e);
-        }
-      }
-    }
-
-    // Create a placeholder pending edit so the message handler knows
-    // the user's next message is an edit (not a random message) and retains the image
-    await savePendingEdit(callbackQuery.from.id, '__waiting__', imageUrl);
-
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: '✏️ Please send your edited version of the news.\n\nReply with the text you want to post.',
-    });
-  }
-
-  // Handle news reject - just show next article
-  else if (data.startsWith('news_reject_')) {
-    const parts = data.replace('news_reject_', '').split('_');
-    const platformId = parts[0];
-    const currentIndex = parseInt(parts[1]);
-
-    await showNextArticle(callbackQuery, platformId, currentIndex);
-  }
-
-  // Handle news skip - just show next article
-  else if (data.startsWith('news_skip_')) {
-    const parts = data.replace('news_skip_', '').split('_');
-    const platformId = parts[0];
-    const currentIndex = parseInt(parts[1]);
-
-    await showNextArticle(callbackQuery, platformId, currentIndex);
-  }
-
-  // Handle post edited news to TrueFeed
-  else if (data.startsWith('post_edit_truefeed:')) {
+  // Handle post edited news to TrueFeed (owner only)
+  if (data.startsWith('post_edit_truefeed:')) {
     try {
       const pendingEdit = await getPendingEdit(callbackQuery.from.id);
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
@@ -607,6 +1045,8 @@ export default async function (callbackQuery, ctx) {
         });
         return;
       }
+
+      console.log('Posting edited news to TrueFeed channel:', TRUE_FEED_CHANNEL_ID);
 
       // Post with image if available, otherwise just text
       if (pendingEdit.image_url) {
@@ -640,16 +1080,24 @@ export default async function (callbackQuery, ctx) {
         text: '✅ Edited news posted to TrueFeed!',
       });
     } catch (error) {
-      console.error('Error posting edited news:', error);
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `❌ Failed to post: ${error.message}`,
-      });
+      console.error('Error posting edited news to TrueFeed:', error);
+      if (error instanceof BotApiError) {
+        console.error('Bot API Error code:', error.code, 'description:', error.description);
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.description}`,
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.message}`,
+        });
+      }
     }
   }
 
-  // Handle post edited news to Test
-  else if (data.startsWith('post_edit_test:')) {
+  // Handle post edited news to Test (owner only)
+  if (data.startsWith('post_edit_test:')) {
     try {
       const pendingEdit = await getPendingEdit(callbackQuery.from.id);
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
@@ -659,6 +1107,8 @@ export default async function (callbackQuery, ctx) {
         });
         return;
       }
+
+      console.log('Posting edited news to Test channel:', TEST_CHANNEL_ID);
 
       // Post with image if available, otherwise just text
       if (pendingEdit.image_url) {
@@ -692,25 +1142,24 @@ export default async function (callbackQuery, ctx) {
         text: '🧪 Edited news posted to Test channel!',
       });
     } catch (error) {
-      console.error('Error posting edited news:', error);
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `❌ Failed to post: ${error.message}`,
-      });
+      console.error('Error posting edited news to Test channel:', error);
+      if (error instanceof BotApiError) {
+        console.error('Bot API Error code:', error.code, 'description:', error.description);
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.description}`,
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.message}`,
+        });
+      }
     }
   }
 
-  // Handle cancel edit
-  else if (data === 'cancel_edit') {
-    await deletePendingEdit(callbackQuery.from.id);
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: '❌ Edit cancelled.',
-    });
-  }
-
   // Handle approve button
-  else if (data.startsWith('approve_')) {
+  if (data.startsWith('approve_')) {
     const ideaId = parseInt(data.replace('approve_', ''));
     
     try {
@@ -752,7 +1201,7 @@ export default async function (callbackQuery, ctx) {
   }
   
   // Handle reject button
-  else if (data.startsWith('reject_')) {
+  if (data.startsWith('reject_')) {
     const ideaId = parseInt(data.replace('reject_', ''));
 
     try {
@@ -1065,7 +1514,24 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
     }
 
     const article = articles[currentIndex];
-    const articleText = await formatNewsArticle(article);
+
+    // Get user channel link for content creator attribution
+    let userChannelLink = null;
+    if (user && user.channel_name) {
+      // Format as @channelname if it starts with @, otherwise as t.me/channelname
+      if (user.channel_name.startsWith('@')) {
+        userChannelLink = user.channel_name;
+      } else {
+        userChannelLink = `t.me/${user.channel_name}`;
+      }
+    } else if (user && user.channel_id) {
+      // Use channel_id if channel_name is not available
+      userChannelLink = user.channel_id;
+    }
+
+    const showSourceLink = user?.show_source_link === 1;
+    const useDotPunctuation = user?.use_dot_punctuation === 1;
+    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
 
     // Post to the user's channel
     if (article.image) {
@@ -1103,6 +1569,107 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
 
   } catch (error) {
     console.error('Error posting article to user channel:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `❌ Failed to post article: ${error.message}`,
+    });
+  }
+
+  // Show next article
+  await showNextArticle(callbackQuery, platformId, currentIndex);
+}
+
+async function handlePostToUserTestChannel(callbackQuery, userId, data) {
+  const parts = data.replace('news_user_test_channel_', '').split('_');
+  const platformId = parts[0];
+  const currentIndex = parseInt(parts[1]);
+
+  const user = await getUserByTelegramId(userId);
+  const platform = getPlatformById(platformId);
+
+  if (!user || !user.test_channel_id) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Test channel not found. Please configure your test channel in settings.',
+    });
+    return;
+  }
+
+  if (!platform) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Platform not found.',
+    });
+    return;
+  }
+
+  try {
+    const articles = await fetchRSSFeed(platform.url, platform.name);
+
+    if (currentIndex >= articles.length) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ Article no longer available.',
+      });
+      return;
+    }
+
+    const article = articles[currentIndex];
+
+    // Get user channel link for content creator attribution
+    let userChannelLink = null;
+    if (user && user.channel_name) {
+      // Format as @channelname if it starts with @, otherwise as t.me/channelname
+      if (user.channel_name.startsWith('@')) {
+        userChannelLink = user.channel_name;
+      } else {
+        userChannelLink = `t.me/${user.channel_name}`;
+      }
+    } else if (user && user.channel_id) {
+      // Use channel_id if channel_name is not available
+      userChannelLink = user.channel_id;
+    }
+
+    const showSourceLink = user?.show_source_link === 1;
+    const useDotPunctuation = user?.use_dot_punctuation === 1;
+    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+
+    // Post to the user's test channel
+    if (article.image) {
+      try {
+        await api.sendPhoto({
+          chat_id: user.test_channel_id,
+          photo: article.image,
+          caption: articleText,
+          parse_mode: 'HTML',
+        });
+      } catch (photoError) {
+        console.error('Failed to send photo to test channel, falling back to text:', photoError.message);
+        await api.sendMessage({
+          chat_id: user.test_channel_id,
+          text: articleText,
+          parse_mode: 'HTML',
+        });
+      }
+    } else {
+      await api.sendMessage({
+        chat_id: user.test_channel_id,
+        text: articleText,
+        parse_mode: 'HTML',
+      });
+    }
+
+    // Track the post (but don't increment main posts count since it's test)
+    await createPost(user.id, user.test_channel_id, articleText, article.category || 'news', platform.name, article.image);
+
+    // Confirm to the user
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '✅ Posted to your test channel!',
+    });
+
+  } catch (error) {
+    console.error('Error posting article to user test channel:', error);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: `❌ Failed to post article: ${error.message}`,

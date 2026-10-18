@@ -188,9 +188,37 @@ export async function updateUserChannelId(telegramId, channelId, channelName = n
     .run();
 }
 
+export async function updateUserTestChannelId(telegramId, testChannelId, testChannelName = null) {
+  await db.update(users)
+    .set({ test_channel_id: testChannelId, test_channel_name: testChannelName })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
 export async function updateUserDisplayName(telegramId, displayName) {
   await db.update(users)
     .set({ display_name: displayName })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateUserBotDisplayName(telegramId, botDisplayName) {
+  await db.update(users)
+    .set({ bot_display_name: botDisplayName })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateUserShowSourceLink(telegramId, showSourceLink) {
+  await db.update(users)
+    .set({ show_source_link: showSourceLink ? 1 : 0 })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateUserDotPunctuation(telegramId, useDotPunctuation) {
+  await db.update(users)
+    .set({ use_dot_punctuation: useDotPunctuation ? 1 : 0 })
     .where(eq(users.telegram_id, telegramId))
     .run();
 }
@@ -302,13 +330,26 @@ export async function getDashboardStats() {
     .limit(10)
     .all();
 
+  // Convert timestamps to numbers for JSON serialization
+  const serializedPosts = recentPosts.map(post => ({
+    ...post,
+    created_at: post.created_at ? Number(post.created_at) : null
+  }));
+
+  const serializedUsers = recentUsers.map(user => ({
+    ...user,
+    created_at: user.created_at ? Number(user.created_at) : null,
+    completed_at: user.completed_at ? Number(user.completed_at) : null,
+    last_posted_at: user.last_posted_at ? Number(user.last_posted_at) : null
+  }));
+
   return {
     users: {
       total_users: allUsers.length,
       active_users: activeUsers.length,
       total_posts: totalPosts
     },
-    recentPosts,
-    recentUsers
+    recentPosts: serializedPosts,
+    recentUsers: serializedUsers
   };
 }

@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserOnboardingStep, updateUserDisplayName, addCustomSource } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource } from '../lib/database.js';
 import { formatEditedNewsText } from '../lib/news.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
@@ -26,6 +26,11 @@ export default async function (message, ctx) {
 
     // Get or create user
     const user = await getOrCreateUser(userId, username);
+
+    // Enable dot punctuation for owner by default
+    if (userId === OWNER_CHAT_ID) {
+      await updateUserDotPunctuation(userId, true);
+    }
 
     // Owner gets the old interface
     if (userId === OWNER_CHAT_ID) {
@@ -106,25 +111,60 @@ export default async function (message, ctx) {
   if (incomingText && !incomingText.startsWith('/')) {
     const user = await getUserByTelegramId(userId);
 
-    // Handle edited news post (owner only)
-    if (userId === OWNER_CHAT_ID) {
-      const pendingEdit = await getPendingEdit(userId);
-      if (pendingEdit) {
-        // User is in edit mode — preserve original image or use newly uploaded photo
-        const newPhotoId = (message.photo && message.photo.length > 0)
-          ? message.photo[message.photo.length - 1].file_id
-          : null;
-        const imageToUse = newPhotoId || pendingEdit.image_url;
+    // Handle edited news post (both owner and public users)
+    const pendingEdit = await getPendingEdit(userId);
+    console.log('Pending edit found:', pendingEdit);
+    if (pendingEdit) {
+      // Check if user is changing bot name
+      if (pendingEdit.text === '__change_bot_name__') {
+        if (incomingText.toLowerCase() === 'skip') {
+          await updateUserBotDisplayName(userId, null);
+          await deletePendingEdit(userId);
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: '✅ Bot name reset to default.',
+          });
+        } else {
+          await updateUserBotDisplayName(userId, incomingText);
+          await deletePendingEdit(userId);
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: `✅ Bot display name updated to: ${incomingText}`,
+          });
+        }
+        return;
+      }
 
-        // Extract entities (from text or photo caption)
-        const entities = message.entities || message.caption_entities || [];
+      console.log('User is in edit mode, processing edited text');
 
-        // Format text to preserve and enforce HTML boldness (title, @true_feed, entities)
-        const formattedText = formatEditedNewsText(incomingText, entities);
+      // User is in edit mode — preserve original image or use newly uploaded photo
+      const newPhotoId = (message.photo && message.photo.length > 0)
+        ? message.photo[message.photo.length - 1].file_id
+        : null;
+      const imageToUse = newPhotoId || pendingEdit.image_url;
 
-        const editId = await savePendingEdit(userId, formattedText, imageToUse);
+      console.log('Image to use:', imageToUse);
 
-        const keyboard = [
+      // Extract entities (from text or photo caption)
+      const entities = message.entities || message.caption_entities || [];
+
+      // Format text to preserve and enforce HTML boldness (title, entities)
+      const useDotPunctuation = user?.use_dot_punctuation === 1;
+      const addTrueFeedAttribution = userId === OWNER_CHAT_ID; // Only add @true_feed for owner
+      const formattedText = formatEditedNewsText(incomingText, entities, useDotPunctuation, addTrueFeedAttribution);
+
+      console.log('Formatted text length:', formattedText.length);
+
+      const editId = await savePendingEdit(userId, formattedText, imageToUse);
+
+      console.log('Saved pending edit with ID:', editId);
+
+      // Determine keyboard based on user type and test channel availability
+      const isOwner = userId === OWNER_CHAT_ID;
+      let keyboard;
+
+      if (isOwner) {
+        keyboard = [
           [
             { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
             { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
@@ -133,63 +173,89 @@ export default async function (message, ctx) {
             { text: '❌ Cancel', callback_data: 'cancel_edit' }
           ]
         ];
+      } else {
+        // Check if user has a test channel configured
+        const hasTestChannel = user && user.test_channel_id;
 
-        // Send formatted preview with buttons so user can see boldness and image
-        if (imageToUse) {
-          try {
-            await api.sendPhoto({
-              chat_id: message.chat.id,
-              photo: imageToUse,
-              caption: formattedText,
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: keyboard
-              }
-            });
-            return;
-          } catch (photoErr) {
-            console.error('Failed to send preview photo, falling back to message:', photoErr.message);
-          }
+        if (hasTestChannel) {
+          keyboard = [
+            [
+              { text: '📢 Main Channel', callback_data: `post_edit_user_main:${editId}` },
+              { text: '🧪 Test Channel', callback_data: `post_edit_user_test:${editId}` }
+            ],
+            [
+              { text: '❌ Cancel', callback_data: 'cancel_edit' }
+            ]
+          ];
+        } else {
+          keyboard = [
+            [
+              { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+            ],
+            [
+              { text: '❌ Cancel', callback_data: 'cancel_edit' }
+            ]
+          ];
         }
+      }
 
+      console.log('Sending preview with keyboard:', JSON.stringify(keyboard));
+
+      // Send formatted preview with buttons so user can see boldness and image
+      try {
+        if (imageToUse) {
+          await api.sendPhoto({
+            chat_id: message.chat.id,
+            photo: imageToUse,
+            caption: formattedText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+          console.log('Photo preview sent successfully');
+        } else {
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: formattedText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+          console.log('Text preview sent successfully');
+        }
+      } catch (sendError) {
+        console.error('Error sending preview:', sendError);
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: formattedText,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
-          }
+          text: '❌ Error sending preview. Please try again.',
         });
-        return;
       }
+      return;
     }
 
     // Handle onboarding text inputs
     if (user && user.onboarding_step === 'provide_channel_id') {
-      // Check if it's a forwarded message from a channel
-      if (message.forward_from_chat) {
-        const channel = message.forward_from_chat;
-        const channelId = channel.id.toString();
-        const channelName = channel.title || channel.username || channel.id.toString();
+      // Just save the channel username directly
+      await updateUserChannelId(userId, incomingText, incomingText);
+      await updateUserOnboardingStep(userId, 'provide_test_channel_id');
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: `✅ Main channel saved: ${incomingText}\n\n📝 Step 2: Provide Your Test Channel Username (Optional)\n\nYou can provide a test channel to preview content before posting to your main channel.\n\n• Type your test channel username (e.g., @yourtestchannel), OR\n• Type "skip" to skip this step`,
+      });
+      return;
+    }
 
-        await updateUserChannelId(userId, channelId, channelName);
+    if (user && user.onboarding_step === 'provide_test_channel_id') {
+      if (incomingText.toLowerCase() === 'skip') {
         await updateUserOnboardingStep(userId, 'add_bot_admin');
-        await api.sendMessage({
-          chat_id: message.chat.id,
-          text: `✅ Channel detected: ${channelName}\n\n🤖 Step 2: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:`,
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: '✅ Done', callback_data: 'bot_admin_added' }
-              ]
-            ]
-          }
-        });
+        await showAddBotAdminInstructions(message.chat.id);
         return;
       }
 
-      // Fallback: user typed the channel ID manually
-      await updateUserChannelId(userId, incomingText);
+      // Just save the test channel username directly
+      await updateUserTestChannelId(userId, incomingText, incomingText);
       await updateUserOnboardingStep(userId, 'add_bot_admin');
       await showAddBotAdminInstructions(message.chat.id);
       return;
@@ -200,6 +266,20 @@ export default async function (message, ctx) {
         await updateUserDisplayName(userId, null);
       } else {
         await updateUserDisplayName(userId, incomingText);
+      }
+      await updateUserOnboardingStep(userId, 'provide_bot_display_name');
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '📝 Step 5: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
+      });
+      return;
+    }
+
+    if (user && user.onboarding_step === 'provide_bot_display_name') {
+      if (incomingText.toLowerCase() === 'skip') {
+        await updateUserBotDisplayName(userId, null);
+      } else {
+        await updateUserBotDisplayName(userId, incomingText);
       }
       await updateUserOnboardingStep(userId, 'select_categories');
       await showCategorySelection(message.chat.id);
@@ -263,11 +343,23 @@ async function continueOnboarding(chatId, user) {
     case 'provide_channel_id':
       await showChannelIdInstructions(chatId);
       break;
+    case 'provide_test_channel_id':
+      await api.sendMessage({
+        chat_id: chatId,
+        text: '📝 Step 2: Provide Your Test Channel ID (Optional)\n\nYou can provide a test channel to preview content before posting to your main channel.\n\n• Forward a message from your test channel, OR\n• Type your test channel ID (e.g., @yourtestchannel or -100xxxxxxxxxx), OR\n• Type "skip" to skip this step',
+      });
+      break;
     case 'add_bot_admin':
       await showAddBotAdminInstructions(chatId);
       break;
     case 'provide_display_name':
       await showDisplayNameInstructions(chatId);
+      break;
+    case 'provide_bot_display_name':
+      await api.sendMessage({
+        chat_id: chatId,
+        text: '📝 Step 5: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
+      });
       break;
     case 'select_categories':
       await showCategorySelection(chatId);

@@ -328,12 +328,29 @@ export function getPlatformById(platformId) {
 /**
  * Generate Amharic news content using AI
  */
-async function generateAmharicNews(article) {
+async function generateAmharicNews(article, userChannelLink = null, botDisplayName = null, showSourceLink = true, useDotPunctuation = false) {
   try {
     // Clean description - remove HTML tags
     const cleanDescription = article.description
       ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 500)
       : article.title;
+
+    // Build the source line with user channel link if provided
+    let sourceLine = '';
+    if (showSourceLink) {
+      sourceLine = `<a href="${article.link}">${article.platform}</a>`;
+      if (userChannelLink) {
+        sourceLine += `\n${userChannelLink}`;
+      }
+    } else if (userChannelLink) {
+      sourceLine = userChannelLink;
+    }
+
+    // Add bot display name if provided
+    let botAttribution = '';
+    if (botDisplayName) {
+      botAttribution = `\n<b>${botDisplayName}</b>`;
+    }
 
     const prompt = `You are a news writer for True Feed, an Ethiopian tech/business news channel. Convert the following English news article into Amharic.
 
@@ -341,10 +358,8 @@ Structure:
 1. Write an impressive Amharic title in BOLD using <b> tags (NO emojis)
 2. Add ONE BLANK LINE after the title
 3. Below the blank line, write 2-3 short bullet points summarizing the news in Amharic (NO emojis)
-4. Add ONE BLANK LINE after the bullet points
-5. On the new line, add the source link as clickable text using HTML <a> tags: <a href="${article.link}">${article.platform}</a>
-6. Add ONE BLANK LINE after the link
-7. On the new line, add "<b>@true_feed</b>" in bold (use HTML <b> tags)
+${showSourceLink ? `4. Add ONE BLANK LINE after the bullet points\n5. On the new line, add the source link as clickable text using HTML <a> tags: <a href="${article.link}">${article.platform}</a>\n6. Add ONE BLANK LINE after the source link\n7. On the new line, add the content creator's channel link: ${userChannelLink || 'N/A'}` : `4. Add ONE BLANK LINE after the bullet points\n5. On the new line, add the content creator's channel link: ${userChannelLink || 'N/A'}`}
+${botAttribution ? `\n${showSourceLink ? '8' : '6'}. Add ONE BLANK LINE after the content creator channel link\n${showSourceLink ? '9' : '7'}. On the new line, add the bot attribution in bold: <b>${botDisplayName}</b>` : ''}
 
 Requirements:
 - Keep the news truthful but write it in your own words
@@ -352,18 +367,23 @@ Requirements:
 - Use Ethiopian context where appropriate
 - Bullet points should be concise (10-15 words each)
 - NO emojis anywhere in the text
-- Include the source link exactly as shown: <a href="${article.link}">${article.platform}</a>
-- Maximum 6 lines of text total
-- Use HTML <b> tags for bold title and @true_feed
-- Use HTML <a> tags for the source link
-- Add blank lines: one after title, one after bullet points, one after link
-- NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". ." or ". . ." for pauses instead
+${showSourceLink ? `- Include the source link exactly as shown: <a href="${article.link}">${article.platform}</a>` : ''}
+- Include the content creator's channel link exactly as shown: ${userChannelLink || 'N/A'}
+${botAttribution ? `- Include the bot attribution exactly as shown: <b>${botDisplayName}</b>` : ''}
+- Maximum ${botAttribution ? '8' : '6'} lines of text total
+- Use HTML <b> tags for bold title${botAttribution ? ' and bot attribution' : ''}
+${showSourceLink ? '- Use HTML <a> tags for the source link' : ''}
+- Add blank lines: one after title, one after bullet points${showSourceLink ? ', one after source link' : ''}${userChannelLink ? ', one after content creator channel link' : ''}
+${useDotPunctuation ? '- NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". ." or ". . ." for pauses instead' : '- Use proper Amharic punctuation (። ፤ ፣ ፡) as appropriate'}
 
 Original English news:
 Title: ${article.title}
 Description: ${cleanDescription}
 Link: ${article.link}
 Platform: ${article.platform}
+Content Creator Channel: ${userChannelLink || 'N/A'}
+Bot Display Name: ${botDisplayName || 'Default'}
+Show Source Link: ${showSourceLink ? 'Yes' : 'No'}
 
 Generate the Amharic news following the structure above. Do not include any explanations, just the formatted news.`;
 
@@ -386,39 +406,62 @@ Generate the Amharic news following the structure above. Do not include any expl
     if (!response.ok) {
       console.error('AI generation failed:', response.status);
       // Fallback to simple format if AI fails
-      return `<b>${article.title}</b>
+      let fallbackText = `<b>${article.title}</b>
 
-• ${cleanDescription.substring(0, 100)}...
+• ${cleanDescription.substring(0, 100)}...`;
 
-<a href="${article.link}">${article.platform || 'Source'}</a>
+      if (showSourceLink) {
+        fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
+      }
 
-<b>@true_feed</b>`;
+      if (userChannelLink) {
+        fallbackText += `\n${userChannelLink}`;
+      }
+
+      if (botDisplayName) {
+        fallbackText += `\n<b>${botDisplayName}</b>`;
+      }
+
+      return fallbackText;
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      return `<b>${article.title}</b>
+      let fallbackText = `<b>${article.title}</b>
 
-• ${cleanDescription.substring(0, 100)}...
+• ${cleanDescription.substring(0, 100)}...`;
 
-<a href="${article.link}">${article.platform || 'Source'}</a>
+      if (showSourceLink) {
+        fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
+      }
 
-<b>@true_feed</b>`;
+      if (userChannelLink) {
+        fallbackText += `\n${userChannelLink}`;
+      }
+
+      if (botDisplayName) {
+        fallbackText += `\n<b>${botDisplayName}</b>`;
+      }
+
+      return fallbackText;
     }
 
     const content = data.choices[0].message.content.trim();
-    
-    // Replace Amharic punctuation with . . and . . . pauses
-    const cleaned = content
-      .replace(/[።፤]/g, ' . . . ')
-      .replace(/[፣፡]/g, ' . . ')
-      .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
-      .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
-      .replace(/[ ]{2,}/g, ' ')
-      .trim();
-    
+
+    // Replace Amharic punctuation with . . and . . . pauses only if user prefers it
+    let cleaned = content;
+    if (useDotPunctuation) {
+      cleaned = content
+        .replace(/[።፤]/g, ' . . . ')
+        .replace(/[፣፡]/g, ' . . ')
+        .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+        .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+        .replace(/[ ]{2,}/g, ' ')
+        .trim();
+    }
+
     return cleaned;
 
   } catch (error) {
@@ -427,22 +470,31 @@ Generate the Amharic news following the structure above. Do not include any expl
     const cleanDescription = article.description
       ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 100)
       : '';
-    return `<b>${article.title}</b>
+
+    let fallbackText = `<b>${article.title}</b>
 
 • ${cleanDescription}...
 
-<a href="${article.link}">${article.platform || 'Source'}</a>
+<a href="${article.link}">${article.platform || 'Source'}</a>`;
 
-<b>@true_feed</b>`;
+    if (userChannelLink) {
+      fallbackText += `\n${userChannelLink}`;
+    }
+
+    if (botDisplayName) {
+      fallbackText += `\n<b>${botDisplayName}</b>`;
+    }
+
+    return fallbackText;
   }
 }
 
 /**
  * Format single news article for Telegram
  */
-export async function formatNewsArticle(article) {
+export async function formatNewsArticle(article, userChannelLink = null, botDisplayName = null, showSourceLink = true, useDotPunctuation = false) {
   // Generate Amharic content with AI
-  const amharicContent = await generateAmharicNews(article);
+  const amharicContent = await generateAmharicNews(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
   return amharicContent;
 }
 
@@ -526,9 +578,9 @@ export function entitiesToHTML(text, entities = []) {
 }
 
 /**
- * Format and sanitize user-edited news text to ensure required True Feed HTML styling (bold title, bold @true_feed)
+ * Format and sanitize user-edited news text to ensure required HTML styling (bold title)
  */
-export function formatEditedNewsText(rawText, entities = []) {
+export function formatEditedNewsText(rawText, entities = [], useDotPunctuation = false, addTrueFeedAttribution = false) {
   if (!rawText) return '';
 
   let formatted = rawText;
@@ -554,21 +606,25 @@ export function formatEditedNewsText(rawText, entities = []) {
   }
   formatted = lines.join('\n');
 
-  // 4. Ensure @true_feed is bold
-  if (formatted.includes('@true_feed')) {
-    formatted = formatted.replace(/(?:\*|<b>|<strong>)?@true_feed(?:\*|<\/b>|<\/strong>)?/g, '<b>@true_feed</b>');
-  } else {
-    formatted = formatted.trim() + '\n\n<b>@true_feed</b>';
+  // 4. Ensure @true_feed is bold (only if requested)
+  if (addTrueFeedAttribution) {
+    if (formatted.includes('@true_feed')) {
+      formatted = formatted.replace(/(?:\*|<b>|<strong>)?@true_feed(?:\*|<\/b>|<\/strong>)?/g, '<b>@true_feed</b>');
+    } else {
+      formatted = formatted.trim() + '\n\n<b>@true_feed</b>';
+    }
   }
 
-  // 5. Replace Amharic punctuation with . . and . . . pauses (consistency)
-  formatted = formatted
-    .replace(/[።፤]/g, ' . . . ')
-    .replace(/[፣፡]/g, ' . . ')
-    .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
-    .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
-    .replace(/[ ]{2,}/g, ' ')
-    .trim();
+  // 5. Replace Amharic punctuation with . . and . . . pauses (only if user prefers it)
+  if (useDotPunctuation) {
+    formatted = formatted
+      .replace(/[።፤]/g, ' . . . ')
+      .replace(/[፣፡]/g, ' . . ')
+      .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+      .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+      .replace(/[ ]{2,}/g, ' ')
+      .trim();
+  }
 
   return formatted;
 }
