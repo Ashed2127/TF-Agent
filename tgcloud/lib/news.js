@@ -1,5 +1,6 @@
 import { fetch } from 'sdk';
 import { OPENROUTER_API_KEY } from './secrets.js';
+import { getCustomSources } from './database.js';
 
 /**
  * Scrape main image from article page
@@ -341,7 +342,9 @@ Structure:
 2. Add ONE BLANK LINE after the title
 3. Below the blank line, write 2-3 short bullet points summarizing the news in Amharic (NO emojis)
 4. Add ONE BLANK LINE after the bullet points
-5. On the new line, add "<b>@true_feed</b>" in bold (use HTML <b> tags)
+5. On the new line, add the source link as clickable text using HTML <a> tags: <a href="${article.link}">${article.platform}</a>
+6. Add ONE BLANK LINE after the link
+7. On the new line, add "<b>@true_feed</b>" in bold (use HTML <b> tags)
 
 Requirements:
 - Keep the news truthful but write it in your own words
@@ -349,15 +352,18 @@ Requirements:
 - Use Ethiopian context where appropriate
 - Bullet points should be concise (10-15 words each)
 - NO emojis anywhere in the text
-- No platform attribution or source links
-- Maximum 5 lines of text total
+- Include the source link exactly as shown: <a href="${article.link}">${article.platform}</a>
+- Maximum 6 lines of text total
 - Use HTML <b> tags for bold title and @true_feed
-- Add blank lines: one after title, one before @true_feed
+- Use HTML <a> tags for the source link
+- Add blank lines: one after title, one after bullet points, one after link
 - NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". ." or ". . ." for pauses instead
 
 Original English news:
 Title: ${article.title}
 Description: ${cleanDescription}
+Link: ${article.link}
+Platform: ${article.platform}
 
 Generate the Amharic news following the structure above. Do not include any explanations, just the formatted news.`;
 
@@ -384,6 +390,8 @@ Generate the Amharic news following the structure above. Do not include any expl
 
 • ${cleanDescription.substring(0, 100)}...
 
+<a href="${article.link}">${article.platform || 'Source'}</a>
+
 <b>@true_feed</b>`;
     }
 
@@ -394,6 +402,8 @@ Generate the Amharic news following the structure above. Do not include any expl
       return `<b>${article.title}</b>
 
 • ${cleanDescription.substring(0, 100)}...
+
+<a href="${article.link}">${article.platform || 'Source'}</a>
 
 <b>@true_feed</b>`;
     }
@@ -420,6 +430,8 @@ Generate the Amharic news following the structure above. Do not include any expl
     return `<b>${article.title}</b>
 
 • ${cleanDescription}...
+
+<a href="${article.link}">${article.platform || 'Source'}</a>
 
 <b>@true_feed</b>`;
   }

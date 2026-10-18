@@ -1,6 +1,6 @@
 import { db } from 'sdk';
 import { eq, desc, sql } from 'sdk/db';
-import { ideas, pendingEdits } from '../schema.js';
+import { ideas, pendingEdits, users, customSources, posts } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -138,4 +138,177 @@ export async function deletePendingEdit(userId) {
   await db.delete(pendingEdits)
     .where(eq(pendingEdits.user_id, userId))
     .run();
+}
+
+// User management functions
+
+export async function getOrCreateUser(telegramId, username = null) {
+  const existing = await db.select()
+    .from(users)
+    .where(eq(users.telegram_id, telegramId))
+    .limit(1)
+    .all();
+
+  if (existing.length > 0) {
+    return existing[0];
+  }
+
+  const [user] = await db.insert(users)
+    .values({
+      telegram_id: telegramId,
+      username: username,
+      onboarding_step: 'join_channel'
+    })
+    .returning()
+    .run();
+  return user;
+}
+
+export async function updateUserOnboardingStep(telegramId, step) {
+  if (step === 'completed') {
+    await db.update(users)
+      .set({
+        onboarding_step: step,
+        completed_at: sql`(unixepoch())`
+      })
+      .where(eq(users.telegram_id, telegramId))
+      .run();
+  } else {
+    await db.update(users)
+      .set({ onboarding_step: step })
+      .where(eq(users.telegram_id, telegramId))
+      .run();
+  }
+}
+
+export async function updateUserChannelId(telegramId, channelId, channelName = null) {
+  await db.update(users)
+    .set({ channel_id: channelId, channel_name: channelName })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateUserDisplayName(telegramId, displayName) {
+  await db.update(users)
+    .set({ display_name: displayName })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateUserCategories(telegramId, categories) {
+  await db.update(users)
+    .set({ categories: JSON.stringify(categories) })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function getUserByTelegramId(telegramId) {
+  const result = await db.select()
+    .from(users)
+    .where(eq(users.telegram_id, telegramId))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+// Custom sources management
+
+export async function addCustomSource(userId, sourceName, sourceUrl) {
+  const [source] = await db.insert(customSources)
+    .values({
+      user_id: userId,
+      source_name: sourceName,
+      source_url: sourceUrl
+    })
+    .returning()
+    .run();
+  return source;
+}
+
+export async function getCustomSources(userId) {
+  return await db.select()
+    .from(customSources)
+    .where(eq(customSources.user_id, userId))
+    .all();
+}
+
+// Posts tracking functions
+
+export async function createPost(userId, channelId, content, category, source = null, imageUrl = null) {
+  const [post] = await db.insert(posts)
+    .values({
+      user_id: userId,
+      channel_id: channelId,
+      content,
+      category,
+      source,
+      image_url: imageUrl
+    })
+    .returning()
+    .run();
+
+  // Update user stats
+  await db.update(users)
+    .set({
+      posts_count: sql`${users.posts_count} + 1`,
+      last_posted_at: sql`(unixepoch())`
+    })
+    .where(eq(users.id, userId))
+    .run();
+
+  return post;
+}
+
+export async function getUserPosts(userId) {
+  return await db.select()
+    .from(posts)
+    .where(eq(posts.user_id, userId))
+    .orderBy(desc(posts.created_at))
+    .all();
+}
+
+export async function getAllUsers() {
+  return await db.select()
+    .from(users)
+    .orderBy(desc(users.created_at))
+    .all();
+}
+
+export async function getAllPosts() {
+  return await db.select()
+    .from(posts)
+    .orderBy(desc(posts.created_at))
+    .all();
+}
+
+export async function getDashboardStats() {
+  const allUsers = await db.select()
+    .from(users)
+    .all();
+
+  const activeUsers = allUsers.filter(u => u.onboarding_step === 'completed');
+  const totalPosts = allUsers.reduce((sum, u) => sum + (u.posts_count || 0), 0);
+
+  const recentPosts = await db.select()
+    .from(posts)
+    .orderBy(desc(posts.created_at))
+    .limit(10)
+    .all();
+
+  const recentUsers = await db.select()
+    .from(users)
+    .where(eq(users.onboarding_step, 'completed'))
+    .orderBy(desc(users.completed_at))
+    .limit(10)
+    .all();
+
+  return {
+    users: {
+      total_users: allUsers.length,
+      active_users: activeUsers.length,
+      total_posts: totalPosts
+    },
+    recentPosts,
+    recentUsers
+  };
 }

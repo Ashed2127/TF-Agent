@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, getDashboardStats, getAllUsers, getAllPosts, createPost } from '../lib/database.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
 
@@ -118,19 +118,10 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
 
 export default async function (callbackQuery, ctx) {
   const userId = callbackQuery.from.id;
-  
-  // Authorization check
-  if (userId !== OWNER_CHAT_ID) {
-    await api.answerCallbackQuery({
-      callback_query_id: callbackQuery.id,
-      text: '⛔ Unauthorized',
-    });
-    return;
-  }
-  
+
   const data = callbackQuery.data;
   console.log('Callback received:', data);
-  
+
   // Answer the callback query (skip if it might be old)
   try {
     await api.answerCallbackQuery({
@@ -139,7 +130,52 @@ export default async function (callbackQuery, ctx) {
   } catch (e) {
     console.log('Callback query already answered or expired:', e.message);
   }
-  
+
+  // Handle public onboarding callbacks (no auth check)
+  if (data === 'check_join') {
+    await handleCheckJoin(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'bot_admin_added') {
+    await handleBotAdminAdded(callbackQuery, userId);
+    return;
+  }
+
+  if (data.startsWith('select_category_')) {
+    await handleSelectCategory(callbackQuery, userId, data);
+    return;
+  }
+
+  if (data === 'add_custom_source') {
+    await handleAddCustomSource(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'complete_setup') {
+    await handleCompleteSetup(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'generate_content') {
+    await handleGenerateContent(callbackQuery, userId);
+    return;
+  }
+
+  if (data.startsWith('news_user_channel_')) {
+    await handlePostToUserChannel(callbackQuery, userId, data);
+    return;
+  }
+
+  // Owner-specific callbacks (authorization check)
+  if (userId !== OWNER_CHAT_ID) {
+    await api.answerCallbackQuery({
+      callback_query_id: callbackQuery.id,
+      text: '⛔ Unauthorized',
+    });
+    return;
+  }
+
   // Handle new_idea button
   if (data === 'new_idea') {
     try {
@@ -234,7 +270,9 @@ export default async function (callbackQuery, ctx) {
   else if (data.startsWith('news_platform_')) {
     const platformId = data.replace('news_platform_', '');
     const platform = getPlatformById(platformId);
-    
+    const user = await getUserByTelegramId(userId);
+    const isOwner = userId === OWNER_CHAT_ID;
+
     if (!platform) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -249,15 +287,15 @@ export default async function (callbackQuery, ctx) {
       });
       return;
     }
-    
+
     try {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: `📰 Fetching news from ${platform.name}...`,
       });
-      
+
       const articles = await fetchRSSFeed(platform.url, platform.name);
-      
+
       if (articles.length === 0) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
@@ -267,17 +305,20 @@ export default async function (callbackQuery, ctx) {
               [
                 { text: '↩️ Back', callback_data: 'back' }
               ]
-            ]
-          }
-        });
-        return;
-      }
-      
-      // Show first article with approve/reject/skip buttons
-      const article = articles[0];
-      const articleText = await formatNewsArticle(article);
-      
-      const keyboard = [
+          ]
+        }
+      });
+      return;
+    }
+
+    // Show first article with buttons
+    const article = articles[0];
+    const articleText = await formatNewsArticle(article);
+
+    // Different buttons for owner vs public user
+    let keyboard;
+    if (isOwner) {
+      keyboard = [
         [
           { text: '📢 TrueFeed', callback_data: `news_truefeed_${platformId}_0` },
           { text: '🧪 Test', callback_data: `news_test_${platformId}_0` }
@@ -287,35 +328,39 @@ export default async function (callbackQuery, ctx) {
           { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
         ],
         [
-          { text: '↩️ Back', callback_data: 'get_news' }
+          { text: '↩️ Back', callback_data: 'back' }
         ]
       ];
-      
-      // Send with image if available, otherwise just text
-      if (article.image) {
-        try {
-          await api.sendPhoto({
-            chat_id: callbackQuery.message.chat.id,
-            photo: article.image,
-            caption: articleText,
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: keyboard
-            }
-          });
-        } catch (photoError) {
-          console.error('Failed to send photo, falling back to text:', photoError.message);
-          // Fallback to text if photo fails
-          await api.sendMessage({
-            chat_id: callbackQuery.message.chat.id,
-            text: articleText,
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: keyboard
-            }
-          });
-        }
-      } else {
+    } else {
+      keyboard = [
+        [
+          { text: '📢 Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
+        ],
+        [
+          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
+          { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'back' }
+        ]
+      ];
+    }
+
+    // Send with image if available, otherwise just text
+    if (article.image) {
+      try {
+        await api.sendPhoto({
+          chat_id: callbackQuery.message.chat.id,
+          photo: article.image,
+          caption: articleText,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } catch (photoError) {
+        console.error('Failed to send photo, falling back to text:', photoError.message);
+        // Fallback to text if photo fails
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
           text: articleText,
@@ -325,21 +370,31 @@ export default async function (callbackQuery, ctx) {
           }
         });
       }
-      
-    } catch (error) {
-      console.error('Error fetching news:', error);
+    } else {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `❌ Failed to fetch news: ${error.message}`,
+        text: articleText,
+        parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '↩️ Back', callback_data: 'back' }
-            ]
-          ]
+          inline_keyboard: keyboard
         }
       });
     }
+
+  } catch (error) {
+    console.error('Error fetching news:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `❌ Failed to fetch news: ${error.message}`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ]
+      }
+    });
+  }
   }
   
   // Handle news TrueFeed - post to main channel, then show next article
@@ -699,18 +754,18 @@ export default async function (callbackQuery, ctx) {
   // Handle reject button
   else if (data.startsWith('reject_')) {
     const ideaId = parseInt(data.replace('reject_', ''));
-    
+
     try {
       await markRejected(ideaId);
-      
+
       // Generate new idea
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: '⏳ Generating idea...',
       });
-      
+
       const idea = await generateIdea();
-      
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
         text: idea.content,
@@ -726,7 +781,7 @@ export default async function (callbackQuery, ctx) {
           ]
         }
       });
-      
+
     } catch (error) {
       console.error('Error rejecting idea:', error);
       await api.sendMessage({
@@ -735,4 +790,325 @@ export default async function (callbackQuery, ctx) {
       });
     }
   }
+}
+
+// Onboarding handler functions
+
+async function handleCheckJoin(callbackQuery, userId) {
+  try {
+    // Check if user is a member of True Feed channel
+    const chatMember = await api.getChatMember({
+      chat_id: TRUE_FEED_CHANNEL_ID,
+      user_id: userId
+    });
+
+    if (chatMember.status === 'left' || chatMember.status === 'kicked') {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ You haven\'t joined the True Feed channel yet. Please join first:',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
+            ],
+            [
+              { text: '✅ I\'ve Joined', callback_data: 'check_join' }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
+    // User is a member, proceed to next step
+    await updateUserOnboardingStep(userId, 'provide_channel_id');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '✅ You\'ve joined the channel!\n\n📝 Step 1: Provide Your Channel ID\n\nPlease send your Telegram channel ID (e.g., @yourchannel or -100xxxxxxxxxx).\n\nYou can find your channel ID by forwarding a message from your channel to @userinfobot',
+    });
+  } catch (error) {
+    console.error('Error checking channel membership:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Failed to verify channel membership. Please try again.',
+    });
+  }
+}
+
+async function handleBotAdminAdded(callbackQuery, userId) {
+  const user = await getUserByTelegramId(userId);
+
+  if (!user.channel_id) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Channel ID not found. Please start over.',
+    });
+    return;
+  }
+
+  try {
+    // Get bot's user ID
+    const botInfo = await api.getMe();
+    const botId = botInfo.id;
+
+    // Check if bot is admin in the user's channel
+    const botMember = await api.getChatMember({
+      chat_id: user.channel_id,
+      user_id: botId
+    });
+
+    if (botMember.status !== 'administrator') {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ The bot is not yet an administrator in your channel.\n\nPlease add this bot as an administrator to your channel with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '✅ Done', callback_data: 'bot_admin_added' }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
+    // Bot is admin, proceed to next step
+    await updateUserOnboardingStep(userId, 'provide_display_name');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '✅ Great! Bot is now an admin.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)',
+    });
+  } catch (error) {
+    console.error('Error checking bot admin status:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Failed to verify bot admin status. Please make sure:\n\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '✅ Done', callback_data: 'bot_admin_added' }
+          ]
+        ]
+      }
+    });
+  }
+}
+
+async function handleSelectCategory(callbackQuery, userId, data) {
+  const category = data.replace('select_category_', '');
+  const user = await getUserByTelegramId(userId);
+
+  let categories = [];
+  if (user.categories) {
+    try {
+      categories = JSON.parse(user.categories);
+    } catch (e) {
+      categories = [];
+    }
+  }
+
+  if (!categories.includes(category)) {
+    categories.push(category);
+    await updateUserCategories(userId, categories);
+  }
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: `✅ Added "${category}" to your categories!`,
+  });
+
+  // Show category selection again
+  const allCategories = ['tech', 'entertainment', 'education', 'beauty', 'joke', 'fact'];
+  const keyboard = [];
+  for (let i = 0; i < allCategories.length; i += 2) {
+    const row = [];
+    const cat1 = allCategories[i];
+    const isSelected1 = categories.includes(cat1);
+    row.push({
+      text: `${isSelected1 ? '✅ ' : ''}${cat1.charAt(0).toUpperCase() + cat1.slice(1)}`,
+      callback_data: `select_category_${cat1}`
+    });
+    if (i + 1 < allCategories.length) {
+      const cat2 = allCategories[i + 1];
+      const isSelected2 = categories.includes(cat2);
+      row.push({
+        text: `${isSelected2 ? '✅ ' : ''}${cat2.charAt(0).toUpperCase() + cat2.slice(1)}`,
+        callback_data: `select_category_${cat2}`
+      });
+    }
+    keyboard.push(row);
+  }
+
+  keyboard.push([
+    { text: '➕ Add Custom Source', callback_data: 'add_custom_source' }
+  ]);
+  keyboard.push([
+    { text: '✅ Complete Setup', callback_data: 'complete_setup' }
+  ]);
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}
+
+async function handleAddCustomSource(callbackQuery, userId) {
+  await updateUserOnboardingStep(userId, 'add_custom_source_name');
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '➕ Add Custom Source\n\nSend me the name of your custom source (e.g., "My Blog"):',
+  });
+}
+
+async function handleCompleteSetup(callbackQuery, userId) {
+  const user = await getUserByTelegramId(userId);
+
+  if (!user.channel_id) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Please complete all setup steps first.',
+    });
+    return;
+  }
+
+  await updateUserOnboardingStep(userId, 'completed');
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '🎉 Setup Complete!\n\nYou can now start generating content for your channel. Click the button below to begin:',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📰 Generate Content', callback_data: 'generate_content' }
+        ]
+      ]
+    }
+  });
+}
+
+async function handleGenerateContent(callbackQuery, userId) {
+  const user = await getUserByTelegramId(userId);
+
+  if (!user || !user.channel_id) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Please complete setup first.',
+    });
+    return;
+  }
+
+  // Show platform selection (same as owner's news flow)
+  const keyboard = [];
+  for (let i = 0; i < NEWS_PLATFORMS.length; i += 2) {
+    const row = [];
+    row.push({
+      text: NEWS_PLATFORMS[i].name,
+      callback_data: `news_platform_${NEWS_PLATFORMS[i].id}`
+    });
+    if (i + 1 < NEWS_PLATFORMS.length) {
+      row.push({
+        text: NEWS_PLATFORMS[i + 1].name,
+        callback_data: `news_platform_${NEWS_PLATFORMS[i + 1].id}`
+      });
+    }
+    keyboard.push(row);
+  }
+  keyboard.push([
+    { text: '↩️ Back', callback_data: 'back' }
+  ]);
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '📰 Select a news platform to generate content from:',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}
+
+async function handlePostToUserChannel(callbackQuery, userId, data) {
+  const parts = data.replace('news_user_channel_', '').split('_');
+  const platformId = parts[0];
+  const currentIndex = parseInt(parts[1]);
+
+  const user = await getUserByTelegramId(userId);
+  const platform = getPlatformById(platformId);
+
+  if (!user || !user.channel_id) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Channel not found.',
+    });
+    return;
+  }
+
+  if (!platform) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Platform not found.',
+    });
+    return;
+  }
+
+  try {
+    const articles = await fetchRSSFeed(platform.url, platform.name);
+
+    if (currentIndex >= articles.length) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ Article no longer available.',
+      });
+      return;
+    }
+
+    const article = articles[currentIndex];
+    const articleText = await formatNewsArticle(article);
+
+    // Post to the user's channel
+    if (article.image) {
+      try {
+        await api.sendPhoto({
+          chat_id: user.channel_id,
+          photo: article.image,
+          caption: articleText,
+          parse_mode: 'HTML',
+        });
+      } catch (photoError) {
+        console.error('Failed to send photo to channel, falling back to text:', photoError.message);
+        await api.sendMessage({
+          chat_id: user.channel_id,
+          text: articleText,
+          parse_mode: 'HTML',
+        });
+      }
+    } else {
+      await api.sendMessage({
+        chat_id: user.channel_id,
+        text: articleText,
+        parse_mode: 'HTML',
+      });
+    }
+
+    // Track the post
+    await createPost(user.id, user.channel_id, articleText, article.category || 'news', platform.name, article.image);
+
+    // Confirm to the user
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '✅ Posted to your channel!',
+    });
+
+  } catch (error) {
+    console.error('Error posting article to user channel:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `❌ Failed to post article: ${error.message}`,
+    });
+  }
+
+  // Show next article
+  await showNextArticle(callbackQuery, platformId, currentIndex);
 }
