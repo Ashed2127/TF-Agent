@@ -239,23 +239,6 @@ export default async function (message, ctx) {
     if (user && user.onboarding_step === 'provide_channel_id') {
       // Just save the channel username directly
       await updateUserChannelId(userId, incomingText, incomingText);
-      await updateUserOnboardingStep(userId, 'provide_test_channel_id');
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: `✅ Main channel saved: ${incomingText}\n\n📝 Step 2: Provide Your Test Channel Username (Optional)\n\nYou can provide a test channel to preview content before posting to your main channel.\n\n• Type your test channel username (e.g., @yourtestchannel), OR\n• Type "skip" to skip this step`,
-      });
-      return;
-    }
-
-    if (user && user.onboarding_step === 'provide_test_channel_id') {
-      if (incomingText.toLowerCase() === 'skip') {
-        await updateUserOnboardingStep(userId, 'add_bot_admin');
-        await showAddBotAdminInstructions(message.chat.id);
-        return;
-      }
-
-      // Just save the test channel username directly
-      await updateUserTestChannelId(userId, incomingText, incomingText);
       await updateUserOnboardingStep(userId, 'add_bot_admin');
       await showAddBotAdminInstructions(message.chat.id);
       return;
@@ -343,12 +326,6 @@ async function continueOnboarding(chatId, user) {
     case 'provide_channel_id':
       await showChannelIdInstructions(chatId);
       break;
-    case 'provide_test_channel_id':
-      await api.sendMessage({
-        chat_id: chatId,
-        text: '📝 Step 2: Provide Your Test Channel ID (Optional)\n\nYou can provide a test channel to preview content before posting to your main channel.\n\n• Forward a message from your test channel, OR\n• Type your test channel ID (e.g., @yourtestchannel or -100xxxxxxxxxx), OR\n• Type "skip" to skip this step',
-      });
-      break;
     case 'add_bot_admin':
       await showAddBotAdminInstructions(chatId);
       break;
@@ -358,7 +335,7 @@ async function continueOnboarding(chatId, user) {
     case 'provide_bot_display_name':
       await api.sendMessage({
         chat_id: chatId,
-        text: '📝 Step 5: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
+        text: '📝 Step 4: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
       });
       break;
     case 'select_categories':
