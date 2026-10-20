@@ -459,14 +459,14 @@ export async function migrateUserChannels(userId) {
   const user = await getUserByTelegramId(userId);
   if (!user) return false;
 
-  const existingChannels = await getUserChannels(userId);
+  const existingChannels = await getUserChannels(user.id);
   if (existingChannels.length > 0) return true; // Already migrated
 
   let migrated = false;
 
   // Migrate main channel
   if (user.channel_id) {
-    const alreadyExists = await getUserChannelByChannelId(userId, user.channel_id);
+    const alreadyExists = await getUserChannelByChannelId(user.id, user.channel_id);
     if (!alreadyExists) {
       await addUserChannel(user.id, user.channel_id, user.channel_name, 1, 0);
       migrated = true;
@@ -475,7 +475,7 @@ export async function migrateUserChannels(userId) {
 
   // Migrate test channel
   if (user.test_channel_id) {
-    const alreadyExists = await getUserChannelByChannelId(userId, user.test_channel_id);
+    const alreadyExists = await getUserChannelByChannelId(user.id, user.test_channel_id);
     if (!alreadyExists) {
       await addUserChannel(user.id, user.test_channel_id, user.test_channel_name, 0, 1);
       migrated = true;
