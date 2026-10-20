@@ -25,8 +25,36 @@ async function showMainMenu(chatId) {
         ],
         [
           { text: '📊 My Stats', callback_data: 'my_stats' }
+        ],
+        [
+          { text: '🔄 Refresh', callback_data: 'refresh_menu' }
         ]
       ]
+    }
+  });
+}
+
+/**
+ * Helper function to show the guest menu
+ */
+async function showGuestMenu(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📰 Browse News', callback_data: 'get_news' }
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'settings' }
+        ],
+        [
+          { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
+        ],
+        [
+          { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
+        ]
     }
   });
 }
@@ -299,6 +327,23 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  // Handle refresh menu buttons
+  if (data === 'refresh_menu') {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.user_type === 'user' && user.onboarding_step === 'completed') {
+      await showMainMenu(callbackQuery.message.chat.id);
+    }
+    return;
+  }
+
+  if (data === 'refresh_guest_menu') {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.user_type === 'guest') {
+      await showGuestMenu(callbackQuery.message.chat.id);
+    }
+    return;
+  }
+
   // Handle public onboarding callbacks (no auth check)
   if (data === 'check_join') {
     await handleCheckJoin(callbackQuery, userId);
@@ -364,6 +409,9 @@ export default async function (callbackQuery, ctx) {
     }
     keyboard.push([
       { text: '🌐 All Sources', callback_data: 'news_cat_all' },
+      { text: '🔄 Refresh', callback_data: 'get_news' }
+    ]);
+    keyboard.push([
       { text: '↩️ Back', callback_data: 'back' }
     ]);
 
@@ -399,6 +447,7 @@ export default async function (callbackQuery, ctx) {
       keyboard.push(row);
     }
     keyboard.push([
+      { text: '🔄 Refresh', callback_data: `news_cat_${catId}` },
       { text: '↩️ Categories', callback_data: 'get_news' }
     ]);
 
@@ -643,7 +692,6 @@ export default async function (callbackQuery, ctx) {
   // Handle settings button (public)
   if (data === 'settings') {
     const user = await getUserByTelegramId(userId);
-    const currentBotName = user?.bot_display_name || 'Default';
     const showSourceLink = user?.show_source_link === 1 ? 'Yes' : 'No';
     const useDotPunctuation = user?.use_dot_punctuation === 1 ? 'Yes' : 'No';
 
@@ -651,11 +699,10 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `⚙️ Settings\n\n🤖 Bot Display Name: ${currentBotName}\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n\nWhat would you like to change?`,
+      text: `⚙️ Settings\n\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '🤖 Change Bot Name', callback_data: 'change_bot_name' },
             { text: '🔗 Toggle Source Link', callback_data: 'toggle_source_link' }
           ],
           ...(isOwner ? [[{ text: '✨ Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
@@ -665,17 +712,6 @@ export default async function (callbackQuery, ctx) {
         ]
       }
     });
-    return;
-  }
-
-  // Handle change bot name
-  if (data === 'change_bot_name') {
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: '🤖 Change Bot Display Name\n\nPlease send your preferred bot name (e.g., "My News Bot").\n\nType "skip" to remove custom name and use default.',
-    });
-    // Store the intent in pending edit
-    await savePendingEdit(userId, '__change_bot_name__', null);
     return;
   }
 
@@ -1558,7 +1594,7 @@ async function handleSelectCategory(callbackQuery, userId, data) {
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
+    text: '📂 Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
