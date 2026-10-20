@@ -23,7 +23,7 @@ export const users = table('users', {
   telegram_id: integer('telegram_id').notNull().unique(),
   username: text('username'),
   user_type: text('user_type').default('guest'),
-  onboarding_step: text('onboarding_step').default('choose_type'),
+  onboarding_step: text('onboarding_step').default('join_channel'),
   channel_id: text('channel_id'),
   channel_name: text('channel_name'),
   test_channel_id: text('test_channel_id'),
@@ -55,5 +55,15 @@ export const posts = table('posts', {
   category: text('category').notNull(),
   source: text('source'),
   image_url: text('image_url'),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const userChannels = table('user_channels', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  channel_id: text('channel_id').notNull(),
+  channel_name: text('channel_name'),
+  is_main: integer('is_main').default(0),
+  is_test: integer('is_test').default(0),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });

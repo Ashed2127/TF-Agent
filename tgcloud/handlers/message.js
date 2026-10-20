@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
@@ -43,6 +43,9 @@ export default async function (message, ctx) {
             [
               { text: 'idea', callback_data: 'new_idea' },
               { text: '📰 news', callback_data: 'get_news' }
+            ],
+            [
+              { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
         }
@@ -52,13 +55,35 @@ export default async function (message, ctx) {
 
     // If user is already onboarded as user, show main menu
     if (user.onboarding_step === 'completed' && user.user_type === 'user') {
-      await showMainMenu(message.chat.id);
+      await showMainMenu(message.chat.id, userId === OWNER_CHAT_ID);
       return;
     }
 
-    // If user is a guest, show guest menu
+    // If user is a guest, show guest menu via callback
     if (user.user_type === 'guest' && user.onboarding_step === 'guest_ready') {
-      await showGuestMenu(message.chat.id);
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '📰 Browse News', callback_data: 'get_news' }
+            ],
+            [
+              { text: '⚙️ Settings', callback_data: 'settings' }
+            ],
+            [
+              { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
+            ],
+            [
+              { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
+            ]
+          ]
+        }
+      });
       return;
     }
 
@@ -244,10 +269,11 @@ export default async function (message, ctx) {
 
     if (user && user.onboarding_step === 'provide_display_name') {
       if (incomingText.toLowerCase() === 'skip') {
-        await updateUserDisplayName(userId, null);
-      } else {
-        await updateUserDisplayName(userId, incomingText);
+        await updateUserOnboardingStep(userId, 'select_categories');
+        await showCategorySelection(message.chat.id);
+        return;
       }
+      await updateUserDisplayName(userId, incomingText);
       await updateUserOnboardingStep(userId, 'select_categories');
       await showCategorySelection(message.chat.id);
       return;
@@ -284,23 +310,80 @@ export default async function (message, ctx) {
       await showCategorySelection(message.chat.id);
       return;
     }
+
+    // Handle adding new channel from settings
+    const pendingChannel = await getPendingChannelAdd(userId);
+    if (pendingChannel && pendingChannel.channelId === 'waiting') {
+      const channelInfo = extractChannelFromMessage(message);
+      if (channelInfo && channelInfo.channelId) {
+        // Store the channel info and ask for bot admin verification
+        await setPendingChannelAdd(userId, channelInfo.channelId, channelInfo.channelName);
+        await showAddChannelBotAdminInstructions(message.chat.id, channelInfo.channelId);
+        return;
+      }
+
+      // Try text input
+      const normalized = normalizeChannelId(incomingText);
+      if (normalized) {
+        await setPendingChannelAdd(userId, normalized, normalized);
+        await showAddChannelBotAdminInstructions(message.chat.id, normalized);
+        return;
+      }
+    }
+
+    // Handle bot admin verification for new channel
+    if (pendingChannel && pendingChannel.channelId !== 'waiting') {
+      const text = (message.text || '').trim().toLowerCase();
+      if (['done', 'done!', 'added', 'ok', 'ready', 'yes', 'check'].includes(text)) {
+        await verifyAndAddChannel(message.chat.id, user, pendingChannel.channelId, pendingChannel.channelName);
+        return;
+      }
+      if (['cancel', 'abort', 'stop', 'no'].includes(text)) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: '❌ Channel addition cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⚙️ Settings', callback_data: 'settings' }]
+            ]
+          }
+        });
+        return;
+      }
+    }
   }
 }
 
-async function showMainMenu(chatId) {
+async function showMainMenu(chatId, isOwner = false) {
+  const keyboard = [
+    [
+      { text: '📰 Generate Content', callback_data: 'generate_content' },
+      { text: '⚙️ Settings', callback_data: 'settings' }
+    ],
+    [
+      { text: '📊 My Stats', callback_data: 'my_stats' }
+    ],
+    [
+      { text: '🔄 Refresh', callback_data: 'refresh_menu' }
+    ],
+    [
+      { text: '↩️ Back', callback_data: 'back' }
+    ]
+  ];
+
+  // Add analytics button for owner
+  if (isOwner) {
+    keyboard.splice(3, 0, [
+      { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+    ]);
+  }
+
   await api.sendMessage({
     chat_id: chatId,
     text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
     reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '📰 Generate Content', callback_data: 'generate_content' },
-          { text: '⚙️ Settings', callback_data: 'settings' }
-        ],
-        [
-          { text: '📊 My Stats', callback_data: 'my_stats' }
-        ]
-      ]
+      inline_keyboard: keyboard
     }
   });
 }
@@ -410,7 +493,12 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
     await updateUserOnboardingStep(user.telegram_id, 'provide_display_name');
     await api.sendMessage({
       chat_id: chatId,
-      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or type "skip" to skip this step)`,
+      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")`,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⏭️ Skip This Step', callback_data: 'skip_display_name' }]
+        ]
+      }
     });
   } catch (error) {
     console.error('Error checking bot admin status:', error);
@@ -435,7 +523,12 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
 async function showDisplayNameInstructions(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: '✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or type "skip" to skip)',
+    text: '✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")',
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '⏭️ Skip This Step', callback_data: 'skip_display_name' }]
+      ]
+    }
   });
 }
 
@@ -470,5 +563,75 @@ async function showCategorySelection(chatId) {
       inline_keyboard: keyboard
     }
   });
+}
+
+async function showAddChannelBotAdminInstructions(chatId, channelId = null) {
+  const channelDisplay = channelId ? ` "${channelId}"` : '';
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `🤖 Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, send "done" to continue:`,
+  });
+}
+
+async function verifyAndAddChannel(chatId, user, channelId, channelName) {
+  if (!channelId) {
+    await api.sendMessage({
+      chat_id: chatId,
+      text: '❌ Channel ID not found.',
+    });
+    await clearPendingChannelAdd(user.telegram_id);
+    return;
+  }
+
+  let normalizedChannelId = normalizeChannelId(channelId);
+  if (normalizedChannelId && normalizedChannelId !== channelId) {
+    channelName = channelName || normalizedChannelId;
+    channelId = normalizedChannelId;
+  }
+
+  try {
+    const botInfo = await api.getMe();
+    const botMember = await api.getChatMember({
+      chat_id: channelId,
+      user_id: botInfo.id
+    });
+
+    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
+
+    if (!isAdmin) {
+      await api.sendMessage({
+        chat_id: chatId,
+        text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, send "done" to continue:`,
+      });
+      return;
+    }
+
+    // Add the channel
+    await addUserChannel(user.id, channelId, channelName, 0, 0);
+    await clearPendingChannelAdd(user.telegram_id);
+
+    await api.sendMessage({
+      chat_id: chatId,
+      text: `✅ Channel "${channelName || channelId}" has been added successfully!\n\nYou can now post content to this channel.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '⚙️ Settings', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error checking bot admin status:', error);
+    const errText = error?.description || error?.message || '';
+    let detailMsg = '';
+    if (errText.includes('chat not found')) {
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+    }
+    await api.sendMessage({
+      chat_id: chatId,
+      text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nSend "done" to try again or send "cancel" to abort:`,
+    });
+  }
 }
 
