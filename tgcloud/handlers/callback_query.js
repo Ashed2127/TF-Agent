@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
@@ -128,8 +128,19 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: '↩️ Back', callback_data: 'get_news' }
         ]
       ];
+    } else if (user?.user_type === 'guest') {
+      // Guest mode - no posting, just edit and skip
+      keyboard = [
+        [
+          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+          { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'get_news' }
+        ]
+      ];
     } else {
-      // Check if user has a test channel configured
+      // User mode - can post to channels
       const hasTestChannel = user && user.test_channel_id;
 
       if (hasTestChannel) {
@@ -225,6 +236,67 @@ export default async function (callbackQuery, ctx) {
     });
   } catch (e) {
     console.log('Callback query already answered or expired:', e.message);
+  }
+
+  // Handle User/Guest choice
+  if (data === 'choose_user') {
+    await updateUserType(userId, 'user');
+    await updateUserOnboardingStep(userId, 'join_channel');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🎉 User Mode Selected!\n\nTo get started, please join our True Feed channel first:',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
+          ],
+          [
+            { text: '✅ I\'ve Joined', callback_data: 'check_join' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  if (data === 'choose_guest') {
+    await updateUserType(userId, 'guest');
+    await updateUserOnboardingStep(userId, 'guest_ready');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '👻 Guest Mode Activated!\n\nYou can now browse and translate news without setting up a channel.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📰 Browse News', callback_data: 'get_news' }
+          ],
+          [
+            { text: '⚙️ Settings', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  if (data === 'switch_to_user') {
+    await updateUserType(userId, 'user');
+    await updateUserOnboardingStep(userId, 'join_channel');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🔄 Switching to User Mode...\n\nTo get started, please join our True Feed channel first:',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
+          ],
+          [
+            { text: '✅ I\'ve Joined', callback_data: 'check_join' }
+          ]
+        ]
+      }
+    });
+    return;
   }
 
   // Handle public onboarding callbacks (no auth check)
@@ -408,7 +480,7 @@ export default async function (callbackQuery, ctx) {
       const useDotPunctuation = user?.use_dot_punctuation === 1;
       const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
 
-      // Different buttons for owner vs public user
+      // Different buttons for owner vs user vs guest
       let keyboard;
       if (isOwner) {
         keyboard = [
@@ -424,8 +496,19 @@ export default async function (callbackQuery, ctx) {
             { text: '↩️ Back', callback_data: 'back' }
           ]
         ];
+      } else if (user?.user_type === 'guest') {
+        // Guest mode - no posting, just edit and skip
+        keyboard = [
+          [
+            { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
+            { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ];
       } else {
-        // Check if user has a test channel configured
+        // User mode - can post to channels
         const hasTestChannel = user && user.test_channel_id;
 
         if (hasTestChannel) {

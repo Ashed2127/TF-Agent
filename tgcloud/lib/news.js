@@ -440,28 +440,22 @@ async function generateAmharicNews(article, userChannelLink = null, botDisplayNa
       botAttribution = `\n<b>${botDisplayName}</b>`;
     }
 
-    const prompt = `You are a professional Amharic news translator and journalist for True Feed. Provide a DIRECT, ACCURATE, and FAITHFUL Amharic translation of the following news story.
+    const prompt = `Translate news to Amharic. Direct, accurate, no hallucinations.
 
-CRITICAL TRANSLATION & CONTEXT RULES:
-- Provide a DIRECT, TRUTHFUL translation of the facts, events, and background from the original article.
-- Preserve the EXACT context, meaning, company/person names, data, and details. Do NOT distort facts, do NOT hallucinate, and do NOT inject unrelated Ethiopian context unless the article explicitly discusses Ethiopia.
-- Title: Directly translate the headline into a compelling, accurate Amharic title in BOLD using HTML <b> tags (NO emojis).
-- Bullet Points: Write 2-3 clear bullet points directly translating the key facts, developments, and takeaways in fluent, natural Amharic (NO emojis).
+Format:
+<b>Amharic title</b>
 
-Structure:
-1. Impressive Amharic title in BOLD using <b> tags (NO emojis)
-2. Add ONE BLANK LINE after the title
-3. Below the blank line, write 2-3 short bullet points directly translating the news into Amharic (NO emojis)
-${showSourceLink ? `4. Add ONE BLANK LINE after the bullet points\n5. On the new line, add the source link as clickable text using HTML <a> tags: <a href="${article.link}">${article.platform}</a>\n6. Add ONE BLANK LINE after the source link\n7. On the new line, add the content creator's channel link: ${userChannelLink || 'N/A'}` : `4. Add ONE BLANK LINE after the bullet points\n5. On the new line, add the content creator's channel link: ${userChannelLink || 'N/A'}`}
-${botAttribution ? `\n${showSourceLink ? '8' : '6'}. Add ONE BLANK LINE after the content creator channel link\n${showSourceLink ? '9' : '7'}. On the new line, add the bot attribution in bold: <b>${botDisplayName}</b>` : ''}
+• Fact 1
+• Fact 2
+• Fact 3
+${showSourceLink ? `\n<a href="${article.link}">${article.platform}</a>` : ''}
+${userChannelLink ? `\n${userChannelLink}` : ''}
+${botDisplayName ? `\n<b>${botDisplayName}</b>` : ''}
 
-Original English news:
 Title: ${article.title}
-Platform: ${article.platform}
-Full Article Text / Context:
-${articleContext}
+Text: ${articleContext}
 
-Output ONLY the formatted Amharic news following the structure above. Do not include any explanations.`;
+Output only translation.`;
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',

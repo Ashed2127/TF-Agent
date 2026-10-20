@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
@@ -50,33 +50,20 @@ export default async function (message, ctx) {
       return;
     }
 
-    // Public users get onboarding flow
-    if (user.onboarding_step === 'join_channel') {
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: '🎉 Welcome to True Feed Content Creator Bot!\n\nTo get started, please join our True Feed channel first:',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
-            ],
-            [
-              { text: '✅ I\'ve Joined', callback_data: 'check_join' }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
-    // If user is already onboarded, show main menu
-    if (user.onboarding_step === 'completed') {
+    // If user is already onboarded as user, show main menu
+    if (user.onboarding_step === 'completed' && user.user_type === 'user') {
       await showMainMenu(message.chat.id);
       return;
     }
 
-    // Otherwise, continue onboarding from current step
-    await continueOnboarding(message.chat.id, user);
+    // If user is a guest, show guest menu
+    if (user.user_type === 'guest' && user.onboarding_step === 'guest_ready') {
+      await showGuestMenu(message.chat.id);
+      return;
+    }
+
+    // Show User/Guest choice
+    await showUserTypeChoice(message.chat.id);
     return;
   }
 
@@ -339,6 +326,41 @@ async function showMainMenu(chatId) {
         ],
         [
           { text: '📊 My Stats', callback_data: 'my_stats' }
+        ]
+      ]
+    }
+  });
+}
+
+async function showGuestMenu(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📰 Browse News', callback_data: 'get_news' }
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'settings' }
+        ],
+        [
+          { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
+        ]
+      ]
+    }
+  });
+}
+
+async function showUserTypeChoice(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🎉 Welcome to True Feed!\n\nChoose how you want to use the bot:',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '👤 User - Post to My Channel', callback_data: 'choose_user' },
+          { text: '👻 Guest - Browse Only', callback_data: 'choose_guest' }
         ]
       ]
     }
