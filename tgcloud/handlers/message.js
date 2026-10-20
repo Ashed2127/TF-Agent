@@ -182,8 +182,15 @@ export default async function (message, ctx) {
             { text: '❌ Cancel', callback_data: 'cancel_edit' }
           ]
         ];
+      } else if (user?.user_type === 'guest') {
+        // Guest mode - no posting, just cancel
+        keyboard = [
+          [
+            { text: '❌ Cancel', callback_data: 'cancel_edit' }
+          ]
+        ];
       } else {
-        // Check if user has a test channel configured
+        // User mode - can post to channels
         const hasTestChannel = user && user.test_channel_id;
 
         if (hasTestChannel) {
