@@ -122,6 +122,7 @@ export const NEWS_CATEGORIES = [
   { id: 'world', name: '🌍 World News', description: 'Global headlines & international events' },
   { id: 'startups', name: '🚀 Startups & Africa', description: 'African tech, VC funding & innovation' },
   { id: 'science', name: '🔬 Science & Space', description: 'Science breakthroughs, health & space' },
+  { id: 'education', name: '📚 Education', description: 'Learning, schools, universities & skills' },
   { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
   { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
   { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' }
@@ -168,6 +169,12 @@ export const NEWS_PLATFORMS = [
   { id: 'physorg', name: 'Phys.org', category: 'science', url: 'https://phys.org/rss-feed/' },
   { id: 'spacecom', name: 'Space.com', category: 'science', url: 'https://www.space.com/feeds/all' },
   { id: 'nature', name: 'Nature News', category: 'science', url: 'https://www.nature.com/nature.rss' },
+
+  // Education
+  { id: 'educationweek', name: 'Education Week', category: 'education', url: 'https://www.edweek.org/feed' },
+  { id: 'chronicle', name: 'The Chronicle', category: 'education', url: 'https://www.chronicle.com/rss' },
+  { id: 'insidehighered', name: 'Inside Higher Ed', category: 'education', url: 'https://www.insidehighered.com/rss.xml' },
+  { id: 'edsurge', name: 'EdSurge', category: 'education', url: 'https://www.edsurge.com/rss' },
 
   // Crypto & Web3
   { id: 'coindesk', name: 'CoinDesk', category: 'crypto', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/' },
