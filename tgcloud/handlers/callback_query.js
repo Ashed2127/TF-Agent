@@ -25,8 +25,36 @@ async function showMainMenu(chatId) {
         ],
         [
           { text: '📊 My Stats', callback_data: 'my_stats' }
+        ],
+        [
+          { text: '🔄 Refresh', callback_data: 'refresh_menu' }
         ]
       ]
+    }
+  });
+}
+
+/**
+ * Helper function to show the guest menu
+ */
+async function showGuestMenu(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📰 Browse News', callback_data: 'get_news' }
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'settings' }
+        ],
+        [
+          { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
+        ],
+        [
+          { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
+        ]
     }
   });
 }
@@ -299,6 +327,23 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  // Handle refresh menu buttons
+  if (data === 'refresh_menu') {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.user_type === 'user' && user.onboarding_step === 'completed') {
+      await showMainMenu(callbackQuery.message.chat.id);
+    }
+    return;
+  }
+
+  if (data === 'refresh_guest_menu') {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.user_type === 'guest') {
+      await showGuestMenu(callbackQuery.message.chat.id);
+    }
+    return;
+  }
+
   // Handle public onboarding callbacks (no auth check)
   if (data === 'check_join') {
     await handleCheckJoin(callbackQuery, userId);
@@ -364,6 +409,9 @@ export default async function (callbackQuery, ctx) {
     }
     keyboard.push([
       { text: '🌐 All Sources', callback_data: 'news_cat_all' },
+      { text: '🔄 Refresh', callback_data: 'get_news' }
+    ]);
+    keyboard.push([
       { text: '↩️ Back', callback_data: 'back' }
     ]);
 
@@ -399,6 +447,7 @@ export default async function (callbackQuery, ctx) {
       keyboard.push(row);
     }
     keyboard.push([
+      { text: '🔄 Refresh', callback_data: `news_cat_${catId}` },
       { text: '↩️ Categories', callback_data: 'get_news' }
     ]);
 

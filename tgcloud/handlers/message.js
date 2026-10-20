@@ -305,26 +305,6 @@ async function showMainMenu(chatId) {
   });
 }
 
-async function showGuestMenu(chatId) {
-  await api.sendMessage({
-    chat_id: chatId,
-    text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
-    reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '📰 Browse News', callback_data: 'get_news' }
-        ],
-        [
-          { text: '⚙️ Settings', callback_data: 'settings' }
-        ],
-        [
-          { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
-        ]
-      ]
-    }
-  });
-}
-
 async function showUserTypeChoice(chatId) {
   await api.sendMessage({
     chat_id: chatId,
