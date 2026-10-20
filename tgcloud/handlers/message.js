@@ -124,26 +124,6 @@ export default async function (message, ctx) {
     const pendingEdit = await getPendingEdit(userId);
     console.log('Pending edit found:', pendingEdit);
     if (pendingEdit) {
-      // Check if user is changing bot name
-      if (pendingEdit.text === '__change_bot_name__') {
-        if (incomingText.toLowerCase() === 'skip') {
-          await updateUserBotDisplayName(userId, null);
-          await deletePendingEdit(userId);
-          await api.sendMessage({
-            chat_id: message.chat.id,
-            text: '✅ Bot name reset to default.',
-          });
-        } else {
-          await updateUserBotDisplayName(userId, incomingText);
-          await deletePendingEdit(userId);
-          await api.sendMessage({
-            chat_id: message.chat.id,
-            text: `✅ Bot display name updated to: ${incomingText}`,
-          });
-        }
-        return;
-      }
-
       console.log('User is in edit mode, processing edited text');
 
       // User is in edit mode — preserve original image or use newly uploaded photo
@@ -268,20 +248,6 @@ export default async function (message, ctx) {
       } else {
         await updateUserDisplayName(userId, incomingText);
       }
-      await updateUserOnboardingStep(userId, 'provide_bot_display_name');
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: '📝 Step 4: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
-      });
-      return;
-    }
-
-    if (user && user.onboarding_step === 'provide_bot_display_name') {
-      if (incomingText.toLowerCase() === 'skip') {
-        await updateUserBotDisplayName(userId, null);
-      } else {
-        await updateUserBotDisplayName(userId, incomingText);
-      }
       await updateUserOnboardingStep(userId, 'select_categories');
       await showCategorySelection(message.chat.id);
       return;
@@ -385,12 +351,6 @@ async function continueOnboarding(chatId, user) {
     case 'provide_display_name':
       await showDisplayNameInstructions(chatId);
       break;
-    case 'provide_bot_display_name':
-      await api.sendMessage({
-        chat_id: chatId,
-        text: '📝 Step 4: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
-      });
-      break;
     case 'select_categories':
       await showCategorySelection(chatId);
       break;
@@ -402,7 +362,7 @@ async function continueOnboarding(chatId, user) {
 async function showChannelIdInstructions(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: '📝 Step 1: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+    text: '📝 Step 2: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
   });
 }
 
@@ -410,7 +370,7 @@ async function showAddBotAdminInstructions(chatId, channelId = null) {
   const channelDisplay = channelId ? ` "${channelId}"` : '';
   await api.sendMessage({
     chat_id: chatId,
-    text: `🤖 Step 2: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:`,
+    text: `🤖 Step 3: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:`,
     reply_markup: {
       inline_keyboard: [
         [
@@ -470,7 +430,7 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
     await updateUserOnboardingStep(user.telegram_id, 'provide_display_name');
     await api.sendMessage({
       chat_id: chatId,
-      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)`,
+      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or type "skip" to skip this step)`,
     });
   } catch (error) {
     console.error('Error checking bot admin status:', error);
@@ -495,7 +455,7 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
 async function showDisplayNameInstructions(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: '✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or leave blank to skip)',
+    text: '✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or type "skip" to skip)',
   });
 }
 
@@ -525,7 +485,7 @@ async function showCategorySelection(chatId) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
+    text: '📂 Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
