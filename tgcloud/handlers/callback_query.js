@@ -2,34 +2,46 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
-import { normalizeChannelId } from '../lib/channel.js';
+import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468;
 
 /**
  * Helper function to show the main menu for public users
  */
-async function showMainMenu(chatId) {
+async function showMainMenu(chatId, isOwner = false) {
+  const keyboard = [
+    [
+      { text: '📰 Generate Content', callback_data: 'generate_content' },
+      { text: '⚙️ Settings', callback_data: 'settings' }
+    ],
+    [
+      { text: '📊 My Stats', callback_data: 'my_stats' }
+    ],
+    [
+      { text: '🔄 Refresh', callback_data: 'refresh_menu' }
+    ],
+    [
+      { text: '↩️ Back', callback_data: 'back' }
+    ]
+  ];
+
+  // Add analytics button for owner
+  if (isOwner) {
+    keyboard.splice(3, 0, [
+      { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+    ]);
+  }
+
   await api.sendMessage({
     chat_id: chatId,
     text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
     reply_markup: {
-      inline_keyboard: [
-        [
-          { text: '📰 Generate Content', callback_data: 'generate_content' },
-          { text: '⚙️ Settings', callback_data: 'settings' }
-        ],
-        [
-          { text: '📊 My Stats', callback_data: 'my_stats' }
-        ],
-        [
-          { text: '🔄 Refresh', callback_data: 'refresh_menu' }
-        ]
-      ]
+      inline_keyboard: keyboard
     }
   });
 }
@@ -54,7 +66,11 @@ async function showGuestMenu(chatId) {
         ],
         [
           { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'back' }
         ]
+      ]
     }
   });
 }
@@ -200,9 +216,56 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
         ];
       }
     }
-    
-    // Send with image if available, otherwise just text
-    if (article.image) {
+
+    // Send with video if available, otherwise image, otherwise just text
+    if (article.video) {
+      try {
+        await api.sendVideo({
+          chat_id: callbackQuery.message.chat.id,
+          video: article.video,
+          caption: articleText,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } catch (videoError) {
+        console.error('Failed to send video, falling back to image:', videoError.message);
+        // Fallback to image if video fails
+        if (article.image) {
+          try {
+            await api.sendPhoto({
+              chat_id: callbackQuery.message.chat.id,
+              photo: article.image,
+              caption: articleText,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: keyboard
+              }
+            });
+          } catch (photoError) {
+            console.error('Failed to send photo, falling back to text:', photoError.message);
+            await api.sendMessage({
+              chat_id: callbackQuery.message.chat.id,
+              text: articleText,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: keyboard
+              }
+            });
+          }
+        } else {
+          await api.sendMessage({
+            chat_id: callbackQuery.message.chat.id,
+            text: articleText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        }
+      }
+    } else if (article.image) {
       try {
         await api.sendPhoto({
           chat_id: callbackQuery.message.chat.id,
@@ -219,6 +282,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
           text: articleText,
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
           }
@@ -331,7 +395,7 @@ export default async function (callbackQuery, ctx) {
   if (data === 'refresh_menu') {
     const user = await getUserByTelegramId(userId);
     if (user && user.user_type === 'user' && user.onboarding_step === 'completed') {
-      await showMainMenu(callbackQuery.message.chat.id);
+      await showMainMenu(callbackQuery.message.chat.id, userId === OWNER_CHAT_ID);
     }
     return;
   }
@@ -357,6 +421,11 @@ export default async function (callbackQuery, ctx) {
 
   if (data === 'bot_admin_added') {
     await handleBotAdminAdded(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'skip_display_name') {
+    await handleSkipDisplayName(callbackQuery, userId);
     return;
   }
 
@@ -455,7 +524,7 @@ export default async function (callbackQuery, ctx) {
     const catTitle = catObj ? catObj.name : '🌐 All Sources';
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `📰 ${catTitle} — Choose a source to scrape:`,
+      text: `📰 ${catTitle} — Choose a source:`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -590,8 +659,55 @@ export default async function (callbackQuery, ctx) {
         }
       }
 
-      // Send with image if available, otherwise just text
-      if (article.image) {
+      // Send with video if available, otherwise image, otherwise just text
+      if (article.video) {
+        try {
+          await api.sendVideo({
+            chat_id: callbackQuery.message.chat.id,
+            video: article.video,
+            caption: articleText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        } catch (videoError) {
+          console.error('Failed to send video, falling back to image:', videoError.message);
+          // Fallback to image if video fails
+          if (article.image) {
+            try {
+              await api.sendPhoto({
+                chat_id: callbackQuery.message.chat.id,
+                photo: article.image,
+                caption: articleText,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: keyboard
+                }
+              });
+            } catch (photoError) {
+              console.error('Failed to send photo, falling back to text:', photoError.message);
+              await api.sendMessage({
+                chat_id: callbackQuery.message.chat.id,
+                text: articleText,
+                parse_mode: 'HTML',
+                reply_markup: {
+                  inline_keyboard: keyboard
+                }
+              });
+            }
+          } else {
+            await api.sendMessage({
+              chat_id: callbackQuery.message.chat.id,
+              text: articleText,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: keyboard
+              }
+            });
+          }
+        }
+      } else if (article.image) {
         try {
           await api.sendPhoto({
             chat_id: callbackQuery.message.chat.id,
@@ -696,16 +812,20 @@ export default async function (callbackQuery, ctx) {
     const useDotPunctuation = user?.use_dot_punctuation === 1 ? 'Yes' : 'No';
 
     const isOwner = userId === OWNER_CHAT_ID;
+    const userChannels = await getUserChannels(user.id);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `⚙️ Settings\n\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n\nWhat would you like to change?`,
+      text: `⚙️ Settings\n\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n📢 Your Channels: ${userChannels.length}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: [
           [
             { text: '🔗 Toggle Source Link', callback_data: 'toggle_source_link' }
           ],
           ...(isOwner ? [[{ text: '✨ Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
+          [
+            { text: '📢 Manage Channels', callback_data: 'manage_channels' }
+          ],
           [
             { text: '↩️ Back', callback_data: 'back' }
           ]
@@ -752,6 +872,42 @@ export default async function (callbackQuery, ctx) {
         ]
       }
     });
+    return;
+  }
+
+  // Handle manage channels
+  if (data === 'manage_channels') {
+    await handleManageChannels(callbackQuery, userId);
+    return;
+  }
+
+  // Handle add channel
+  if (data === 'add_channel') {
+    await handleAddChannelStart(callbackQuery, userId);
+    return;
+  }
+
+  // Handle delete channel
+  if (data.startsWith('delete_channel_')) {
+    const channelId = parseInt(data.replace('delete_channel_', ''));
+    await handleDeleteChannel(callbackQuery, userId, channelId);
+    return;
+  }
+
+  // Handle channel info
+  if (data.startsWith('channel_info_')) {
+    const channelId = parseInt(data.replace('channel_info_', ''));
+    await handleChannelInfo(callbackQuery, userId, channelId);
+    return;
+  }
+
+  // Handle post to specific channel
+  if (data.startsWith('post_to_channel_')) {
+    const parts = data.replace('post_to_channel_', '').split('_');
+    const channelId = parseInt(parts[0]);
+    const platformId = parts[1];
+    const currentIndex = parseInt(parts[2]);
+    await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, channelId);
     return;
   }
 
@@ -964,12 +1120,15 @@ export default async function (callbackQuery, ctx) {
             [
               { text: 'idea', callback_data: 'new_idea' },
               { text: '📰 news', callback_data: 'get_news' }
+            ],
+            [
+              { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
         }
       });
     } else if (user && user.onboarding_step === 'completed') {
-      await showMainMenu(callbackQuery.message.chat.id);
+      await showMainMenu(callbackQuery.message.chat.id, userId === OWNER_CHAT_ID);
     } else {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -1515,7 +1674,12 @@ async function handleBotAdminAdded(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_display_name');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)`,
+      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 3: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")`,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⏭️ Skip This Step', callback_data: 'skip_display_name' }]
+        ]
+      }
     });
   } catch (error) {
     console.error('Error checking bot admin status:', error);
@@ -1539,6 +1703,41 @@ async function handleBotAdminAdded(callbackQuery, userId) {
       }
     });
   }
+}
+
+async function handleSkipDisplayName(callbackQuery, userId) {
+  await updateUserOnboardingStep(userId, 'select_categories');
+
+  const keyboard = [];
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+    const row = [];
+    row.push({
+      text: NEWS_CATEGORIES[i].name,
+      callback_data: `select_category_${NEWS_CATEGORIES[i].id}`
+    });
+    if (i + 1 < NEWS_CATEGORIES.length) {
+      row.push({
+        text: NEWS_CATEGORIES[i + 1].name,
+        callback_data: `select_category_${NEWS_CATEGORIES[i + 1].id}`
+      });
+    }
+    keyboard.push(row);
+  }
+
+  keyboard.push([
+    { text: '➕ Add Custom Source', callback_data: 'add_custom_source' }
+  ]);
+  keyboard.push([
+    { text: '✅ Complete Setup', callback_data: 'complete_setup' }
+  ]);
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '📂 Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
 }
 
 async function handleSelectCategory(callbackQuery, userId, data) {
@@ -1668,7 +1867,7 @@ async function handleGenerateContent(callbackQuery, userId) {
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '📂 Select a category to scrape and generate content:',
+    text: '📂 Select a category to generate content:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -1683,13 +1882,69 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
   const user = await getUserByTelegramId(userId);
   const platform = getPlatformById(platformId);
 
-  if (!user || !user.channel_id) {
+  // Migrate existing channels if needed
+  await migrateUserChannels(userId);
+
+  const userChannels = await getUserChannels(user.id);
+
+  if (!user || userChannels.length === 0) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '❌ Channel not found.',
+      text: '❌ No channels found. Please add a channel in settings first.',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⚙️ Settings', callback_data: 'settings' }]
+        ]
+      }
     });
     return;
   }
+
+  if (!platform) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Platform not found.',
+    });
+    return;
+  }
+
+  // If user has multiple channels, show channel selection
+  if (userChannels.length > 1) {
+    await showChannelSelectionForPost(callbackQuery, userId, platformId, currentIndex, userChannels);
+    return;
+  }
+
+  // Single channel - post directly
+  const channelId = userChannels[0].channel_id;
+  await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, channelId);
+}
+
+async function showChannelSelectionForPost(callbackQuery, userId, platformId, currentIndex, userChannels) {
+  const keyboard = [];
+  for (const channel of userChannels) {
+    const channelName = channel.channel_name || channel.channel_id;
+    const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+    keyboard.push([
+      { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.id}_${platformId}_${currentIndex}` }
+    ]);
+  }
+
+  keyboard.push([
+    { text: '↩️ Cancel', callback_data: 'back' }
+  ]);
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '📢 Select Channel\n\nChoose which channel to post to:',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}
+
+async function postArticleToChannel(callbackQuery, userId, platformId, currentIndex, channelId) {
+  const user = await getUserByTelegramId(userId);
+  const platform = getPlatformById(platformId);
 
   if (!platform) {
     await api.sendMessage({
@@ -1715,14 +1970,12 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
     // Get user channel link for content creator attribution
     let userChannelLink = null;
     if (user && user.channel_name) {
-      // Format as @channelname if it starts with @, otherwise as t.me/channelname
       if (user.channel_name.startsWith('@')) {
         userChannelLink = user.channel_name;
       } else {
         userChannelLink = `t.me/${user.channel_name}`;
       }
     } else if (user && user.channel_id) {
-      // Use channel_id if channel_name is not available
       userChannelLink = user.channel_id;
     }
 
@@ -1730,11 +1983,45 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
     const useDotPunctuation = user?.use_dot_punctuation === 1;
     const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
 
-    // Post to the user's channel
-    if (article.image) {
+    // Post to the channel
+    if (article.video) {
+      try {
+        await api.sendVideo({
+          chat_id: channelId,
+          video: article.video,
+          caption: articleText,
+          parse_mode: 'HTML',
+        });
+      } catch (videoError) {
+        console.error('Failed to send video to channel, falling back to image:', videoError.message);
+        if (article.image) {
+          try {
+            await api.sendPhoto({
+              chat_id: channelId,
+              photo: article.image,
+              caption: articleText,
+              parse_mode: 'HTML',
+            });
+          } catch (photoError) {
+            console.error('Failed to send photo to channel, falling back to text:', photoError.message);
+            await api.sendMessage({
+              chat_id: channelId,
+              text: articleText,
+              parse_mode: 'HTML',
+            });
+          }
+        } else {
+          await api.sendMessage({
+            chat_id: channelId,
+            text: articleText,
+            parse_mode: 'HTML',
+          });
+        }
+      }
+    } else if (article.image) {
       try {
         await api.sendPhoto({
-          chat_id: user.channel_id,
+          chat_id: channelId,
           photo: article.image,
           caption: articleText,
           parse_mode: 'HTML',
@@ -1742,21 +2029,21 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
       } catch (photoError) {
         console.error('Failed to send photo to channel, falling back to text:', photoError.message);
         await api.sendMessage({
-          chat_id: user.channel_id,
+          chat_id: channelId,
           text: articleText,
           parse_mode: 'HTML',
         });
       }
     } else {
       await api.sendMessage({
-        chat_id: user.channel_id,
+        chat_id: channelId,
         text: articleText,
         parse_mode: 'HTML',
       });
     }
 
     // Track the post
-    await createPost(user.id, user.channel_id, articleText, article.category || 'news', platform.name, article.image);
+    await createPost(user.id, channelId, articleText, article.category || 'news', platform.name, article.video || article.image);
 
     // Confirm to the user
     await api.sendMessage({
@@ -1832,7 +2119,41 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
     const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
 
     // Post to the user's test channel
-    if (article.image) {
+    if (article.video) {
+      try {
+        await api.sendVideo({
+          chat_id: user.test_channel_id,
+          video: article.video,
+          caption: articleText,
+          parse_mode: 'HTML',
+        });
+      } catch (videoError) {
+        console.error('Failed to send video to test channel, falling back to image:', videoError.message);
+        if (article.image) {
+          try {
+            await api.sendPhoto({
+              chat_id: user.test_channel_id,
+              photo: article.image,
+              caption: articleText,
+              parse_mode: 'HTML',
+            });
+          } catch (photoError) {
+            console.error('Failed to send photo to test channel, falling back to text:', photoError.message);
+            await api.sendMessage({
+              chat_id: user.test_channel_id,
+              text: articleText,
+              parse_mode: 'HTML',
+            });
+          }
+        } else {
+          await api.sendMessage({
+            chat_id: user.test_channel_id,
+            text: articleText,
+            parse_mode: 'HTML',
+          });
+        }
+      }
+    } else if (article.image) {
       try {
         await api.sendPhoto({
           chat_id: user.test_channel_id,
@@ -1857,7 +2178,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
     }
 
     // Track the post (but don't increment main posts count since it's test)
-    await createPost(user.id, user.test_channel_id, articleText, article.category || 'news', platform.name, article.image);
+    await createPost(user.id, user.test_channel_id, articleText, article.category || 'news', platform.name, article.video || article.image);
 
     // Confirm to the user
     await api.sendMessage({
@@ -1875,4 +2196,121 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
 
   // Show next article
   await showNextArticle(callbackQuery, platformId, currentIndex);
+}
+
+async function handleManageChannels(callbackQuery, userId) {
+  const user = await getUserByTelegramId(userId);
+  const channels = await getUserChannels(user.id);
+
+  if (channels.length === 0) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '📢 Manage Channels\n\nYou have no channels yet. Add your first channel to get started!',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '➕ Add Channel', callback_data: 'add_channel' }
+          ],
+          [
+            { text: '↩️ Back to Settings', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  const keyboard = [];
+  for (const channel of channels) {
+    const channelName = channel.channel_name || channel.channel_id;
+    const typeLabel = channel.is_main ? ' 🌟 Main' : (channel.is_test ? ' 🧪 Test' : '');
+    keyboard.push([
+      { text: `${channelName}${typeLabel}`, callback_data: `channel_info_${channel.id}` }
+    ]);
+  }
+
+  keyboard.push([
+    { text: '➕ Add New Channel', callback_data: 'add_channel' }
+  ]);
+  keyboard.push([
+    { text: '↩️ Back to Settings', callback_data: 'settings' }
+  ]);
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: `📢 Manage Channels\n\nYou have ${channels.length} channel(s):`,
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}
+
+async function handleAddChannelStart(callbackQuery, userId) {
+  const user = await getUserByTelegramId(userId);
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '➕ Add New Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+  });
+  await setPendingChannelAdd(userId, 'waiting', null);
+}
+
+async function handleDeleteChannel(callbackQuery, userId, channelId) {
+  const channel = await getUserChannelById(channelId);
+  if (!channel) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Channel not found.',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '↩️ Back', callback_data: 'manage_channels' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  await deleteUserChannel(channelId);
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: `✅ Channel "${channel.channel_name || channel.channel_id}" has been removed.`,
+    reply_markup: {
+      inline_keyboard: [
+        [{ text: '↩️ Back to Channels', callback_data: 'manage_channels' }]
+      ]
+    }
+  });
+}
+
+async function handleChannelInfo(callbackQuery, userId, channelId) {
+  const channel = await getUserChannelById(channelId);
+  if (!channel) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Channel not found.',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '↩️ Back', callback_data: 'manage_channels' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  const channelName = channel.channel_name || channel.channel_id;
+  const typeLabel = channel.is_main ? 'Main Channel' : (channel.is_test ? 'Test Channel' : 'Additional Channel');
+
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: `📢 ${channelName}\n\nType: ${typeLabel}\nChannel ID: ${channel.channel_id}\nAdded: ${new Date(channel.created_at).toLocaleDateString()}`,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '🗑️ Remove Channel', callback_data: `delete_channel_${channel.id}` }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'manage_channels' }
+        ]
+      ]
+    }
+  });
 }

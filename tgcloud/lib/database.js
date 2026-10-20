@@ -1,6 +1,6 @@
 import { db } from 'sdk';
-import { eq, desc, sql } from 'sdk/db';
-import { ideas, pendingEdits, users, customSources, posts } from '../schema.js';
+import { eq, desc, sql, and } from 'sdk/db';
+import { ideas, pendingEdits, users, customSources, posts, userChannels } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -158,7 +158,7 @@ export async function getOrCreateUser(telegramId, username = null) {
       telegram_id: telegramId,
       username: username,
       user_type: 'guest',
-      onboarding_step: 'choose_type'
+      onboarding_step: 'join_channel'
     })
     .returning()
     .run();
@@ -359,4 +359,128 @@ export async function getDashboardStats() {
     recentPosts: serializedPosts,
     recentUsers: serializedUsers
   };
+}
+
+// Multi-channel management functions
+
+export async function addUserChannel(userId, channelId, channelName = null, isMain = 0, isTest = 0) {
+  const [channel] = await db.insert(userChannels)
+    .values({
+      user_id: userId,
+      channel_id: channelId,
+      channel_name: channelName,
+      is_main: isMain,
+      is_test: isTest
+    })
+    .returning()
+    .run();
+  return channel;
+}
+
+export async function getUserChannels(userId) {
+  return await db.select()
+    .from(userChannels)
+    .where(eq(userChannels.user_id, userId))
+    .orderBy(desc(userChannels.is_main), desc(userChannels.created_at))
+    .all();
+}
+
+export async function deleteUserChannel(channelId) {
+  await db.delete(userChannels)
+    .where(eq(userChannels.id, channelId))
+    .run();
+}
+
+export async function getUserChannelById(channelId) {
+  const result = await db.select()
+    .from(userChannels)
+    .where(eq(userChannels.id, channelId))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+export async function getUserChannelByChannelId(userId, channelId) {
+  const result = await db.select()
+    .from(userChannels)
+    .where(and(eq(userChannels.user_id, userId), eq(userChannels.channel_id, channelId)))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+export async function getMainChannel(userId) {
+  const result = await db.select()
+    .from(userChannels)
+    .where(and(eq(userChannels.user_id, userId), eq(userChannels.is_main, 1)))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+export async function getTestChannel(userId) {
+  const result = await db.select()
+    .from(userChannels)
+    .where(and(eq(userChannels.user_id, userId), eq(userChannels.is_test, 1)))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+// Temporary storage for adding new channel
+export async function setPendingChannelAdd(userId, channelId, channelName = null) {
+  await db.update(users)
+    .set({ display_name: `pending_channel:${channelId}:${channelName || ''}` })
+    .where(eq(users.telegram_id, userId))
+    .run();
+}
+
+export async function getPendingChannelAdd(userId) {
+  const user = await getUserByTelegramId(userId);
+  if (!user || !user.display_name || !user.display_name.startsWith('pending_channel:')) {
+    return null;
+  }
+  const parts = user.display_name.replace('pending_channel:', '').split(':');
+  return {
+    channelId: parts[0],
+    channelName: parts[1] || null
+  };
+}
+
+export async function clearPendingChannelAdd(userId) {
+  await db.update(users)
+    .set({ display_name: null })
+    .where(eq(users.telegram_id, userId))
+    .run();
+}
+
+// Migration function to move existing channels to user_channels table
+export async function migrateUserChannels(userId) {
+  const user = await getUserByTelegramId(userId);
+  if (!user) return false;
+
+  const existingChannels = await getUserChannels(userId);
+  if (existingChannels.length > 0) return true; // Already migrated
+
+  let migrated = false;
+
+  // Migrate main channel
+  if (user.channel_id) {
+    const alreadyExists = await getUserChannelByChannelId(userId, user.channel_id);
+    if (!alreadyExists) {
+      await addUserChannel(user.id, user.channel_id, user.channel_name, 1, 0);
+      migrated = true;
+    }
+  }
+
+  // Migrate test channel
+  if (user.test_channel_id) {
+    const alreadyExists = await getUserChannelByChannelId(userId, user.test_channel_id);
+    if (!alreadyExists) {
+      await addUserChannel(user.id, user.test_channel_id, user.test_channel_name, 0, 1);
+      migrated = true;
+    }
+  }
+
+  return migrated;
 }
