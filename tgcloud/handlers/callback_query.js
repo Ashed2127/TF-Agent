@@ -2051,6 +2051,9 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
       text: '✅ Posted to your channel!',
     });
 
+    // Show next article
+    await showNextArticle(callbackQuery, platformId, currentIndex);
+
   } catch (error) {
     console.error('Error posting article to user channel:', error);
     await api.sendMessage({
@@ -2058,9 +2061,6 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
       text: `❌ Failed to post article: ${error.message}`,
     });
   }
-
-  // Show next article
-  await showNextArticle(callbackQuery, platformId, currentIndex);
 }
 
 async function handlePostToUserTestChannel(callbackQuery, userId, data) {
