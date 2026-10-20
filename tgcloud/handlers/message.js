@@ -366,8 +366,8 @@ async function showUserTypeChoice(chatId) {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '👤 User - Post to My Channel', callback_data: 'choose_user' },
-          { text: '👻 Guest - Browse Only', callback_data: 'choose_guest' }
+          { text: '👤 User', callback_data: 'choose_user' },
+          { text: '👻 Guest', callback_data: 'choose_guest' }
         ]
       ]
     }
