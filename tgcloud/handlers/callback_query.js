@@ -2,10 +2,11 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { NEWS_PLATFORMS, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
+import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
+import { normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -127,8 +128,19 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: '↩️ Back', callback_data: 'get_news' }
         ]
       ];
+    } else if (user?.user_type === 'guest') {
+      // Guest mode - no posting, just edit and skip
+      keyboard = [
+        [
+          { text: '✏️ Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+          { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'get_news' }
+        ]
+      ];
     } else {
-      // Check if user has a test channel configured
+      // User mode - can post to channels
       const hasTestChannel = user && user.test_channel_id;
 
       if (hasTestChannel) {
@@ -226,9 +238,75 @@ export default async function (callbackQuery, ctx) {
     console.log('Callback query already answered or expired:', e.message);
   }
 
+  // Handle User/Guest choice
+  if (data === 'choose_user') {
+    await updateUserType(userId, 'user');
+    await updateUserOnboardingStep(userId, 'join_channel');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🎉 User Mode Selected!\n\nTo get started, please join our True Feed channel first:',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
+          ],
+          [
+            { text: '✅ I\'ve Joined', callback_data: 'check_join' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  if (data === 'choose_guest') {
+    await updateUserType(userId, 'guest');
+    await updateUserOnboardingStep(userId, 'guest_ready');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '👻 Guest Mode Activated!\n\nYou can now browse and translate news without setting up a channel.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📰 Browse News', callback_data: 'get_news' }
+          ],
+          [
+            { text: '⚙️ Settings', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  if (data === 'switch_to_user') {
+    await updateUserType(userId, 'user');
+    await updateUserOnboardingStep(userId, 'join_channel');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🔄 Switching to User Mode...\n\nTo get started, please join our True Feed channel first:',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
+          ],
+          [
+            { text: '✅ I\'ve Joined', callback_data: 'check_join' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
   // Handle public onboarding callbacks (no auth check)
   if (data === 'check_join') {
     await handleCheckJoin(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'change_channel') {
+    await handleChangeChannel(callbackQuery, userId);
     return;
   }
 
@@ -269,29 +347,66 @@ export default async function (callbackQuery, ctx) {
 
   // Public news handlers (before owner check)
   if (data === 'get_news') {
-    // Organize platforms in rows of 2
     const keyboard = [];
-    for (let i = 0; i < NEWS_PLATFORMS.length; i += 2) {
+    for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
       const row = [];
       row.push({
-        text: NEWS_PLATFORMS[i].name,
-        callback_data: `news_platform_${NEWS_PLATFORMS[i].id}`
+        text: NEWS_CATEGORIES[i].name,
+        callback_data: `news_cat_${NEWS_CATEGORIES[i].id}`
       });
-      if (i + 1 < NEWS_PLATFORMS.length) {
+      if (i + 1 < NEWS_CATEGORIES.length) {
         row.push({
-          text: NEWS_PLATFORMS[i + 1].name,
-          callback_data: `news_platform_${NEWS_PLATFORMS[i + 1].id}`
+          text: NEWS_CATEGORIES[i + 1].name,
+          callback_data: `news_cat_${NEWS_CATEGORIES[i + 1].id}`
         });
       }
       keyboard.push(row);
     }
     keyboard.push([
+      { text: '🌐 All Sources', callback_data: 'news_cat_all' },
       { text: '↩️ Back', callback_data: 'back' }
     ]);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '📰 Select a news platform:',
+      text: '📂 Select a news category:',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+
+  if (data.startsWith('news_cat_')) {
+    const catId = data.replace('news_cat_', '');
+    const platforms = catId === 'all'
+      ? NEWS_PLATFORMS
+      : NEWS_PLATFORMS.filter(p => p.category === catId);
+
+    const keyboard = [];
+    for (let i = 0; i < platforms.length; i += 2) {
+      const row = [];
+      row.push({
+        text: platforms[i].name,
+        callback_data: `news_platform_${platforms[i].id}`
+      });
+      if (i + 1 < platforms.length) {
+        row.push({
+          text: platforms[i + 1].name,
+          callback_data: `news_platform_${platforms[i + 1].id}`
+        });
+      }
+      keyboard.push(row);
+    }
+    keyboard.push([
+      { text: '↩️ Categories', callback_data: 'get_news' }
+    ]);
+
+    const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
+    const catTitle = catObj ? catObj.name : '🌐 All Sources';
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📰 ${catTitle} — Choose a source to scrape:`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -365,7 +480,7 @@ export default async function (callbackQuery, ctx) {
       const useDotPunctuation = user?.use_dot_punctuation === 1;
       const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
 
-      // Different buttons for owner vs public user
+      // Different buttons for owner vs user vs guest
       let keyboard;
       if (isOwner) {
         keyboard = [
@@ -381,8 +496,19 @@ export default async function (callbackQuery, ctx) {
             { text: '↩️ Back', callback_data: 'back' }
           ]
         ];
+      } else if (user?.user_type === 'guest') {
+        // Guest mode - no posting, just edit and skip
+        keyboard = [
+          [
+            { text: '✏️ Edit', callback_data: `news_edit_${platformId}_0` },
+            { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ];
       } else {
-        // Check if user has a test channel configured
+        // User mode - can post to channels
         const hasTestChannel = user && user.test_channel_id;
 
         if (hasTestChannel) {
@@ -1273,7 +1399,7 @@ async function handleCheckJoin(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_channel_id');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '✅ You\'ve joined the channel!\n\n📝 Step 1: Provide Your Channel ID\n\nPlease send your Telegram channel ID (e.g., @yourchannel or -100xxxxxxxxxx).\n\nYou can find your channel ID by forwarding a message from your channel to @userinfobot',
+      text: '✅ You\'ve joined the channel!\n\n📝 Step 1: Connect Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or simply forward any post from your channel to this chat.',
     });
   } catch (error) {
     console.error('Error checking channel membership:', error);
@@ -1284,15 +1410,38 @@ async function handleCheckJoin(callbackQuery, userId) {
   }
 }
 
+async function handleChangeChannel(callbackQuery, userId) {
+  await updateUserOnboardingStep(userId, 'provide_channel_id');
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '📝 Step 1: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+  });
+}
+
 async function handleBotAdminAdded(callbackQuery, userId) {
   const user = await getUserByTelegramId(userId);
 
-  if (!user.channel_id) {
+  if (!user || !user.channel_id) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '❌ Channel ID not found. Please start over.',
+      text: '❌ Channel ID not found. Please provide your channel first.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📝 Provide Channel', callback_data: 'change_channel' }
+          ]
+        ]
+      }
     });
     return;
+  }
+
+  // Normalize channel ID in case it was stored as a URL, link, or bare username
+  let channelId = normalizeChannelId(user.channel_id);
+  if (channelId && channelId !== user.channel_id) {
+    await updateUserChannelId(userId, channelId, user.channel_name || channelId);
+  } else if (!channelId) {
+    channelId = user.channel_id;
   }
 
   try {
@@ -1302,18 +1451,23 @@ async function handleBotAdminAdded(callbackQuery, userId) {
 
     // Check if bot is admin in the user's channel
     const botMember = await api.getChatMember({
-      chat_id: user.channel_id,
+      chat_id: channelId,
       user_id: botId
     });
 
-    if (botMember.status !== 'administrator') {
+    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
+
+    if (!isAdmin) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: '❌ The bot is not yet an administrator in your channel.\n\nPlease add this bot as an administrator to your channel with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:',
+        text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, click the button below:`,
         reply_markup: {
           inline_keyboard: [
             [
               { text: '✅ Done', callback_data: 'bot_admin_added' }
+            ],
+            [
+              { text: '🔄 Change Channel', callback_data: 'change_channel' }
             ]
           ]
         }
@@ -1325,17 +1479,25 @@ async function handleBotAdminAdded(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_display_name');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '✅ Great! Bot is now an admin.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)',
+      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)`,
     });
   } catch (error) {
     console.error('Error checking bot admin status:', error);
+    const errText = error?.description || error?.message || '';
+    let detailMsg = '';
+    if (errText.includes('chat not found')) {
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+    }
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '❌ Failed to verify bot admin status. Please make sure:\n\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:',
+      text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:`,
       reply_markup: {
         inline_keyboard: [
           [
             { text: '✅ Done', callback_data: 'bot_admin_added' }
+          ],
+          [
+            { text: '🔄 Change Channel', callback_data: 'change_channel' }
           ]
         ]
       }
@@ -1367,22 +1529,21 @@ async function handleSelectCategory(callbackQuery, userId, data) {
   });
 
   // Show category selection again
-  const allCategories = ['tech', 'entertainment', 'education', 'beauty', 'joke', 'fact'];
   const keyboard = [];
-  for (let i = 0; i < allCategories.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
-    const cat1 = allCategories[i];
-    const isSelected1 = categories.includes(cat1);
+    const cat1 = NEWS_CATEGORIES[i];
+    const isSelected1 = categories.includes(cat1.id);
     row.push({
-      text: `${isSelected1 ? '✅ ' : ''}${cat1.charAt(0).toUpperCase() + cat1.slice(1)}`,
-      callback_data: `select_category_${cat1}`
+      text: `${isSelected1 ? '✅ ' : ''}${cat1.name}`,
+      callback_data: `select_category_${cat1.id}`
     });
-    if (i + 1 < allCategories.length) {
-      const cat2 = allCategories[i + 1];
-      const isSelected2 = categories.includes(cat2);
+    if (i + 1 < NEWS_CATEGORIES.length) {
+      const cat2 = NEWS_CATEGORIES[i + 1];
+      const isSelected2 = categories.includes(cat2.id);
       row.push({
-        text: `${isSelected2 ? '✅ ' : ''}${cat2.charAt(0).toUpperCase() + cat2.slice(1)}`,
-        callback_data: `select_category_${cat2}`
+        text: `${isSelected2 ? '✅ ' : ''}${cat2.name}`,
+        callback_data: `select_category_${cat2.id}`
       });
     }
     keyboard.push(row);
@@ -1449,29 +1610,29 @@ async function handleGenerateContent(callbackQuery, userId) {
     return;
   }
 
-  // Show platform selection (same as owner's news flow)
   const keyboard = [];
-  for (let i = 0; i < NEWS_PLATFORMS.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
     row.push({
-      text: NEWS_PLATFORMS[i].name,
-      callback_data: `news_platform_${NEWS_PLATFORMS[i].id}`
+      text: NEWS_CATEGORIES[i].name,
+      callback_data: `news_cat_${NEWS_CATEGORIES[i].id}`
     });
-    if (i + 1 < NEWS_PLATFORMS.length) {
+    if (i + 1 < NEWS_CATEGORIES.length) {
       row.push({
-        text: NEWS_PLATFORMS[i + 1].name,
-        callback_data: `news_platform_${NEWS_PLATFORMS[i + 1].id}`
+        text: NEWS_CATEGORIES[i + 1].name,
+        callback_data: `news_cat_${NEWS_CATEGORIES[i + 1].id}`
       });
     }
     keyboard.push(row);
   }
   keyboard.push([
-    { text: '↩️ Back', callback_data: 'back' }
+    { text: '🌐 All Sources', callback_data: 'news_cat_all' },
+    { text: '↩️ Main Menu', callback_data: 'back' }
   ]);
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '📰 Select a news platform to generate content from:',
+    text: '📂 Select a category to scrape and generate content:',
     reply_markup: {
       inline_keyboard: keyboard
     }

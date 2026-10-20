@@ -3,34 +3,23 @@ import { getPreviousTopics, getNextCategory, saveIdea } from './database.js';
 import { OPENROUTER_API_KEY } from './secrets.js';
 
 function buildPrompt(previousTopics, category) {
-  const previousTopicsList = previousTopics.length > 0 
+  const previousTopicsList = previousTopics.length > 0
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
-  return `Generate business idea post in SIMPLE Amharic. Keep it SHORT but clear.
+  return `Amharic business idea. Short, clear.
 
-FORMAT:
+Format:
 🟢 Hybrid: [Name]
 
-Value [at least 5 lines of deep insightful idea]
+Value [5+ lines insight]
 
 @true_feed
 
-EXAMPLE:
-🟢 Hybrid: ለህፃናት አስተማሪ እቃ
+Avoid: ${previousTopicsList}
+Category: ${category}
 
-Value ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል የእጅ እና የአይን ችሎታ ይሻሻላል
-እያንዳንዱ እቃ የተለየ ትምህርት ያስተምራል . . . ከትዳር ጀምሮ የሚያዳብር መሆን አለበት አዳዲስ ነገሮችን ማግኘት ይፈልጋል
-ግልፅ እና ቀላል መሆን አለበት የህፃናት አንግስት ማስተምር ይችላል የእውነተኛ ኑሮ ችሎታዎችን ይሻሻላል
-
-@true_feed
-
-PREVIOUS TOPICS TO AVOID:
-${previousTopicsList}
-
-CATEGORY: ${category}
-
-Generate post in Amharic. Keep sentences short and clear. MUST use at most 2-3 ". . ." or ". ." for pauses in the entire post. NEVER use Amharic punctuation like ። ፤ ፣ ፡ — use ". . ." or ". ." instead (use regular ":" only after Hybrid in the title). Focus ONLY on Value section with at least 5 lines of deep insightful content. Output ONLY from 🟢 to @true_feed. Do NOT use any HTML tags or formatting - just plain text. The @true_feed will be automatically formatted as bold.`;
+Use ". . ." for pauses. No Amharic punctuation (።፤፣፡). Output only from 🟢 to @true_feed.`;
 }
 
 export async function generateIdea() {
@@ -57,7 +46,7 @@ export async function generateIdea() {
         messages: [
           { role: 'user', content: prompt }
         ],
-        max_tokens: 1000,
+        max_tokens: 500,
         temperature: 0.9
       })
     });

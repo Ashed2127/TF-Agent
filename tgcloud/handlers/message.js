@@ -5,8 +5,9 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource } from '../lib/database.js';
-import { formatEditedNewsText } from '../lib/news.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType } from '../lib/database.js';
+import { formatEditedNewsText, NEWS_CATEGORIES } from '../lib/news.js';
+import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
 
@@ -49,33 +50,20 @@ export default async function (message, ctx) {
       return;
     }
 
-    // Public users get onboarding flow
-    if (user.onboarding_step === 'join_channel') {
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: '🎉 Welcome to True Feed Content Creator Bot!\n\nTo get started, please join our True Feed channel first:',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📺 Join True Feed Channel', url: 'https://t.me/true_feed' }
-            ],
-            [
-              { text: '✅ I\'ve Joined', callback_data: 'check_join' }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
-    // If user is already onboarded, show main menu
-    if (user.onboarding_step === 'completed') {
+    // If user is already onboarded as user, show main menu
+    if (user.onboarding_step === 'completed' && user.user_type === 'user') {
       await showMainMenu(message.chat.id);
       return;
     }
 
-    // Otherwise, continue onboarding from current step
-    await continueOnboarding(message.chat.id, user);
+    // If user is a guest, show guest menu
+    if (user.user_type === 'guest' && user.onboarding_step === 'guest_ready') {
+      await showGuestMenu(message.chat.id);
+      return;
+    }
+
+    // Show User/Guest choice
+    await showUserTypeChoice(message.chat.id);
     return;
   }
 
@@ -106,10 +94,31 @@ export default async function (message, ctx) {
     return;
   }
 
+  const user = await getUserByTelegramId(userId);
+
+  // Handle onboarding channel input (forwarded message, link, or username)
+  if (user && (user.onboarding_step === 'provide_channel_id' || user.onboarding_step === 'add_bot_admin')) {
+    const channelInfo = extractChannelFromMessage(message);
+    if (channelInfo && channelInfo.channelId) {
+      await updateUserChannelId(userId, channelInfo.channelId, channelInfo.channelName);
+      await updateUserOnboardingStep(userId, 'add_bot_admin');
+      await showAddBotAdminInstructions(message.chat.id, channelInfo.channelId);
+      return;
+    }
+  }
+
+  // Handle text confirmation in add_bot_admin step (e.g. typing "done")
+  if (user && user.onboarding_step === 'add_bot_admin') {
+    const text = (message.text || '').trim().toLowerCase();
+    if (['done', 'done!', 'added', 'ok', 'ready', 'yes', 'check'].includes(text)) {
+      await verifyAndAdvanceBotAdmin(message.chat.id, user);
+      return;
+    }
+  }
+
   // Handle text input during onboarding
   const incomingText = message.text || message.caption;
   if (incomingText && !incomingText.startsWith('/')) {
-    const user = await getUserByTelegramId(userId);
 
     // Handle edited news post (both owner and public users)
     const pendingEdit = await getPendingEdit(userId);
@@ -173,8 +182,15 @@ export default async function (message, ctx) {
             { text: '❌ Cancel', callback_data: 'cancel_edit' }
           ]
         ];
+      } else if (user?.user_type === 'guest') {
+        // Guest mode - no posting, just cancel
+        keyboard = [
+          [
+            { text: '❌ Cancel', callback_data: 'cancel_edit' }
+          ]
+        ];
       } else {
-        // Check if user has a test channel configured
+        // User mode - can post to channels
         const hasTestChannel = user && user.test_channel_id;
 
         if (hasTestChannel) {
@@ -236,29 +252,14 @@ export default async function (message, ctx) {
     }
 
     // Handle onboarding text inputs
-    if (user && user.onboarding_step === 'provide_channel_id') {
-      // Just save the channel username directly
-      await updateUserChannelId(userId, incomingText, incomingText);
-      await updateUserOnboardingStep(userId, 'provide_test_channel_id');
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: `✅ Main channel saved: ${incomingText}\n\n📝 Step 2: Provide Your Test Channel Username (Optional)\n\nYou can provide a test channel to preview content before posting to your main channel.\n\n• Type your test channel username (e.g., @yourtestchannel), OR\n• Type "skip" to skip this step`,
-      });
-      return;
-    }
-
-    if (user && user.onboarding_step === 'provide_test_channel_id') {
-      if (incomingText.toLowerCase() === 'skip') {
+    if (user && (user.onboarding_step === 'provide_channel_id' || user.onboarding_step === 'add_bot_admin')) {
+      const normalized = normalizeChannelId(incomingText);
+      if (normalized) {
+        await updateUserChannelId(userId, normalized, normalized);
         await updateUserOnboardingStep(userId, 'add_bot_admin');
-        await showAddBotAdminInstructions(message.chat.id);
+        await showAddBotAdminInstructions(message.chat.id, normalized);
         return;
       }
-
-      // Just save the test channel username directly
-      await updateUserTestChannelId(userId, incomingText, incomingText);
-      await updateUserOnboardingStep(userId, 'add_bot_admin');
-      await showAddBotAdminInstructions(message.chat.id);
-      return;
     }
 
     if (user && user.onboarding_step === 'provide_display_name') {
@@ -270,7 +271,7 @@ export default async function (message, ctx) {
       await updateUserOnboardingStep(userId, 'provide_bot_display_name');
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '📝 Step 5: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
+        text: '📝 Step 4: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
       });
       return;
     }
@@ -338,19 +339,48 @@ async function showMainMenu(chatId) {
   });
 }
 
+async function showGuestMenu(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '📰 Browse News', callback_data: 'get_news' }
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'settings' }
+        ],
+        [
+          { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
+        ]
+      ]
+    }
+  });
+}
+
+async function showUserTypeChoice(chatId) {
+  await api.sendMessage({
+    chat_id: chatId,
+    text: '🎉 Welcome to True Feed!\n\nChoose how you want to use the bot:',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '👤 User', callback_data: 'choose_user' },
+          { text: '👻 Guest', callback_data: 'choose_guest' }
+        ]
+      ]
+    }
+  });
+}
+
 async function continueOnboarding(chatId, user) {
   switch (user.onboarding_step) {
     case 'provide_channel_id':
       await showChannelIdInstructions(chatId);
       break;
-    case 'provide_test_channel_id':
-      await api.sendMessage({
-        chat_id: chatId,
-        text: '📝 Step 2: Provide Your Test Channel ID (Optional)\n\nYou can provide a test channel to preview content before posting to your main channel.\n\n• Forward a message from your test channel, OR\n• Type your test channel ID (e.g., @yourtestchannel or -100xxxxxxxxxx), OR\n• Type "skip" to skip this step',
-      });
-      break;
     case 'add_bot_admin':
-      await showAddBotAdminInstructions(chatId);
+      await showAddBotAdminInstructions(chatId, user.channel_id);
       break;
     case 'provide_display_name':
       await showDisplayNameInstructions(chatId);
@@ -358,7 +388,7 @@ async function continueOnboarding(chatId, user) {
     case 'provide_bot_display_name':
       await api.sendMessage({
         chat_id: chatId,
-        text: '📝 Step 5: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
+        text: '📝 Step 4: Bot Display Name (Optional)\n\nCustomize how the bot name appears in your channel posts.\n\n• Type your preferred bot name (e.g., "My News Bot"), OR\n• Type "skip" to use the default name',
       });
       break;
     case 'select_categories':
@@ -372,22 +402,94 @@ async function continueOnboarding(chatId, user) {
 async function showChannelIdInstructions(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: '📝 Step 1: Select Your Channel\n\nForward any message from your channel to this chat. I\'ll automatically detect your channel ID.\n\nOr you can type your channel ID manually (e.g., @yourchannel or -100xxxxxxxxxx)',
+    text: '📝 Step 1: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
   });
 }
 
-async function showAddBotAdminInstructions(chatId) {
+async function showAddBotAdminInstructions(chatId, channelId = null) {
+  const channelDisplay = channelId ? ` "${channelId}"` : '';
   await api.sendMessage({
     chat_id: chatId,
-    text: '🤖 Step 2: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:',
+    text: `🤖 Step 2: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:`,
     reply_markup: {
       inline_keyboard: [
         [
           { text: '✅ Done', callback_data: 'bot_admin_added' }
+        ],
+        [
+          { text: '🔄 Change Channel', callback_data: 'change_channel' }
         ]
       ]
     }
   });
+}
+
+async function verifyAndAdvanceBotAdmin(chatId, user) {
+  if (!user || !user.channel_id) {
+    await api.sendMessage({
+      chat_id: chatId,
+      text: '❌ Channel ID not found. Please provide your channel first.',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '📝 Provide Channel', callback_data: 'change_channel' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  let channelId = normalizeChannelId(user.channel_id);
+  if (channelId && channelId !== user.channel_id) {
+    await updateUserChannelId(user.telegram_id, channelId, user.channel_name || channelId);
+  } else if (!channelId) {
+    channelId = user.channel_id;
+  }
+
+  try {
+    const botInfo = await api.getMe();
+    const botMember = await api.getChatMember({
+      chat_id: channelId,
+      user_id: botInfo.id
+    });
+
+    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
+    if (!isAdmin) {
+      await api.sendMessage({
+        chat_id: chatId,
+        text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, click the button below:`,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '✅ Done', callback_data: 'bot_admin_added' }],
+            [{ text: '🔄 Change Channel', callback_data: 'change_channel' }]
+          ]
+        }
+      });
+      return;
+    }
+
+    await updateUserOnboardingStep(user.telegram_id, 'provide_display_name');
+    await api.sendMessage({
+      chat_id: chatId,
+      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 3: Display Name\n\nSend the name you want to be displayed on your channel (e.g., "Your Name" or send "skip" to skip this step)`,
+    });
+  } catch (error) {
+    console.error('Error checking bot admin status:', error);
+    const errText = error?.description || error?.message || '';
+    let detailMsg = '';
+    if (errText.includes('chat not found')) {
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+    }
+    await api.sendMessage({
+      chat_id: chatId,
+      text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:`,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '✅ Done', callback_data: 'bot_admin_added' }],
+          [{ text: '🔄 Change Channel', callback_data: 'change_channel' }]
+        ]
+      }
+    });
+  }
 }
 
 async function showDisplayNameInstructions(chatId) {
@@ -398,21 +500,17 @@ async function showDisplayNameInstructions(chatId) {
 }
 
 async function showCategorySelection(chatId) {
-  const categories = [
-    'tech', 'entertainment', 'education', 'beauty', 'joke', 'fact'
-  ];
-
   const keyboard = [];
-  for (let i = 0; i < categories.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
     row.push({
-      text: categories[i].charAt(0).toUpperCase() + categories[i].slice(1),
-      callback_data: `select_category_${categories[i]}`
+      text: NEWS_CATEGORIES[i].name,
+      callback_data: `select_category_${NEWS_CATEGORIES[i].id}`
     });
-    if (i + 1 < categories.length) {
+    if (i + 1 < NEWS_CATEGORIES.length) {
       row.push({
-        text: categories[i + 1].charAt(0).toUpperCase() + categories[i + 1].slice(1),
-        callback_data: `select_category_${categories[i + 1]}`
+        text: NEWS_CATEGORIES[i + 1].name,
+        callback_data: `select_category_${NEWS_CATEGORIES[i + 1].id}`
       });
     }
     keyboard.push(row);

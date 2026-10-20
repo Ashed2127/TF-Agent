@@ -157,11 +157,19 @@ export async function getOrCreateUser(telegramId, username = null) {
     .values({
       telegram_id: telegramId,
       username: username,
-      onboarding_step: 'join_channel'
+      user_type: 'guest',
+      onboarding_step: 'choose_type'
     })
     .returning()
     .run();
   return user;
+}
+
+export async function updateUserType(telegramId, userType) {
+  await db.update(users)
+    .set({ user_type: userType })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
 }
 
 export async function updateUserOnboardingStep(telegramId, step) {
@@ -325,9 +333,8 @@ export async function getDashboardStats() {
 
   const recentUsers = await db.select()
     .from(users)
-    .where(eq(users.onboarding_step, 'completed'))
-    .orderBy(desc(users.completed_at))
-    .limit(10)
+    .orderBy(desc(users.created_at))
+    .limit(15)
     .all();
 
   // Convert timestamps to numbers for JSON serialization
