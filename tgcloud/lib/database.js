@@ -484,3 +484,27 @@ export async function migrateUserChannels(userId) {
 
   return migrated;
 }
+
+// Function to remove duplicate channels by channel_id
+export async function removeDuplicateChannels(userId) {
+  const user = await getUserByTelegramId(userId);
+  if (!user) return;
+
+  const allChannels = await getUserChannels(user.id);
+  const seenChannelIds = new Set();
+  const toDelete = [];
+
+  for (const channel of allChannels) {
+    if (seenChannelIds.has(channel.channel_id)) {
+      toDelete.push(channel.id);
+    } else {
+      seenChannelIds.add(channel.channel_id);
+    }
+  }
+
+  for (const channelId of toDelete) {
+    await deleteUserChannel(channelId);
+  }
+
+  return toDelete.length;
+}

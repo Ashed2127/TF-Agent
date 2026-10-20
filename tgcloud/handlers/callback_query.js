@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
@@ -908,6 +908,15 @@ export default async function (callbackQuery, ctx) {
     const platformId = parts[1];
     const currentIndex = parseInt(parts[2]);
     await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId);
+    return;
+  }
+
+  // Handle post to all channels
+  if (data.startsWith('post_to_all_')) {
+    const parts = data.replace('post_to_all_', '').split('_');
+    const platformId = parts[0];
+    const currentIndex = parseInt(parts[1]);
+    await postArticleToAllChannels(callbackQuery, userId, platformId, currentIndex);
     return;
   }
 
@@ -1885,6 +1894,9 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
   // Migrate existing channels if needed
   await migrateUserChannels(userId);
 
+  // Remove any duplicate channels
+  await removeDuplicateChannels(userId);
+
   const userChannels = await getUserChannels(user.id);
 
   if (!user || userChannels.length === 0) {
@@ -1926,6 +1938,13 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
     const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
     keyboard.push([
       { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.channel_id}_${platformId}_${currentIndex}` }
+    ]);
+  }
+
+  // Add "Post to All" button if user has more than 1 channel
+  if (userChannels.length > 1) {
+    keyboard.push([
+      { text: '📢 Post to All Channels', callback_data: `post_to_all_${platformId}_${currentIndex}` }
     ]);
   }
 
@@ -2313,4 +2332,168 @@ async function handleChannelInfo(callbackQuery, userId, channelId) {
       ]
     }
   });
+}
+
+async function postArticleToAllChannels(callbackQuery, userId, platformId, currentIndex) {
+  const user = await getUserByTelegramId(userId);
+  const platform = getPlatformById(platformId);
+
+  if (!platform) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Platform not found.',
+    });
+    return;
+  }
+
+  // Migrate and clean up channels
+  await migrateUserChannels(userId);
+  await removeDuplicateChannels(userId);
+
+  const userChannels = await getUserChannels(user.id);
+
+  if (!user || userChannels.length === 0) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ No channels found. Please add a channel in settings first.',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⚙️ Settings', callback_data: 'settings' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  try {
+    const articles = await fetchRSSFeed(platform.url, platform.name);
+
+    if (currentIndex >= articles.length) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ Article no longer available.',
+      });
+      return;
+    }
+
+    const article = articles[currentIndex];
+
+    // Get user channel link for content creator attribution
+    let userChannelLink = null;
+    if (user && user.channel_name) {
+      if (user.channel_name.startsWith('@')) {
+        userChannelLink = user.channel_name;
+      } else {
+        userChannelLink = `t.me/${user.channel_name}`;
+      }
+    } else if (user && user.channel_id) {
+      userChannelLink = user.channel_id;
+    }
+
+    const showSourceLink = user?.show_source_link === 1;
+    const useDotPunctuation = user?.use_dot_punctuation === 1;
+    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+
+    // Post to all channels
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const channel of userChannels) {
+      try {
+        if (article.video) {
+          try {
+            await api.sendVideo({
+              chat_id: channel.channel_id,
+              video: article.video,
+              caption: articleText,
+              parse_mode: 'HTML',
+            });
+            successCount++;
+          } catch (videoError) {
+            console.error('Failed to send video to channel, falling back to image:', videoError.message);
+            if (article.image) {
+              try {
+                await api.sendPhoto({
+                  chat_id: channel.channel_id,
+                  photo: article.image,
+                  caption: articleText,
+                  parse_mode: 'HTML',
+                });
+                successCount++;
+              } catch (photoError) {
+                console.error('Failed to send photo to channel, falling back to text:', photoError.message);
+                await api.sendMessage({
+                  chat_id: channel.channel_id,
+                  text: articleText,
+                  parse_mode: 'HTML',
+                });
+                successCount++;
+              }
+            } else {
+              await api.sendMessage({
+                chat_id: channel.channel_id,
+                text: articleText,
+                parse_mode: 'HTML',
+              });
+              successCount++;
+            }
+          }
+        } else if (article.image) {
+          try {
+            await api.sendPhoto({
+              chat_id: channel.channel_id,
+              photo: article.image,
+              caption: articleText,
+              parse_mode: 'HTML',
+            });
+            successCount++;
+          } catch (photoError) {
+            console.error('Failed to send photo to channel, falling back to text:', photoError.message);
+            await api.sendMessage({
+              chat_id: channel.channel_id,
+              text: articleText,
+              parse_mode: 'HTML',
+            });
+            successCount++;
+          }
+        } else {
+          await api.sendMessage({
+            chat_id: channel.channel_id,
+            text: articleText,
+            parse_mode: 'HTML',
+          });
+          successCount++;
+        }
+
+        // Track the post for each channel
+        await createPost(user.id, channel.channel_id, articleText, article.category || 'news', platform.name, article.video || article.image);
+      } catch (error) {
+        console.error(`Failed to post to channel ${channel.channel_id}:`, error);
+        failCount++;
+      }
+    }
+
+    // Confirm to the user
+    if (failCount === 0) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Posted to all ${successCount} channel(s)!`,
+      });
+    } else {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `⚠️ Posted to ${successCount} channel(s), failed on ${failCount} channel(s).`,
+      });
+    }
+
+    // Show next article
+    await showNextArticle(callbackQuery, platformId, currentIndex);
+
+  } catch (error) {
+    console.error('Error posting article to all channels:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `❌ Failed to post article: ${error.message}`,
+    });
+  }
 }
