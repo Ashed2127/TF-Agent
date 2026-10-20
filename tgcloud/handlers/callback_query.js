@@ -904,10 +904,10 @@ export default async function (callbackQuery, ctx) {
   // Handle post to specific channel
   if (data.startsWith('post_to_channel_')) {
     const parts = data.replace('post_to_channel_', '').split('_');
-    const channelId = parseInt(parts[0]);
+    const telegramChannelId = parts[0];
     const platformId = parts[1];
     const currentIndex = parseInt(parts[2]);
-    await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, channelId);
+    await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId);
     return;
   }
 
@@ -1915,8 +1915,8 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
   }
 
   // Single channel - post directly
-  const channelId = userChannels[0].channel_id;
-  await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, channelId);
+  const telegramChannelId = userChannels[0].channel_id;
+  await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId);
 }
 
 async function showChannelSelectionForPost(callbackQuery, userId, platformId, currentIndex, userChannels) {
@@ -1925,7 +1925,7 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
     const channelName = channel.channel_name || channel.channel_id;
     const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
     keyboard.push([
-      { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.id}_${platformId}_${currentIndex}` }
+      { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.channel_id}_${platformId}_${currentIndex}` }
     ]);
   }
 
@@ -1942,7 +1942,7 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
   });
 }
 
-async function postArticleToChannel(callbackQuery, userId, platformId, currentIndex, channelId) {
+async function postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId) {
   const user = await getUserByTelegramId(userId);
   const platform = getPlatformById(platformId);
 
@@ -1987,7 +1987,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
     if (article.video) {
       try {
         await api.sendVideo({
-          chat_id: channelId,
+          chat_id: telegramChannelId,
           video: article.video,
           caption: articleText,
           parse_mode: 'HTML',
@@ -1997,7 +1997,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
         if (article.image) {
           try {
             await api.sendPhoto({
-              chat_id: channelId,
+              chat_id: telegramChannelId,
               photo: article.image,
               caption: articleText,
               parse_mode: 'HTML',
@@ -2005,14 +2005,14 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
           } catch (photoError) {
             console.error('Failed to send photo to channel, falling back to text:', photoError.message);
             await api.sendMessage({
-              chat_id: channelId,
+              chat_id: telegramChannelId,
               text: articleText,
               parse_mode: 'HTML',
             });
           }
         } else {
           await api.sendMessage({
-            chat_id: channelId,
+            chat_id: telegramChannelId,
             text: articleText,
             parse_mode: 'HTML',
           });
@@ -2021,7 +2021,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
     } else if (article.image) {
       try {
         await api.sendPhoto({
-          chat_id: channelId,
+          chat_id: telegramChannelId,
           photo: article.image,
           caption: articleText,
           parse_mode: 'HTML',
@@ -2029,21 +2029,21 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
       } catch (photoError) {
         console.error('Failed to send photo to channel, falling back to text:', photoError.message);
         await api.sendMessage({
-          chat_id: channelId,
+          chat_id: telegramChannelId,
           text: articleText,
           parse_mode: 'HTML',
         });
       }
     } else {
       await api.sendMessage({
-        chat_id: channelId,
+        chat_id: telegramChannelId,
         text: articleText,
         parse_mode: 'HTML',
       });
     }
 
     // Track the post
-    await createPost(user.id, channelId, articleText, article.category || 'news', platform.name, article.video || article.image);
+    await createPost(user.id, telegramChannelId, articleText, article.category || 'news', platform.name, article.video || article.image);
 
     // Confirm to the user
     await api.sendMessage({
