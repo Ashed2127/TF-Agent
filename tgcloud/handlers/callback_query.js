@@ -20,6 +20,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: '⚙️ Settings', callback_data: 'settings' }
     ],
     [
+      { text: '💰 Rates', callback_data: 'get_rates' },
       { text: '📊 My Stats', callback_data: 'my_stats' }
     ],
     [
@@ -1318,20 +1319,22 @@ export default async function (callbackQuery, ctx) {
           ]
         }
       });
-    } else if (user && user.onboarding_step === 'completed') {
-      await showMainMenu(callbackQuery.message.chat.id, userId === OWNER_CHAT_ID);
     } else {
+      // Show user/guest mode choice for non-owner users
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
+        text: '🎉 Welcome to True Feed!\n\nChoose how you want to use the bot:',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '📰 Generate Content', callback_data: 'generate_content' },
-              { text: '⚙️ Settings', callback_data: 'settings' }
+              { text: '👤 User', callback_data: 'choose_user' },
+              { text: '👻 Guest', callback_data: 'choose_guest' }
             ],
             [
-              { text: '📊 My Stats', callback_data: 'my_stats' }
+              { text: '🔄 Refresh', callback_data: 'refresh_user_type' }
+            ],
+            [
+              { text: '↩️ Back', callback_data: 'back' }
             ]
           ]
         }
