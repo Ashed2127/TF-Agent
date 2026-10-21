@@ -613,25 +613,8 @@
             <span class="metric-label">Monitored Sources</span>
             <div class="metric-icon-wrap">🌐</div>
           </div>
-          <div class="metric-value" id="valSourcesCount">32</div>
-          <div class="metric-sub">8 Global news categories</div>
-        </div>
-      </section>
-
-      <!-- Category Scraper Showcase -->
-      <section class="category-section">
-        <div class="category-title">
-          <span>Active Intelligence Categories (Live Web Scraping)</span>
-        </div>
-        <div class="category-pills">
-          <div class="cat-pill"><span class="dot"></span>💻 Tech & AI</div>
-          <div class="cat-pill"><span class="dot"></span>📈 Business & Finance</div>
-          <div class="cat-pill"><span class="dot"></span>🌍 World News</div>
-          <div class="cat-pill"><span class="dot"></span>🚀 Startups & Africa</div>
-          <div class="cat-pill"><span class="dot"></span>🔬 Science & Space</div>
-          <div class="cat-pill"><span class="dot"></span>🪙 Crypto & Web3</div>
-          <div class="cat-pill"><span class="dot"></span>🎬 Entertainment</div>
-          <div class="cat-pill"><span class="dot"></span>⚽ Sports</div>
+          <div class="metric-value" id="valSourcesCount">57</div>
+          <div class="metric-sub">10 Global news categories</div>
         </div>
       </section>
 
@@ -663,7 +646,7 @@
       <!-- Recent Translated Posts Panel -->
       <section class="table-panel">
         <div class="table-panel-header">
-          <h2>📰 Recent Scraped & Translated Posts</h2>
+          <h2>📰 Recent Translated Posts</h2>
           <span class="table-badge-count" id="postsCountBadge">0 Total</span>
         </div>
         <div class="table-responsive">
@@ -750,6 +733,20 @@
         // Render Creators Table
         const usersTbody = document.getElementById('usersTableBody');
         if (data.recentUsers && data.recentUsers.length > 0) {
+          // Category ID to name mapping
+          const categoryMap = {
+            'tech': '💻 Tech & AI',
+            'business': '📈 Business & Finance',
+            'world': '🌍 World News',
+            'startups': '🚀 Startups & Africa',
+            'science': '🔬 Science & Space',
+            'education': '📚 Education',
+            'research': '🔬 Research & Academia',
+            'crypto': '🪙 Crypto & Web3',
+            'entertainment': '🎬 Entertainment',
+            'sports': '⚽ Sports'
+          };
+
           usersTbody.innerHTML = data.recentUsers.map(user => {
             const rawCat = user.categories;
             let catStr = 'All Categories';
@@ -757,7 +754,7 @@
               try {
                 const parsed = typeof rawCat === 'string' ? JSON.parse(rawCat) : rawCat;
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                  catStr = parsed.join(', ');
+                  catStr = parsed.map(catId => categoryMap[catId] || catId).join(', ');
                 }
               } catch (e) {}
             }
@@ -807,7 +804,7 @@
               <tr>
                 <td>${channelHtml}</td>
                 <td><span class="badge-category">${escapeHtml(post.category || 'News')}</span></td>
-                <td><span class="post-source">${escapeHtml(post.source || 'Scraped Feed')}</span></td>
+                <td><span class="post-source">${escapeHtml(post.source || 'RSS Feed')}</span></td>
                 <td class="desktop-col"><div class="post-snippet">${escapeHtml(rawContent)}</div></td>
                 <td style="color: var(--text-muted); font-size: 0.8rem; font-family: monospace;">${timeStr}</td>
               </tr>
