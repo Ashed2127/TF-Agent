@@ -45,6 +45,9 @@ export default async function (message, ctx) {
               { text: '📰 news', callback_data: 'get_news' }
             ],
             [
+              { text: '⚙️ Settings', callback_data: 'settings' }
+            ],
+            [
               { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
@@ -53,41 +56,7 @@ export default async function (message, ctx) {
       return;
     }
 
-    // If user is already onboarded as user, show main menu
-    if (user.onboarding_step === 'completed' && user.user_type === 'user') {
-      await showMainMenu(message.chat.id, userId === OWNER_CHAT_ID);
-      return;
-    }
-
-    // If user is a guest, show guest menu via callback
-    if (user.user_type === 'guest' && user.onboarding_step === 'guest_ready') {
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: '🌱 True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: '📰 Browse News', callback_data: 'get_news' }
-            ],
-            [
-              { text: '⚙️ Settings', callback_data: 'settings' }
-            ],
-            [
-              { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
-            ],
-            [
-              { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
-            ],
-            [
-              { text: '↩️ Back', callback_data: 'back' }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
-    // Show User/Guest choice
+    // Always show User/Guest choice for non-owner users
     await showUserTypeChoice(message.chat.id);
     return;
   }
@@ -331,6 +300,51 @@ export default async function (message, ctx) {
       }
     }
 
+    // Handle editing channel link
+    if (pendingChannel && pendingChannel.channelId === 'edit_channel') {
+      const channelInfo = extractChannelFromMessage(message);
+      let newChannelId = null;
+      let newChannelName = null;
+
+      if (channelInfo && channelInfo.channelId) {
+        newChannelId = channelInfo.channelId;
+        newChannelName = channelInfo.channelName;
+      } else {
+        // Try text input
+        const normalized = normalizeChannelId(incomingText);
+        if (normalized) {
+          newChannelId = normalized;
+          newChannelName = normalized;
+        }
+      }
+
+      if (newChannelId) {
+        await updateUserChannelId(userId, newChannelId);
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `✅ Channel link updated to: ${newChannelName || newChannelId}`,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⚙️ Settings', callback_data: 'settings' }]
+            ]
+          }
+        });
+        return;
+      } else {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: '❌ Invalid channel format. Please send a valid channel (e.g., @mychannel or https://t.me/mychannel)',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⚙️ Settings', callback_data: 'settings' }]
+            ]
+          }
+        });
+        return;
+      }
+    }
+
     // Handle bot admin verification for new channel
     if (pendingChannel && pendingChannel.channelId !== 'waiting') {
       const text = (message.text || '').trim().toLowerCase();
@@ -397,6 +411,12 @@ async function showUserTypeChoice(chatId) {
         [
           { text: '👤 User', callback_data: 'choose_user' },
           { text: '👻 Guest', callback_data: 'choose_guest' }
+        ],
+        [
+          { text: '🔄 Refresh', callback_data: 'refresh_user_type' }
+        ],
+        [
+          { text: '↩️ Back', callback_data: 'back' }
         ]
       ]
     }

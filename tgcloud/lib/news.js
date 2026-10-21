@@ -2,116 +2,7 @@ import { fetch } from 'sdk';
 import { OPENROUTER_API_KEY } from './secrets.js';
 import { getCustomSources } from './database.js';
 
-/**
- * Scrape main image from article page
- */
-async function scrapeImageFromPage(url) {
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      }
-    });
-    
-    if (!response.ok) {
-      return '';
-    }
-    
-    const html = await response.text();
-    
-    // Try to find og:image (Open Graph image)
-    const ogImageMatch = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i);
-    if (ogImageMatch) {
-      let imageUrl = ogImageMatch[1].trim();
-      // Decode HTML entities
-      imageUrl = imageUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-      return imageUrl;
-    }
-    
-    // Try to find twitter:image
-    const twitterImageMatch = html.match(/<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i);
-    if (twitterImageMatch) {
-      let imageUrl = twitterImageMatch[1].trim();
-      imageUrl = imageUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-      return imageUrl;
-    }
-    
-    // Try to find the first large image in the content
-    const imgMatch = html.match(/<img[^>]*src=["']([^"']*\.(?:jpg|jpeg|png|webp))["'][^>]*(?:width=["']\d{3,}["']|class=["'][^"']*(?:featured|hero|main|thumbnail)[^"']*["'])/i);
-    if (imgMatch) {
-      let imageUrl = imgMatch[1].trim();
-      imageUrl = imageUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-      return imageUrl;
-    }
-    
-    // Fallback: first image with reasonable size
-    const fallbackImgMatch = html.match(/<img[^>]*src=["']([^"']*\.(?:jpg|jpeg|png|webp))["'][^>]*>/i);
-    if (fallbackImgMatch) {
-      let imageUrl = fallbackImgMatch[1].trim();
-      imageUrl = imageUrl.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-      return imageUrl;
-    }
-    
-    return '';
-  } catch (error) {
-    console.error('Error scraping image from page:', error.message);
-    return '';
-  }
-}
 
-/**
- * Scrape full article text from webpage to provide rich context to AI
- */
-export async function scrapeArticleBody(url) {
-  if (!url || typeof url !== 'string' || !url.startsWith('http')) return '';
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8'
-      }
-    });
-
-    if (!response.ok) return '';
-    const html = await response.text();
-
-    // Strip script, style, nav, footer, header, noscript
-    let clean = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ');
-    clean = clean.replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ');
-    clean = clean.replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ');
-    clean = clean.replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ');
-    clean = clean.replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ');
-
-    // Extract all <p> paragraphs
-    const paragraphs = [];
-    const pMatches = clean.matchAll(/<p[^>]*>([\s\S]*?)<\/p>/gi);
-    for (const match of pMatches) {
-      let pText = match[1]
-        .replace(/<[^>]*>/g, '')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
-        .replace(/&quot;/g, '"')
-        .replace(/&#39;/g, "'")
-        .replace(/&nbsp;/g, ' ')
-        .replace(/\s+/g, ' ')
-        .trim();
-
-      if (pText.length > 50 &&
-          !pText.toLowerCase().includes('cookie') &&
-          !pText.toLowerCase().includes('subscribe to our') &&
-          !pText.toLowerCase().includes('sign up for') &&
-          !pText.toLowerCase().includes('all rights reserved')) {
-        paragraphs.push(pText);
-      }
-    }
-
-    return paragraphs.slice(0, 5).join('\n\n');
-  } catch (error) {
-    console.error('Error scraping article body:', error.message);
-    return '';
-  }
-}
 
 /**
  * Top News Categories
@@ -123,6 +14,7 @@ export const NEWS_CATEGORIES = [
   { id: 'startups', name: '🚀 Startups & Africa', description: 'African tech, VC funding & innovation' },
   { id: 'science', name: '🔬 Science & Space', description: 'Science breakthroughs, health & space' },
   { id: 'education', name: '📚 Education', description: 'Learning, schools, universities & skills' },
+  { id: 'research', name: '🔬 Research & Academia', description: 'Academic papers, studies & scientific research' },
   { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
   { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
   { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' }
@@ -130,66 +22,103 @@ export const NEWS_CATEGORIES = [
 
 /**
  * News platforms configuration mapped by category
+ * Only reputable, active sources with proven journalistic integrity
  */
 export const NEWS_PLATFORMS = [
-  // Tech & AI
+  // Tech & AI - Most Reputable Tech Sources
   { id: 'techcrunch', name: 'TechCrunch', category: 'tech', url: 'https://techcrunch.com/feed/' },
   { id: 'theverge', name: 'The Verge', category: 'tech', url: 'https://www.theverge.com/rss/index.xml' },
   { id: 'wired', name: 'WIRED', category: 'tech', url: 'https://www.wired.com/feed/rss' },
   { id: 'arstechnica', name: 'Ars Technica', category: 'tech', url: 'https://feeds.arstechnica.com/arstechnica/index' },
+  { id: 'mittechreview', name: 'MIT Technology Review', category: 'tech', url: 'https://www.technologyreview.com/feed/' },
+  { id: 'ieee', name: 'IEEE Spectrum', category: 'tech', url: 'https://spectrum.ieee.org/rss/full' },
   { id: 'venturebeat', name: 'VentureBeat', category: 'tech', url: 'https://venturebeat.com/feed/' },
-  { id: 'hackernews', name: 'Hacker News', category: 'tech', url: 'https://news.ycombinator.com/rss' },
   { id: 'engadget', name: 'Engadget', category: 'tech', url: 'https://www.engadget.com/rss.xml' },
-  { id: 'zdnet', name: 'ZDNet', category: 'tech', url: 'https://www.zdnet.com/news/rss.xml' },
+  { id: 'hackernews', name: 'Hacker News', category: 'tech', url: 'https://hnrss.org/frontpage' },
+  { id: 'newscientist', name: 'New Scientist', category: 'tech', url: 'https://www.newscientist.com/feed/' },
 
-  // Business & Finance
-  { id: 'bloomberg', name: 'Bloomberg Tech', category: 'business', url: 'https://www.bloomberg.com/feeds/technology/news.rss' },
-  { id: 'cnbc', name: 'CNBC Business', category: 'business', url: 'https://search.cnbc.com/rs/search/view.html?partnerId=2000&keywords=business&sort=date' },
-  { id: 'inc42', name: 'Inc42', category: 'business', url: 'https://inc42.com/feed/' },
-  { id: 'yourstory', name: 'YourStory', category: 'business', url: 'https://yourstory.com/feed' },
-  { id: 'marketwatch', name: 'MarketWatch', category: 'business', url: 'https://feeds.content.dowjones.io/public/rss/mw_topstories' },
+  // Business & Finance - Most Trusted Financial News
+  { id: 'bloomberg', name: 'Bloomberg', category: 'business', url: 'https://www.bloomberg.com/feed' },
+  { id: 'ft', name: 'Financial Times', category: 'business', url: 'https://www.ft.com/rss/world' },
+  { id: 'economist', name: 'The Economist', category: 'business', url: 'https://www.economist.com/rss' },
+  { id: 'reutersbiz', name: 'Reuters Business', category: 'business', url: 'https://www.reuters.com/rssFeed/businessNews' },
+  { id: 'wsj', name: 'Wall Street Journal', category: 'business', url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml' },
+  { id: 'cnbc', name: 'CNBC', category: 'business', url: 'https://www.cnbc.com/id/100003114/device/rss/rss.html' },
+  { id: 'forbes', name: 'Forbes', category: 'business', url: 'https://www.forbes.com/business/feed/' },
+  { id: 'marketwatch', name: 'MarketWatch', category: 'business', url: 'https://www.marketwatch.com/rss/topstories' },
+  { id: 'fastcompany', name: 'Fast Company', category: 'business', url: 'https://www.fastcompany.com/feed' },
 
-  // World News
+  // World News - Most Trusted Global News Organizations
   { id: 'bbcworld', name: 'BBC World News', category: 'world', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
-  { id: 'aljazeera', name: 'Al Jazeera', category: 'world', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
+  { id: 'reuters', name: 'Reuters World', category: 'world', url: 'https://www.reuters.com/rssFeed/worldNews' },
+  { id: 'apnews', name: 'AP News', category: 'world', url: 'https://feeds.apnews.com/rss/apf-topnews' },
   { id: 'theguardian', name: 'The Guardian', category: 'world', url: 'https://www.theguardian.com/world/rss' },
-  { id: 'africanews', name: 'Africanews', category: 'world', url: 'https://www.africanews.com/feed/' },
+  { id: 'aljazeera', name: 'Al Jazeera', category: 'world', url: 'https://www.aljazeera.com/xml/rss/all.xml' },
   { id: 'dw', name: 'DW News', category: 'world', url: 'https://rss.dw.com/rdf/rss-en-all' },
+  { id: 'npr', name: 'NPR World', category: 'world', url: 'https://feeds.npr.org/1004/rss.xml' },
+  { id: 'nytimes', name: 'NY Times World', category: 'world', url: 'https://www.nytimes.com/services/xml/rss/nyt/World.xml' },
 
-  // Startups & Africa
+  // Startups & Africa - Focused on Innovation
   { id: 'techcabal', name: 'TechCabal', category: 'startups', url: 'https://techcabal.com/feed/' },
   { id: 'disruptafrica', name: 'Disrupt Africa', category: 'startups', url: 'https://disrupt-africa.com/feed/' },
-  { id: 'techinafrica', name: 'Tech In Africa', category: 'startups', url: 'https://techinafrica.com/feed' },
   { id: 'restofworld', name: 'Rest of World', category: 'startups', url: 'https://restofworld.org/feed/latest/' },
   { id: 'producthunt', name: 'Product Hunt', category: 'startups', url: 'https://www.producthunt.com/feed' },
-  { id: 'entrackr', name: 'Entrackr', category: 'startups', url: 'https://entrackr.com/rss' },
+  { id: 'techpointafrica', name: 'Techpoint Africa', category: 'startups', url: 'https://techpoint.africa/feed' },
+  { id: 'weetracker', name: 'WeeTracker', category: 'startups', url: 'https://weetracker.com/feed' },
+  { id: 'ventureburn', name: 'Ventureburn', category: 'startups', url: 'https://ventureburn.com/feed' },
 
-  // Science & Space
+  // Science & Space - Top Scientific Sources
   { id: 'sciencedaily', name: 'ScienceDaily', category: 'science', url: 'https://www.sciencedaily.com/rss/all.xml' },
   { id: 'physorg', name: 'Phys.org', category: 'science', url: 'https://phys.org/rss-feed/' },
   { id: 'spacecom', name: 'Space.com', category: 'science', url: 'https://www.space.com/feeds/all' },
-  { id: 'nature', name: 'Nature News', category: 'science', url: 'https://www.nature.com/nature.rss' },
+  { id: 'nasa', name: 'NASA News', category: 'science', url: 'https://www.nasa.gov/rss/dyn/breaking_news.rss' },
+  { id: 'sciam', name: 'Scientific American', category: 'science', url: 'https://www.scientificamerican.com/feed' },
+  { id: 'naturebriefing', name: 'Nature Briefing', category: 'science', url: 'https://www.nature.com/nature/articles/rss' },
+  { id: 'livescience', name: 'Live Science', category: 'science', url: 'https://www.livescience.com/feeds/all' },
+  { id: 'natgeo', name: 'National Geographic', category: 'science', url: 'https://www.nationalgeographic.com/feed' },
 
-  // Education
+  // Education - Leading Education Publications
   { id: 'educationweek', name: 'Education Week', category: 'education', url: 'https://www.edweek.org/feed' },
   { id: 'chronicle', name: 'The Chronicle', category: 'education', url: 'https://www.chronicle.com/rss' },
   { id: 'insidehighered', name: 'Inside Higher Ed', category: 'education', url: 'https://www.insidehighered.com/rss.xml' },
   { id: 'edsurge', name: 'EdSurge', category: 'education', url: 'https://www.edsurge.com/rss' },
+  { id: 'timeshighered', name: 'Times Higher Education', category: 'education', url: 'https://www.timeshighereducation.com/rss/world-university-rankings' },
 
-  // Crypto & Web3
+  // Research & Academia - Top Academic Journals
+  { id: 'nature', name: 'Nature', category: 'research', url: 'https://www.nature.com/nature.rss' },
+  { id: 'science', name: 'Science', category: 'research', url: 'https://www.science.org/rss/news_current.xml' },
+  { id: 'pnas', name: 'PNAS', category: 'research', url: 'https://www.pnas.org/rss/pnas/current.xml' },
+  { id: 'cell', name: 'Cell', category: 'research', url: 'https://www.cell.com/rss' },
+  { id: 'arxiv', name: 'arXiv', category: 'research', url: 'https://export.arxiv.org/rss/cs.AI' },
+  { id: 'eurekalert', name: 'EurekAlert!', category: 'research', url: 'https://www.eurekalert.org/rss.xml' },
+  { id: 'plosone', name: 'PLOS ONE', category: 'research', url: 'https://www.plos.org/feed/plosone' },
+  { id: 'theconversation', name: 'The Conversation', category: 'research', url: 'https://theconversation.com/technology/rss' },
+
+  // Crypto & Web3 - Reputable Crypto News
   { id: 'coindesk', name: 'CoinDesk', category: 'crypto', url: 'https://www.coindesk.com/arc/outboundfeeds/rss/' },
   { id: 'cointelegraph', name: 'Cointelegraph', category: 'crypto', url: 'https://cointelegraph.com/rss' },
   { id: 'decrypt', name: 'Decrypt', category: 'crypto', url: 'https://decrypt.co/feed' },
+  { id: 'blockworks', name: 'Blockworks', category: 'crypto', url: 'https://blockworks.co/feed' },
+  { id: 'defiant', name: 'The Defiant', category: 'crypto', url: 'https://thedefiant.io/feed' },
+  { id: 'bankless', name: 'Bankless', category: 'crypto', url: 'https://newsletter.banklesshq.com/feed' },
 
-  // Entertainment
+  // Entertainment - Top Entertainment News
   { id: 'variety', name: 'Variety', category: 'entertainment', url: 'https://variety.com/feed/' },
   { id: 'hollywoodreporter', name: 'Hollywood Reporter', category: 'entertainment', url: 'https://www.hollywoodreporter.com/feed/' },
   { id: 'rollingstone', name: 'Rolling Stone', category: 'entertainment', url: 'https://www.rollingstone.com/feed/' },
-  { id: 'ign', name: 'IGN', category: 'entertainment', url: 'https://feeds.feedburner.com/ign/news' },
+  { id: 'ign', name: 'IGN', category: 'entertainment', url: 'https://www.ign.com/feed/news' },
+  { id: 'deadline', name: 'Deadline Hollywood', category: 'entertainment', url: 'https://deadline.com/feed' },
+  { id: 'polygon', name: 'Polygon', category: 'entertainment', url: 'https://www.polygon.com/rss/index.xml' },
+  { id: 'billboard', name: 'Billboard', category: 'entertainment', url: 'https://www.billboard.com/feed' },
 
-  // Sports
+  // Sports - Major Sports News
   { id: 'espn', name: 'ESPN', category: 'sports', url: 'https://www.espn.com/espn/rss/news' },
-  { id: 'bbcsport', name: 'BBC Sport', category: 'sports', url: 'https://feeds.bbci.co.uk/sport/rss.xml' }
+  { id: 'bbcsport', name: 'BBC Sport', category: 'sports', url: 'https://feeds.bbci.co.uk/sport/rss.xml' },
+  { id: 'si', name: 'Sports Illustrated', category: 'sports', url: 'https://www.si.com/rss' },
+  { id: 'theathletic', name: 'The Athletic', category: 'sports', url: 'https://theathletic.com/feed' },
+  { id: 'bleacherreport', name: 'Bleacher Report', category: 'sports', url: 'https://bleacherreport.com/feed' },
+  { id: 'skysports', name: 'Sky Sports', category: 'sports', url: 'https://www.skysports.com/rss/0,20514,00.xml' },
+  { id: 'goalcom', name: 'Goal.com', category: 'sports', url: 'https://www.goal.com/en/feeds/news' }
 ];
 
 /**
@@ -231,30 +160,60 @@ function parseRSS(xmlString) {
         
         // Extract image from various sources
         let image = '';
-        
+
         // Try media:content with url attribute
         const mediaContentMatch = entryContent.match(/<media:content[^>]*url="([^"]*)"[^>]*>/i);
         if (mediaContentMatch) {
           image = mediaContentMatch[1].trim();
         }
-        
+
         // Try media:thumbnail
         if (!image) {
           const thumbMatch = entryContent.match(/<media:thumbnail[^>]*url="([^"]*)"[^>]*>/i);
           image = thumbMatch ? thumbMatch[1].trim() : '';
         }
-        
+
         // Try to extract image from content HTML (only if it's a direct image URL, not embedded in complex HTML)
         if (!image && content) {
           const imgMatch = content.match(/<img[^>]*src="([^"]*\.(?:jpg|jpeg|png|gif|webp))"[^>]*>/i);
           image = imgMatch ? imgMatch[1].trim() : '';
         }
-        
+
         // Decode HTML entities in image URL
         if (image) {
           image = image.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
         }
-        
+
+        // Extract video from enclosure or media:content
+        let video = '';
+
+        // Try enclosure with video mime type
+        const enclosureMatch = entryContent.match(/<enclosure[^>]*url="([^"]*)"[^>]*type="video\/[^"]*"[^>]*>/i);
+        if (enclosureMatch) {
+          video = enclosureMatch[1].trim();
+        }
+
+        // Try media:content with video type
+        if (!video) {
+          const mediaVideoMatch = entryContent.match(/<media:content[^>]*url="([^"]*)"[^>]*type="video\/[^"]*"[^>]*>/i);
+          if (mediaVideoMatch) {
+            video = mediaVideoMatch[1].trim();
+          }
+        }
+
+        // Try enclosure with common video extensions
+        if (!video) {
+          const enclosureExtMatch = entryContent.match(/<enclosure[^>]*url="([^"]*\.(?:mp4|webm|mov|avi|mkv))"[^>]*>/i);
+          if (enclosureExtMatch) {
+            video = enclosureExtMatch[1].trim();
+          }
+        }
+
+        // Decode HTML entities in video URL
+        if (video) {
+          video = video.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        }
+
         // Extract published date
         const dateMatch = entryContent.match(/<published>([^<]*)<\/published>/i) ||
                           entryContent.match(/<updated>([^<]*)<\/updated>/i);
@@ -265,6 +224,7 @@ function parseRSS(xmlString) {
             title,
             link,
             image,
+            video,
             description: content,
             time: pubDate || 'Recently'
           });
@@ -294,31 +254,31 @@ function parseRSS(xmlString) {
         
         // Extract image from various media tags
         let image = '';
-        
-        // Try media:content with url attribute
-        const mediaContentMatch = itemContent.match(/<media:content[^>]*url="([^"]*)"[^>]*>/i);
+
+        // Try media:content with url attribute (but only if it's an image)
+        const mediaContentMatch = itemContent.match(/<media:content[^>]*url="([^"]*)"[^>]*type="image\/[^"]*"[^>]*>/i);
         if (mediaContentMatch) {
           image = mediaContentMatch[1].trim();
         }
-        
-        // Try enclosure
+
+        // Try enclosure with image type
         if (!image) {
-          const enclosureMatch = itemContent.match(/<enclosure[^>]*url="([^"]*)"[^>]*>/i);
+          const enclosureMatch = itemContent.match(/<enclosure[^>]*url="([^"]*)"[^>]*type="image\/[^"]*"[^>]*>/i);
           image = enclosureMatch ? enclosureMatch[1].trim() : '';
         }
-        
+
         // Try media:thumbnail
         if (!image) {
           const thumbMatch = itemContent.match(/<media:thumbnail[^>]*url="([^"]*)"[^>]*>/i);
           image = thumbMatch ? thumbMatch[1].trim() : '';
         }
-        
+
         // Try to extract image from description HTML (only direct image URLs)
         if (!image && description) {
           const imgMatch = description.match(/<img[^>]*src="([^"]*\.(?:jpg|jpeg|png|gif|webp))"[^>]*>/i);
           image = imgMatch ? imgMatch[1].trim() : '';
         }
-        
+
         // Try to extract from content:encoded (only direct image URLs)
         if (!image) {
           const contentMatch = itemContent.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/i);
@@ -327,12 +287,42 @@ function parseRSS(xmlString) {
             image = contentImgMatch ? contentImgMatch[1].trim() : '';
           }
         }
-        
+
         // Decode HTML entities in image URL
         if (image) {
           image = image.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
         }
-        
+
+        // Extract video from enclosure or media:content
+        let video = '';
+
+        // Try enclosure with video mime type
+        const enclosureVideoMatch = itemContent.match(/<enclosure[^>]*url="([^"]*)"[^>]*type="video\/[^"]*"[^>]*>/i);
+        if (enclosureVideoMatch) {
+          video = enclosureVideoMatch[1].trim();
+        }
+
+        // Try media:content with video type
+        if (!video) {
+          const mediaVideoMatch = itemContent.match(/<media:content[^>]*url="([^"]*)"[^>]*type="video\/[^"]*"[^>]*>/i);
+          if (mediaVideoMatch) {
+            video = mediaVideoMatch[1].trim();
+          }
+        }
+
+        // Try enclosure with common video extensions
+        if (!video) {
+          const enclosureExtMatch = itemContent.match(/<enclosure[^>]*url="([^"]*\.(?:mp4|webm|mov|avi|mkv))"[^>]*>/i);
+          if (enclosureExtMatch) {
+            video = enclosureExtMatch[1].trim();
+          }
+        }
+
+        // Decode HTML entities in video URL
+        if (video) {
+          video = video.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        }
+
         // Extract pubDate
         const dateMatch = itemContent.match(/<pubDate>([^<]*)<\/pubDate>/i);
         const pubDate = dateMatch ? dateMatch[1].trim() : '';
@@ -342,6 +332,7 @@ function parseRSS(xmlString) {
             title,
             link,
             image,
+            video,
             description,
             time: pubDate || 'Recently'
           });
@@ -365,36 +356,21 @@ export async function fetchRSSFeed(url, platformName) {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
       }
     });
-    
+
     if (!response.ok) {
       console.error(`Failed to fetch ${platformName}: ${response.status}`);
       return [];
     }
-    
+
     const xmlText = await response.text();
     const items = parseRSS(xmlText);
-    
-    // Scrape images for articles that don't have them
-    const itemsWithImages = await Promise.all(
-      items.map(async (item) => {
-        if (!item.image && item.link) {
-          console.log(`Scraping image for: ${item.title.substring(0, 40)}...`);
-          const scrapedImage = await scrapeImageFromPage(item.link);
-          if (scrapedImage) {
-            console.log(`Found image for: ${item.title.substring(0, 40)}...`);
-            return { ...item, image: scrapedImage };
-          }
-        }
-        return item;
-      })
-    );
-    
+
     // Add platform name
-    return itemsWithImages.map(item => ({
+    return items.map(item => ({
       ...item,
       platform: platformName
     }));
-    
+
   } catch (error) {
     console.error(`Error fetching ${platformName}:`, error.message);
     return [];
@@ -413,18 +389,10 @@ export function getPlatformById(platformId) {
  */
 async function generateAmharicNews(article, userChannelLink = null, botDisplayName = null, showSourceLink = true, useDotPunctuation = false) {
   try {
-    // Scrape live webpage for full context
+    // Use RSS description for context (no web scraping)
     let articleContext = article.description
-      ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 500)
+      ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 1000)
       : '';
-
-    if (article.link) {
-      console.log(`Scraping webpage text from: ${article.link}...`);
-      const scrapedText = await scrapeArticleBody(article.link);
-      if (scrapedText && scrapedText.length > 50) {
-        articleContext = scrapedText.substring(0, 1800);
-      }
-    }
 
     if (!articleContext) {
       articleContext = article.title;

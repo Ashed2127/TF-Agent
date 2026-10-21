@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
@@ -26,13 +26,16 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: '🔄 Refresh', callback_data: 'refresh_menu' }
     ],
     [
+      { text: '👻 Switch to Guest Mode', callback_data: 'switch_to_guest' }
+    ],
+    [
       { text: '↩️ Back', callback_data: 'back' }
     ]
   ];
 
   // Add analytics button for owner
   if (isOwner) {
-    keyboard.splice(3, 0, [
+    keyboard.splice(4, 0, [
       { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ]);
   }
@@ -79,9 +82,25 @@ async function showGuestMenu(chatId) {
  * Helper function to show the next news article
  */
 async function showNextArticle(callbackQuery, platformId, currentIndex) {
-  const platform = getPlatformById(platformId);
+  let platform = getPlatformById(platformId);
   const userId = callbackQuery.from.id;
   const user = await getUserByTelegramId(userId);
+
+  // Handle custom sources
+  if (!platform && platformId.startsWith('custom_')) {
+    const customSourceId = parseInt(platformId.replace('custom_', ''));
+    const customSources = await getCustomSources(user.id);
+    const customSource = customSources.find(s => s.id === customSourceId);
+    if (customSource) {
+      platform = {
+        id: platformId,
+        name: customSource.source_name,
+        category: 'custom',
+        url: customSource.source_url,
+        isCustom: true
+      };
+    }
+  }
 
   if (!platform) {
     await api.sendMessage({
@@ -130,23 +149,26 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
 
     const article = articles[nextIndex];
 
-    // Get user channel link for content creator attribution
+    // Get user channel link for content creator attribution (only for non-guest users)
     let userChannelLink = null;
-    if (user && user.channel_name) {
-      // Format as @channelname if it starts with @, otherwise as t.me/channelname
-      if (user.channel_name.startsWith('@')) {
-        userChannelLink = user.channel_name;
-      } else {
-        userChannelLink = `t.me/${user.channel_name}`;
+    if (user && user.user_type !== 'guest') {
+      if (user.channel_name) {
+        // Format as @channelname if it starts with @, otherwise as t.me/channelname
+        if (user.channel_name.startsWith('@')) {
+          userChannelLink = user.channel_name;
+        } else {
+          userChannelLink = `t.me/${user.channel_name}`;
+        }
+      } else if (user.channel_id) {
+        // Use channel_id if channel_name is not available
+        userChannelLink = user.channel_id;
       }
-    } else if (user && user.channel_id) {
-      // Use channel_id if channel_name is not available
-      userChannelLink = user.channel_id;
     }
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+    const botDisplayName = user?.user_type !== 'guest' ? (user?.bot_display_name || null) : null;
+    const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
 
     // Delete loading message
     await api.deleteMessage({
@@ -371,6 +393,28 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  if (data === 'refresh_user_type') {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🎉 Welcome to True Feed!\n\nChoose how you want to use the bot:',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '👤 User', callback_data: 'choose_user' },
+            { text: '👻 Guest', callback_data: 'choose_guest' }
+          ],
+          [
+            { text: '🔄 Refresh', callback_data: 'refresh_user_type' }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
   if (data === 'switch_to_user') {
     await updateUserType(userId, 'user');
     await updateUserOnboardingStep(userId, 'join_channel');
@@ -384,6 +428,35 @@ export default async function (callbackQuery, ctx) {
           ],
           [
             { text: '✅ I\'ve Joined', callback_data: 'check_join' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  if (data === 'switch_to_guest') {
+    await updateUserType(userId, 'guest');
+    await updateUserOnboardingStep(userId, 'guest_ready');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '👻 Switched to Guest Mode!\n\nYou can now browse and translate news without setting up a channel.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '📰 Browse News', callback_data: 'get_news' }
+          ],
+          [
+            { text: '⚙️ Settings', callback_data: 'settings' }
+          ],
+          [
+            { text: '🔄 Switch to User Mode', callback_data: 'switch_to_user' }
+          ],
+          [
+            { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'back' }
           ]
         ]
       }
@@ -461,6 +534,9 @@ export default async function (callbackQuery, ctx) {
 
   // Public news handlers (before owner check)
   if (data === 'get_news') {
+    const user = await getUserByTelegramId(userId);
+    const customSources = user ? await getCustomSources(user.id) : [];
+
     const keyboard = [];
     for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
       const row = [];
@@ -476,6 +552,14 @@ export default async function (callbackQuery, ctx) {
       }
       keyboard.push(row);
     }
+
+    // Add My Sources button if user has custom sources
+    if (customSources.length > 0) {
+      keyboard.push([
+        { text: `📌 My Sources (${customSources.length})`, callback_data: 'news_cat_custom' }
+      ]);
+    }
+
     keyboard.push([
       { text: '🌐 All Sources', callback_data: 'news_cat_all' },
       { text: '🔄 Refresh', callback_data: 'get_news' }
@@ -496,9 +580,57 @@ export default async function (callbackQuery, ctx) {
 
   if (data.startsWith('news_cat_')) {
     const catId = data.replace('news_cat_', '');
-    const platforms = catId === 'all'
+    let platforms = catId === 'all'
       ? NEWS_PLATFORMS
       : NEWS_PLATFORMS.filter(p => p.category === catId);
+
+    // Handle custom sources category
+    if (catId === 'custom') {
+      const user = await getUserByTelegramId(userId);
+      if (user) {
+        const customSources = await getCustomSources(user.id);
+        if (customSources.length > 0) {
+          platforms = customSources.map((source, index) => ({
+            id: `custom_${source.id}`,
+            name: `📌 ${source.source_name}`,
+            category: 'custom',
+            url: source.source_url,
+            isCustom: true
+          }));
+        } else {
+          await api.sendMessage({
+            chat_id: callbackQuery.message.chat.id,
+            text: '📌 You have no custom sources yet.\n\nAdd custom sources during setup or in settings.',
+            reply_markup: {
+              inline_keyboard: [
+                [
+                  { text: '↩️ Back', callback_data: 'get_news' }
+                ]
+              ]
+            }
+          });
+          return;
+        }
+      }
+    }
+
+    // Add custom sources for "all" category
+    if (catId === 'all') {
+      const user = await getUserByTelegramId(userId);
+      if (user) {
+        const customSources = await getCustomSources(user.id);
+        if (customSources.length > 0) {
+          const customPlatforms = customSources.map((source, index) => ({
+            id: `custom_${source.id}`,
+            name: `📌 ${source.source_name}`,
+            category: 'custom',
+            url: source.source_url,
+            isCustom: true
+          }));
+          platforms = [...customPlatforms, ...platforms];
+        }
+      }
+    }
 
     const keyboard = [];
     for (let i = 0; i < platforms.length; i += 2) {
@@ -521,7 +653,7 @@ export default async function (callbackQuery, ctx) {
     ]);
 
     const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
-    const catTitle = catObj ? catObj.name : '🌐 All Sources';
+    const catTitle = catObj ? catObj.name : (catId === 'custom' ? '📌 My Sources' : '🌐 All Sources');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: `📰 ${catTitle} — Choose a source:`,
@@ -534,9 +666,25 @@ export default async function (callbackQuery, ctx) {
 
   if (data.startsWith('news_platform_')) {
     const platformId = data.replace('news_platform_', '');
-    const platform = getPlatformById(platformId);
+    let platform = getPlatformById(platformId);
     const isOwner = userId === OWNER_CHAT_ID;
     const user = await getUserByTelegramId(userId);
+
+    // Handle custom sources
+    if (!platform && platformId.startsWith('custom_')) {
+      const customSourceId = parseInt(platformId.replace('custom_', ''));
+      const customSources = await getCustomSources(user.id);
+      const customSource = customSources.find(s => s.id === customSourceId);
+      if (customSource) {
+        platform = {
+          id: platformId,
+          name: customSource.source_name,
+          category: 'custom',
+          url: customSource.source_url,
+          isCustom: true
+        };
+      }
+    }
 
     if (!platform) {
       await api.sendMessage({
@@ -579,21 +727,23 @@ export default async function (callbackQuery, ctx) {
       // Show first article with buttons
       const article = articles[0];
 
-      // Get user channel link for content creator attribution
+      // Get user channel link for content creator attribution (only for non-guest users)
       let userChannelLink = null;
-      if (user && user.channel_name) {
-        // Format as @channelname if it starts with @, otherwise as t.me/channelname
-        if (user.channel_name.startsWith('@')) {
-          userChannelLink = user.channel_name;
-        } else {
-          userChannelLink = `t.me/${user.channel_name}`;
+      if (user && user.user_type !== 'guest') {
+        if (user.channel_name) {
+          // Format as @channelname if it starts with @, otherwise as t.me/channelname
+          if (user.channel_name.startsWith('@')) {
+            userChannelLink = user.channel_name;
+          } else {
+            userChannelLink = `t.me/${user.channel_name}`;
+          }
+        } else if (user.channel_id) {
+          // Use channel_id if channel_name is not available
+          userChannelLink = user.channel_id;
         }
-      } else if (user && user.channel_id) {
-        // Use channel_id if channel_name is not available
-        userChannelLink = user.channel_id;
       }
 
-      const botDisplayName = user?.bot_display_name || null;
+      const botDisplayName = user?.user_type !== 'guest' ? (user?.bot_display_name || null) : null;
       const showSourceLink = user?.show_source_link === 1;
       const useDotPunctuation = user?.use_dot_punctuation === 1;
       const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
@@ -810,13 +960,19 @@ export default async function (callbackQuery, ctx) {
     const user = await getUserByTelegramId(userId);
     const showSourceLink = user?.show_source_link === 1 ? 'Yes' : 'No';
     const useDotPunctuation = user?.use_dot_punctuation === 1 ? 'Yes' : 'No';
+    const categories = user.categories ? JSON.parse(user.categories) : [];
+    const categoryNames = categories.map(catId => {
+      const cat = NEWS_CATEGORIES.find(c => c.id === catId);
+      return cat ? cat.name : catId;
+    });
+    const categoriesText = categoryNames.length > 0 ? categoryNames.join(', ') : 'None';
 
     const isOwner = userId === OWNER_CHAT_ID;
     const userChannels = await getUserChannels(user.id);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `⚙️ Settings\n\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n📢 Your Channels: ${userChannels.length}\n\nWhat would you like to change?`,
+      text: `⚙️ Settings\n\n🔗 Show Source Link: ${showSourceLink}${isOwner ? `\n✨ Use Dot Punctuation: ${useDotPunctuation}` : ''}\n📂 Your Categories: ${categoriesText}\n📢 Your Channels: ${userChannels.length}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: [
           [
@@ -825,6 +981,10 @@ export default async function (callbackQuery, ctx) {
           ...(isOwner ? [[{ text: '✨ Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
           [
             { text: '📢 Manage Channels', callback_data: 'manage_channels' }
+          ],
+          [
+            { text: '✏️ Edit Channel Link', callback_data: 'edit_channel_link' },
+            { text: '➕ Add Channel', callback_data: 'add_channel' }
           ],
           [
             { text: '↩️ Back', callback_data: 'back' }
@@ -881,6 +1041,19 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  // Handle edit channel link
+  if (data === 'edit_channel_link') {
+    const user = await getUserByTelegramId(userId);
+    const currentChannel = user.channel_name || user.channel_id || 'Not set';
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `✏️ Edit Channel Link\n\nCurrent channel: ${currentChannel}\n\nPlease send your new channel link or username (e.g., @mychannel or https://t.me/mychannel)`,
+    });
+    await setPendingChannelAdd(userId, 'edit_channel');
+    return;
+  }
+
   // Handle add channel
   if (data === 'add_channel') {
     await handleAddChannelStart(callbackQuery, userId);
@@ -905,9 +1078,10 @@ export default async function (callbackQuery, ctx) {
   if (data.startsWith('post_to_channel_')) {
     const parts = data.replace('post_to_channel_', '').split('_');
     const telegramChannelId = parts[0];
-    const platformId = parts[1];
-    const currentIndex = parseInt(parts[2]);
-    await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId);
+    const channelName = parts[1];
+    const platformId = parts[2];
+    const currentIndex = parseInt(parts[3]);
+    await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId, channelName);
     return;
   }
 
@@ -933,10 +1107,15 @@ export default async function (callbackQuery, ctx) {
 
     const userPosts = await getUserPosts(user.id);
     const categories = user.categories ? JSON.parse(user.categories) : [];
+    const categoryNames = categories.map(catId => {
+      const cat = NEWS_CATEGORIES.find(c => c.id === catId);
+      return cat ? cat.name : catId;
+    });
+    const categoriesText = categoryNames.length > 0 ? categoryNames.join(', ') : 'None';
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `📊 Your Stats\n\n📰 Total Posts: ${user.posts_count || 0}\n📂 Categories: ${categories.length > 0 ? categories.join(', ') : 'None'}\n📺 Channel: ${user.channel_name || user.channel_id || 'Not set'}\n👤 Display Name: ${user.display_name || 'Not set'}`,
+      text: `📊 Your Stats\n\n📰 Total Posts: ${user.posts_count || 0}\n📂 Your Categories: ${categoriesText}\n📺 Channel: ${user.channel_name || user.channel_id || 'Not set'}\n👤 Display Name: ${user.display_name || 'Not set'}`,
       reply_markup: {
         inline_keyboard: [
           [
@@ -1129,6 +1308,9 @@ export default async function (callbackQuery, ctx) {
             [
               { text: 'idea', callback_data: 'new_idea' },
               { text: '📰 news', callback_data: 'get_news' }
+            ],
+            [
+              { text: '⚙️ Settings', callback_data: 'settings' }
             ],
             [
               { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
@@ -1928,7 +2110,8 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
 
   // Single channel - post directly
   const telegramChannelId = userChannels[0].channel_id;
-  await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId);
+  const channelName = userChannels[0].channel_name || userChannels[0].channel_id;
+  await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId, channelName);
 }
 
 async function showChannelSelectionForPost(callbackQuery, userId, platformId, currentIndex, userChannels) {
@@ -1937,7 +2120,7 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
     const channelName = channel.channel_name || channel.channel_id;
     const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
     keyboard.push([
-      { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.channel_id}_${platformId}_${currentIndex}` }
+      { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.channel_id}_${channelName}_${platformId}_${currentIndex}` }
     ]);
   }
 
@@ -1961,7 +2144,7 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
   });
 }
 
-async function postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId) {
+async function postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId, channelName = null) {
   const user = await getUserByTelegramId(userId);
   const platform = getPlatformById(platformId);
 
@@ -1986,9 +2169,15 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
 
     const article = articles[currentIndex];
 
-    // Get user channel link for content creator attribution
+    // Use the selected channel name for attribution
     let userChannelLink = null;
-    if (user && user.channel_name) {
+    if (channelName) {
+      if (channelName.startsWith('@')) {
+        userChannelLink = channelName;
+      } else {
+        userChannelLink = `t.me/${channelName}`;
+      }
+    } else if (user && user.channel_name) {
       if (user.channel_name.startsWith('@')) {
         userChannelLink = user.channel_name;
       } else {
@@ -2000,7 +2189,8 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+    const botDisplayName = user?.user_type !== 'guest' ? (user?.bot_display_name || null) : null;
+    const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
 
     // Post to the channel
     if (article.video) {
@@ -2135,7 +2325,8 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+    const botDisplayName = user?.user_type !== 'guest' ? (user?.bot_display_name || null) : null;
+    const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
 
     // Post to the user's test channel
     if (article.video) {
@@ -2392,7 +2583,8 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, null, showSourceLink, useDotPunctuation);
+    const botDisplayName = user?.user_type !== 'guest' ? (user?.bot_display_name || null) : null;
+    const articleText = await formatNewsArticle(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
 
     // Post to all channels
     let successCount = 0;
