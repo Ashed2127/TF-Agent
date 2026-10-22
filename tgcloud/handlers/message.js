@@ -57,7 +57,41 @@ export default async function (message, ctx) {
       return;
     }
 
-    // Always show User/Guest choice for non-owner users
+    // Check if user has already completed onboarding
+    if (user && user.onboarding_step === 'completed') {
+      // Show appropriate menu based on user type
+      if (user.user_type === 'guest') {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: ' True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: ' Browse News', callback_data: 'get_news' },
+                { text: 'Rates', callback_data: 'get_rates' }
+              ],
+              [
+                { text: 'Settings', callback_data: 'settings' }
+              ],
+              [
+                { text: ' Switch to User Mode', callback_data: 'switch_to_user' }
+              ],
+              [
+                { text: 'Refresh', callback_data: 'refresh_guest_menu' }
+              ],
+              [
+                { text: 'Back', callback_data: 'back' }
+              ]
+            ]
+          }
+        });
+      } else {
+        await showMainMenu(message.chat.id, userId === OWNER_CHAT_ID);
+      }
+      return;
+    }
+
+    // Show User/Guest choice for new users who haven't completed onboarding
     await showUserTypeChoice(message.chat.id);
     return;
   }
