@@ -1029,28 +1029,39 @@ export default async function (callbackQuery, ctx) {
     const categoriesText = categoryNames.length > 0 ? categoryNames.join(', ') : 'None';
 
     const isOwner = userId === OWNER_CHAT_ID;
+    const isGuest = user?.user_type === 'guest';
     const userChannels = await getUserChannels(user.id);
+
+    // Build keyboard - only show channel management for non-guest users
+    const keyboard = [
+      [
+        { text: 'Toggle Source Link', callback_data: 'toggle_source_link' }
+      ],
+      ...(isOwner ? [[{ text: 'Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
+    ];
+
+    // Add channel management options only for non-guest users
+    if (!isGuest) {
+      keyboard.push(
+        [
+          { text: 'Manage Channels', callback_data: 'manage_channels' }
+        ],
+        [
+          { text: 'Edit Channel Link', callback_data: 'edit_channel_link' },
+          { text: ' Add Channel', callback_data: 'add_channel' }
+        ]
+      );
+    }
+
+    keyboard.push([
+      { text: 'Back', callback_data: 'back' }
+    ]);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}\nYour Channels: ${userChannels.length}\n\nWhat would you like to change?`,
+      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'Toggle Source Link', callback_data: 'toggle_source_link' }
-          ],
-          ...(isOwner ? [[{ text: 'Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
-          [
-            { text: 'Manage Channels', callback_data: 'manage_channels' }
-          ],
-          [
-            { text: 'Edit Channel Link', callback_data: 'edit_channel_link' },
-            { text: ' Add Channel', callback_data: 'add_channel' }
-          ],
-          [
-            { text: 'Back', callback_data: 'back' }
-          ]
-        ]
+        inline_keyboard: keyboard
       }
     });
     return;
