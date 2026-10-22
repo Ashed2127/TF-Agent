@@ -387,7 +387,7 @@ export function getPlatformById(platformId) {
 /**
  * Generate Amharic news content using AI
  */
-async function generateAmharicNews(article, userChannelLink = null, botDisplayName = null, showSourceLink = true, useDotPunctuation = false) {
+async function generateAmharicNews(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false) {
   try {
     // Use RSS description for context (no web scraping)
     let articleContext = article.description
@@ -409,12 +409,6 @@ async function generateAmharicNews(article, userChannelLink = null, botDisplayNa
       sourceLine = userChannelLink;
     }
 
-    // Add bot display name if provided
-    let botAttribution = '';
-    if (botDisplayName) {
-      botAttribution = `\n<b>${botDisplayName}</b>`;
-    }
-
     const prompt = `Translate news to Amharic. Direct, accurate, no hallucinations.
 
 Format:
@@ -425,7 +419,6 @@ Format:
 • Fact 3
 ${showSourceLink ? `\n<a href="${article.link}">${article.platform}</a>` : ''}
 ${userChannelLink ? `\n${userChannelLink}` : ''}
-${botDisplayName ? `\n<b>${botDisplayName}</b>` : ''}
 
 Title: ${article.title}
 Text: ${articleContext}
@@ -463,10 +456,6 @@ Output only translation.`;
         fallbackText += `\n${userChannelLink}`;
       }
 
-      if (botDisplayName) {
-        fallbackText += `\n<b>${botDisplayName}</b>`;
-      }
-
       return fallbackText;
     }
 
@@ -484,10 +473,6 @@ Output only translation.`;
 
       if (userChannelLink) {
         fallbackText += `\n${userChannelLink}`;
-      }
-
-      if (botDisplayName) {
-        fallbackText += `\n<b>${botDisplayName}</b>`;
       }
 
       return fallbackText;
@@ -526,10 +511,6 @@ Output only translation.`;
       fallbackText += `\n${userChannelLink}`;
     }
 
-    if (botDisplayName) {
-      fallbackText += `\n<b>${botDisplayName}</b>`;
-    }
-
     return fallbackText;
   }
 }
@@ -537,9 +518,9 @@ Output only translation.`;
 /**
  * Format single news article for Telegram
  */
-export async function formatNewsArticle(article, userChannelLink = null, botDisplayName = null, showSourceLink = true, useDotPunctuation = false) {
+export async function formatNewsArticle(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false) {
   // Generate Amharic content with AI
-  const amharicContent = await generateAmharicNews(article, userChannelLink, botDisplayName, showSourceLink, useDotPunctuation);
+  const amharicContent = await generateAmharicNews(article, userChannelLink, showSourceLink, useDotPunctuation);
   return amharicContent;
 }
 
