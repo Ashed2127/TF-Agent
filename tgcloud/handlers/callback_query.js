@@ -155,16 +155,20 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
     // Get user channel link for content creator attribution (only for non-guest users)
     let userChannelLink = null;
     if (user && user.user_type !== 'guest') {
-      if (user.channel_name) {
-        // Format as @channelname if it starts with @, otherwise as t.me/channelname
-        if (user.channel_name.startsWith('@')) {
-          userChannelLink = user.channel_name;
-        } else {
-          userChannelLink = `t.me/${user.channel_name}`;
+      // Get channels from user_channels table
+      const userChannels = await getUserChannels(user.id);
+      if (userChannels.length > 0) {
+        // Use the first channel or the main channel if available
+        const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
+        const channelName = mainChannel.channel_name || mainChannel.channel_id;
+        if (channelName) {
+          // Format as @channelname if it starts with @, otherwise as t.me/channelname
+          if (channelName.startsWith('@')) {
+            userChannelLink = channelName;
+          } else {
+            userChannelLink = `t.me/${channelName}`;
+          }
         }
-      } else if (user.channel_id) {
-        // Use channel_id if channel_name is not available
-        userChannelLink = user.channel_id;
       }
     }
 
