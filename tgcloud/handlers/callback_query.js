@@ -7,6 +7,7 @@ import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
 import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js';
+import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -30,7 +31,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: '👻 Switch to Guest Mode', callback_data: 'switch_to_guest' }
     ],
     [
-      { text: '↩️ Back', callback_data: 'back' }
+      { text: 'Back', callback_data: 'back' }
     ]
   ];
 
@@ -60,7 +61,8 @@ async function showGuestMenu(chatId) {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '📰 Browse News', callback_data: 'get_news' }
+          { text: '📰 Browse News', callback_data: 'get_news' },
+          { text: '💰 Rates', callback_data: 'get_rates' }
         ],
         [
           { text: '⚙️ Settings', callback_data: 'settings' }
@@ -72,7 +74,7 @@ async function showGuestMenu(chatId) {
           { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
         ],
         [
-          { text: '↩️ Back', callback_data: 'back' }
+          { text: 'Back', callback_data: 'back' }
         ]
       ]
     }
@@ -110,7 +112,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -140,7 +142,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           inline_keyboard: [
             [
               { text: '🔄 Refresh', callback_data: `news_platform_${platformId}` },
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ]
         }
@@ -192,7 +194,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
         ],
         [
-          { text: '↩️ Back', callback_data: 'get_news' }
+          { text: 'Back', callback_data: 'get_news' }
         ]
       ];
     } else if (user?.user_type === 'guest') {
@@ -203,7 +205,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
         ],
         [
-          { text: '↩️ Back', callback_data: 'get_news' }
+          { text: 'Back', callback_data: 'get_news' }
         ]
       ];
     } else {
@@ -221,7 +223,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
           ],
           [
-            { text: '↩️ Back', callback_data: 'get_news' }
+            { text: 'Back', callback_data: 'get_news' }
           ]
         ];
       } else {
@@ -234,7 +236,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
           ],
           [
-            { text: '↩️ Back', callback_data: 'get_news' }
+            { text: 'Back', callback_data: 'get_news' }
           ]
         ];
       }
@@ -330,7 +332,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -383,7 +385,8 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '📰 Browse News', callback_data: 'get_news' }
+            { text: '📰 Browse News', callback_data: 'get_news' },
+            { text: '💰 Rates', callback_data: 'get_rates' }
           ],
           [
             { text: '⚙️ Settings', callback_data: 'settings' }
@@ -408,7 +411,7 @@ export default async function (callbackQuery, ctx) {
             { text: '🔄 Refresh', callback_data: 'refresh_user_type' }
           ],
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -445,7 +448,8 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '📰 Browse News', callback_data: 'get_news' }
+            { text: '📰 Browse News', callback_data: 'get_news' },
+            { text: '💰 Rates', callback_data: 'get_rates' }
           ],
           [
             { text: '⚙️ Settings', callback_data: 'settings' }
@@ -457,7 +461,7 @@ export default async function (callbackQuery, ctx) {
             { text: '🔄 Refresh', callback_data: 'refresh_guest_menu' }
           ],
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -523,6 +527,21 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  if (data === 'get_rates') {
+    await handleGetRates(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'rate_dollar') {
+    await handleDollarRate(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'rate_btc') {
+    await handleBTCRate(callbackQuery, userId);
+    return;
+  }
+
   if (data.startsWith('news_user_channel_')) {
     await handlePostToUserChannel(callbackQuery, userId, data);
     return;
@@ -566,7 +585,7 @@ export default async function (callbackQuery, ctx) {
       { text: '🔄 Refresh', callback_data: 'get_news' }
     ]);
     keyboard.push([
-      { text: '↩️ Back', callback_data: 'back' }
+      { text: 'Back', callback_data: 'back' }
     ]);
 
     await api.sendMessage({
@@ -605,7 +624,7 @@ export default async function (callbackQuery, ctx) {
             reply_markup: {
               inline_keyboard: [
                 [
-                  { text: '↩️ Back', callback_data: 'get_news' }
+                  { text: 'Back', callback_data: 'get_news' }
                 ]
               ]
             }
@@ -694,7 +713,7 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ]
         }
@@ -717,7 +736,7 @@ export default async function (callbackQuery, ctx) {
           reply_markup: {
             inline_keyboard: [
               [
-                { text: '↩️ Back', callback_data: 'back' }
+                { text: 'Back', callback_data: 'back' }
               ]
             ]
           }
@@ -762,7 +781,7 @@ export default async function (callbackQuery, ctx) {
             { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
           ],
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ];
       } else if (user?.user_type === 'guest') {
@@ -773,7 +792,7 @@ export default async function (callbackQuery, ctx) {
             { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
           ],
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ];
       } else {
@@ -791,7 +810,7 @@ export default async function (callbackQuery, ctx) {
               { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ];
         } else {
@@ -804,7 +823,7 @@ export default async function (callbackQuery, ctx) {
               { text: '⏭️ Skip', callback_data: `news_skip_${platformId}_0` }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ];
         }
@@ -900,7 +919,7 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ]
         }
@@ -988,7 +1007,7 @@ export default async function (callbackQuery, ctx) {
             { text: '➕ Add Channel', callback_data: 'add_channel' }
           ],
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -1008,7 +1027,7 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '↩️ Back to Settings', callback_data: 'settings' }
+            { text: 'Back', callback_data: 'settings' }
           ]
         ]
       }
@@ -1028,7 +1047,7 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '↩️ Back to Settings', callback_data: 'settings' }
+            { text: 'Back', callback_data: 'settings' }
           ]
         ]
       }
@@ -1120,7 +1139,7 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -1311,6 +1330,7 @@ export default async function (callbackQuery, ctx) {
               { text: '📰 news', callback_data: 'get_news' }
             ],
             [
+              { text: '💰 Rates', callback_data: 'get_rates' },
               { text: '⚙️ Settings', callback_data: 'settings' }
             ],
             [
@@ -1334,7 +1354,7 @@ export default async function (callbackQuery, ctx) {
               { text: '🔄 Refresh', callback_data: 'refresh_user_type' }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ]
         }
@@ -1372,7 +1392,7 @@ export default async function (callbackQuery, ctx) {
               { text: '❌ Reject — New Idea', callback_data: `reject_${idea.id}` }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ]
         }
@@ -1740,7 +1760,7 @@ export default async function (callbackQuery, ctx) {
               { text: '❌ Reject — New Idea', callback_data: `reject_${idea.id}` }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: 'Back', callback_data: 'back' }
             ]
           ]
         }
@@ -2066,6 +2086,107 @@ async function handleGenerateContent(callbackQuery, userId) {
       inline_keyboard: keyboard
     }
   });
+}
+
+async function handleGetRates(callbackQuery, userId) {
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: '💰 <b>Exchange Rates</b>\n\nSelect a rate to view:',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: '💵 Dollar (USD/ETB)', callback_data: 'rate_dollar' },
+          { text: '₿ Bitcoin (BTC)', callback_data: 'rate_btc' }
+        ],
+        [
+          { text: 'Back', callback_data: 'back' }
+        ]
+      ]
+    }
+  });
+}
+
+async function handleDollarRate(callbackQuery, userId) {
+  try {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '⏳ Fetching Ethiopian dollar rates...',
+    });
+
+    const rates = await fetchEthiopianDollarRates();
+    const message = formatEthiopianRates(rates);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: message,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🔄 Refresh', callback_data: 'rate_dollar' }
+          ],
+          [
+            { text: 'Back', callback_data: 'get_rates' }
+          ]
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error handling dollar rate:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Failed to fetch dollar rates. Please try again later.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'get_rates' }
+          ]
+        ]
+      }
+    });
+  }
+}
+
+async function handleBTCRate(callbackQuery, userId) {
+  try {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '⏳ Fetching Bitcoin price...',
+    });
+
+    const btcData = await fetchBTCPrice();
+    const message = formatBTCPrice(btcData);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: message,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🔄 Refresh', callback_data: 'rate_btc' }
+          ],
+          [
+            { text: 'Back', callback_data: 'get_rates' }
+          ]
+        ]
+      }
+    });
+  } catch (error) {
+    console.error('Error handling BTC rate:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '❌ Failed to fetch Bitcoin price. Please try again later.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'get_rates' }
+          ]
+        ]
+      }
+    });
+  }
 }
 
 async function handlePostToUserChannel(callbackQuery, userId, data) {
@@ -2425,7 +2546,7 @@ async function handleManageChannels(callbackQuery, userId) {
             { text: '➕ Add Channel', callback_data: 'add_channel' }
           ],
           [
-            { text: '↩️ Back to Settings', callback_data: 'settings' }
+            { text: 'Back', callback_data: 'settings' }
           ]
         ]
       }
@@ -2446,7 +2567,7 @@ async function handleManageChannels(callbackQuery, userId) {
     { text: '➕ Add New Channel', callback_data: 'add_channel' }
   ]);
   keyboard.push([
-    { text: '↩️ Back to Settings', callback_data: 'settings' }
+    { text: 'Back', callback_data: 'settings' }
   ]);
 
   await api.sendMessage({
@@ -2475,7 +2596,7 @@ async function handleDeleteChannel(callbackQuery, userId, channelId) {
       text: '❌ Channel not found.',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '↩️ Back', callback_data: 'manage_channels' }]
+          [{ text: 'Back', callback_data: 'manage_channels' }]
         ]
       }
     });
@@ -2488,7 +2609,7 @@ async function handleDeleteChannel(callbackQuery, userId, channelId) {
     text: `✅ Channel "${channel.channel_name || channel.channel_id}" has been removed.`,
     reply_markup: {
       inline_keyboard: [
-        [{ text: '↩️ Back to Channels', callback_data: 'manage_channels' }]
+        [{ text: 'Back', callback_data: 'manage_channels' }]
       ]
     }
   });
@@ -2502,7 +2623,7 @@ async function handleChannelInfo(callbackQuery, userId, channelId) {
       text: '❌ Channel not found.',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '↩️ Back', callback_data: 'manage_channels' }]
+          [{ text: 'Back', callback_data: 'manage_channels' }]
         ]
       }
     });
@@ -2521,7 +2642,7 @@ async function handleChannelInfo(callbackQuery, userId, channelId) {
           { text: '🗑️ Remove Channel', callback_data: `delete_channel_${channel.id}` }
         ],
         [
-          { text: '↩️ Back', callback_data: 'manage_channels' }
+          { text: 'Back', callback_data: 'manage_channels' }
         ]
       ]
     }

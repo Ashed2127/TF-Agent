@@ -45,6 +45,7 @@ export default async function (message, ctx) {
               { text: '📰 news', callback_data: 'get_news' }
             ],
             [
+              { text: '💰 Rates', callback_data: 'get_rates' },
               { text: '⚙️ Settings', callback_data: 'settings' }
             ],
             [
