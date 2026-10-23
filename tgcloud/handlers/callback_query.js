@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
@@ -1032,6 +1032,12 @@ export default async function (callbackQuery, ctx) {
     const isGuest = user?.user_type === 'guest';
     const userChannels = await getUserChannels(user.id);
 
+    // Get content structure and auto post status
+    const contentStructure = await getContentStructure(user.id);
+    const autoPostSchedule = await getAutoPostSchedule(user.id);
+    const contentStructureStatus = contentStructure ? 'Set' : 'Not set';
+    const autoPostStatus = autoPostSchedule ? (autoPostSchedule.is_active === 1 ? 'Active' : 'Paused') : 'Not set';
+
     // Build keyboard - only show channel management for non-guest users
     const keyboard = [
       [
@@ -1040,9 +1046,15 @@ export default async function (callbackQuery, ctx) {
       ...(isOwner ? [[{ text: 'Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
     ];
 
-    // Add channel management options only for non-guest users
+    // Add content structure and auto post options for non-guest users
     if (!isGuest) {
       keyboard.push(
+        [
+          { text: 'Content Structure', callback_data: 'content_structure' }
+        ],
+        [
+          { text: 'Auto Post', callback_data: 'auto_post' }
+        ],
         [
           { text: 'Manage Channels', callback_data: 'manage_channels' }
         ],
@@ -1059,7 +1071,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
+      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\nContent Structure: ${contentStructureStatus}\nAuto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -1129,6 +1141,314 @@ export default async function (callbackQuery, ctx) {
   // Handle add channel
   if (data === 'add_channel') {
     await handleAddChannelStart(callbackQuery, userId);
+    return;
+  }
+
+  // Handle content structure button
+  if (data === 'content_structure') {
+    const user = await getUserByTelegramId(userId);
+    const contentStructure = await getContentStructure(user.id);
+
+    if (contentStructure) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Content Structure\n\nYour current structure:\n\n${contentStructure.structure_template}\n\nWhat would you like to do?`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Edit Structure', callback_data: 'edit_content_structure' }
+            ],
+            [
+              { text: 'Delete Structure', callback_data: 'delete_content_structure' }
+            ],
+            [
+              { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    } else {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Content Structure\n\nYou haven't set up your content structure yet.\n\nThis helps the AI understand your posting style. Send a sample post that represents your desired format and style.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Set Structure', callback_data: 'set_content_structure' }
+            ],
+            [
+              { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle set content structure
+  if (data === 'set_content_structure') {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `Set Content Structure\n\nPlease send a sample post that represents your desired format and style.\n\nThis can include:\n- Your title format\n- How you structure your content\n- Any special formatting you use\n- Your tone and style`,
+    });
+    await setPendingChannelAdd(userId, 'waiting_content_structure');
+    return;
+  }
+
+  // Handle edit content structure
+  if (data === 'edit_content_structure') {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `Edit Content Structure\n\nPlease send your new content structure sample.`,
+    });
+    await setPendingChannelAdd(userId, 'waiting_content_structure');
+    return;
+  }
+
+  // Handle delete content structure
+  if (data === 'delete_content_structure') {
+    const user = await getUserByTelegramId(userId);
+    await deleteContentStructure(user.id);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `Content structure deleted.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle auto post button
+  if (data === 'auto_post') {
+    const user = await getUserByTelegramId(userId);
+    const autoPostSchedule = await getAutoPostSchedule(user.id);
+    const userChannels = await getUserChannels(user.id);
+    const isOwner = userId === OWNER_CHAT_ID;
+
+    if (autoPostSchedule) {
+      const intervalText = autoPostSchedule.interval_hours < 1
+        ? `${autoPostSchedule.interval_hours * 60} seconds`
+        : `${autoPostSchedule.interval_hours} hour(s)`;
+      const statusText = autoPostSchedule.is_active === 1 ? 'Active' : 'Paused';
+      const channel = userChannels.find(c => c.channel_id === autoPostSchedule.channel_id);
+      const channelName = channel ? channel.channel_name || channel.channel_id : autoPostSchedule.channel_id;
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Auto Post Settings\n\nStatus: ${statusText}\nChannel: ${channelName}\nInterval: ${intervalText}\n\nWhat would you like to do?`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: autoPostSchedule.is_active === 1 ? 'Pause' : 'Resume', callback_data: 'toggle_auto_post' }
+            ],
+            [
+              { text: 'Edit Schedule', callback_data: 'edit_auto_post' }
+            ],
+            [
+              { text: 'Delete Schedule', callback_data: 'delete_auto_post' }
+            ],
+            [
+              { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    } else {
+      if (userChannels.length === 0) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `Auto Post\n\nYou need to add a channel first before setting up auto post.`,
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: 'Add Channel', callback_data: 'add_channel' }
+              ],
+              [
+                { text: 'Back', callback_data: 'settings' }
+              ]
+            ]
+          }
+        });
+      } else {
+        let keyboard = [];
+
+        // Add test interval (visible to all for testing)
+        keyboard.push(
+          ...userChannels.map(channel => [
+            { text: `🧪 TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `setup_auto_post_${channel.channel_id}_0.004` }
+          ])
+        );
+
+        keyboard.push(
+          ...userChannels.map(channel => [
+            { text: `${channel.channel_name || channel.channel_id} - 1 hour`, callback_data: `setup_auto_post_${channel.channel_id}_1` },
+            { text: `${channel.channel_name || channel.channel_id} - 3 hours`, callback_data: `setup_auto_post_${channel.channel_id}_3` }
+          ]),
+          ...userChannels.map(channel => [
+            { text: `${channel.channel_name || channel.channel_id} - 6 hours`, callback_data: `setup_auto_post_${channel.channel_id}_6` },
+            { text: `${channel.channel_name || channel.channel_id} - 12 hours`, callback_data: `setup_auto_post_${channel.channel_id}_12` }
+          ]),
+          [
+            { text: 'Back', callback_data: 'settings' }
+          ]
+        );
+
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `Auto Post\n\nSet up automatic posting to your channel.\n\nChoose a channel and posting interval.\n\n🧪 TEST MODE: 15 seconds for quick testing`,
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      }
+    }
+    return;
+  }
+
+  // Handle setup auto post
+  if (data.startsWith('setup_auto_post_')) {
+    const parts = data.replace('setup_auto_post_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+
+    const user = await getUserByTelegramId(userId);
+    await createAutoPostSchedule(user.id, channelId, intervalHours);
+
+    const intervalText = intervalHours < 1
+      ? `${intervalHours * 60} seconds`
+      : `Every ${intervalHours} hour(s)`;
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `Auto post enabled!\n\nChannel: ${channelId}\nInterval: ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle toggle auto post
+  if (data === 'toggle_auto_post') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    if (schedule) {
+      const updated = await toggleAutoPostSchedule(schedule.id);
+      const statusText = updated.is_active === 1 ? 'Active' : 'Paused';
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Auto post ${statusText}.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'auto_post' }
+            ]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle edit auto post
+  if (data === 'edit_auto_post') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    const userChannels = await getUserChannels(user.id);
+
+    if (schedule && userChannels.length > 0) {
+      let keyboard = [];
+
+      // Add test interval (visible to all for testing)
+      keyboard.push(
+        ...userChannels.map(channel => [
+          { text: `🧪 TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `update_auto_post_${channel.channel_id}_0.004` }
+        ])
+      );
+
+      keyboard.push(
+        ...userChannels.map(channel => [
+          { text: `${channel.channel_name || channel.channel_id} - 1 hour`, callback_data: `update_auto_post_${channel.channel_id}_1` },
+          { text: `${channel.channel_name || channel.channel_id} - 3 hours`, callback_data: `update_auto_post_${channel.channel_id}_3` }
+        ]),
+        ...userChannels.map(channel => [
+          { text: `${channel.channel_name || channel.channel_id} - 6 hours`, callback_data: `update_auto_post_${channel.channel_id}_6` },
+          { text: `${channel.channel_name || channel.channel_id} - 12 hours`, callback_data: `update_auto_post_${channel.channel_id}_12` }
+        ]),
+        [
+          { text: 'Back', callback_data: 'auto_post' }
+        ]
+      );
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Edit Auto Post Schedule\n\nChoose a new interval:\n\n🧪 TEST MODE: 15 seconds for quick testing`,
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle update auto post
+  if (data.startsWith('update_auto_post_')) {
+    const parts = data.replace('update_auto_post_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    if (schedule) {
+      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true);
+
+      const intervalText = intervalHours < 1
+        ? `${intervalHours * 60} seconds`
+        : `Every ${intervalHours} hour(s)`;
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Auto post schedule updated!\n\nChannel: ${channelId}\nInterval: ${intervalText}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'auto_post' }
+            ]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle delete auto post
+  if (data === 'delete_auto_post') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    if (schedule) {
+      await deleteAutoPostSchedule(schedule.id);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Auto post schedule deleted.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    }
     return;
   }
 
@@ -1432,7 +1752,8 @@ export default async function (callbackQuery, ctx) {
         text: 'Generating idea...',
       });
 
-      const idea = await generateIdea();
+      const user = await getUserByTelegramId(userId);
+      const idea = await generateIdea(user.id);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -1800,7 +2121,8 @@ export default async function (callbackQuery, ctx) {
         text: 'Generating idea...',
       });
 
-      const idea = await generateIdea();
+      const user = await getUserByTelegramId(userId);
+      const idea = await generateIdea(user.id);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,

@@ -1,6 +1,6 @@
 import { db } from 'sdk';
 import { eq, desc, sql, and } from 'sdk/db';
-import { ideas, pendingEdits, users, customSources, posts, userChannels } from '../schema.js';
+import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -507,4 +507,149 @@ export async function removeDuplicateChannels(userId) {
   }
 
   return toDelete.length;
+}
+
+// Content structure management functions
+
+export async function saveContentStructure(userId, structureTemplate) {
+  const existing = await db.select()
+    .from(contentStructures)
+    .where(eq(contentStructures.user_id, userId))
+    .limit(1)
+    .all();
+
+  if (existing.length > 0) {
+    const [updated] = await db.update(contentStructures)
+      .set({
+        structure_template: structureTemplate,
+        updated_at: sql`(unixepoch())`
+      })
+      .where(eq(contentStructures.id, existing[0].id))
+      .returning()
+      .run();
+    return updated;
+  }
+
+  const [structure] = await db.insert(contentStructures)
+    .values({
+      user_id: userId,
+      structure_template: structureTemplate
+    })
+    .returning()
+    .run();
+  return structure;
+}
+
+export async function getContentStructure(userId) {
+  const result = await db.select()
+    .from(contentStructures)
+    .where(eq(contentStructures.user_id, userId))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+export async function deleteContentStructure(userId) {
+  await db.delete(contentStructures)
+    .where(eq(contentStructures.user_id, userId))
+    .run();
+}
+
+// Auto post schedule management functions
+
+export async function createAutoPostSchedule(userId, channelId, intervalHours) {
+  const nextPostAt = new Date();
+  nextPostAt.setHours(nextPostAt.getHours() + intervalHours);
+
+  const [schedule] = await db.insert(autoPostSchedules)
+    .values({
+      user_id: userId,
+      channel_id: channelId,
+      interval_hours: intervalHours,
+      next_post_at: nextPostAt.getTime() / 1000
+    })
+    .returning()
+    .run();
+  return schedule;
+}
+
+export async function getAutoPostSchedule(userId) {
+  const result = await db.select()
+    .from(autoPostSchedules)
+    .where(eq(autoPostSchedules.user_id, userId))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
+export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive) {
+  const updateData = {};
+  if (channelId !== undefined) updateData.channel_id = channelId;
+  if (intervalHours !== undefined) updateData.interval_hours = intervalHours;
+  if (isActive !== undefined) updateData.is_active = isActive ? 1 : 0;
+
+  const [updated] = await db.update(autoPostSchedules)
+    .set(updateData)
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .returning()
+    .run();
+  return updated;
+}
+
+export async function toggleAutoPostSchedule(scheduleId) {
+  const schedule = await db.select()
+    .from(autoPostSchedules)
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .limit(1)
+    .all();
+
+  if (schedule.length === 0) return null;
+
+  const newStatus = schedule[0].is_active === 1 ? 0 : 1;
+  const [updated] = await db.update(autoPostSchedules)
+    .set({ is_active: newStatus })
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .returning()
+    .run();
+  return updated;
+}
+
+export async function deleteAutoPostSchedule(scheduleId) {
+  await db.delete(autoPostSchedules)
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .run();
+}
+
+export async function updateAutoPostLastPosted(scheduleId) {
+  const schedule = await db.select()
+    .from(autoPostSchedules)
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .limit(1)
+    .all();
+
+  if (schedule.length === 0) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  const nextPostAt = now + (schedule[0].interval_hours * 3600);
+
+  const [updated] = await db.update(autoPostSchedules)
+    .set({
+      last_posted_at: now,
+      next_post_at: nextPostAt
+    })
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .returning()
+    .run();
+  return updated;
+}
+
+export async function getDueAutoPostSchedules() {
+  const now = Math.floor(Date.now() / 1000);
+  return await db.select()
+    .from(autoPostSchedules)
+    .where(and(
+      eq(autoPostSchedules.is_active, 1),
+      sql`${autoPostSchedules.next_post_at} <= ${now}`
+    ))
+    .all();
 }

@@ -1,13 +1,13 @@
 import { fetch } from 'sdk';
-import { getPreviousTopics, getNextCategory, saveIdea } from './database.js';
+import { getPreviousTopics, getNextCategory, saveIdea, getContentStructure } from './database.js';
 import { OPENROUTER_API_KEY } from './secrets.js';
 
-function buildPrompt(previousTopics, category) {
+function buildPrompt(previousTopics, category, contentStructure = null) {
   const previousTopicsList = previousTopics.length > 0
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
-  return `Amharic business idea. Short, clear.
+  let basePrompt = `Amharic business idea. Short, clear.
 
 Format:
 🟢 Hybrid: [Name]
@@ -20,21 +20,43 @@ Avoid: ${previousTopicsList}
 Category: ${category}
 
 Use ". . ." for pauses. No Amharic punctuation (።፤፣፡). Output only from 🟢 to @true_feed.`;
+
+  // If user has a custom content structure, use it as additional context
+  if (contentStructure) {
+    basePrompt = `${basePrompt}
+
+User's Content Structure/Style Guide:
+${contentStructure}
+
+Please follow this structure and style as closely as possible while maintaining the required format above.`;
+  }
+
+  return basePrompt;
 }
 
-export async function generateIdea() {
+export async function generateIdea(userId = null) {
   try {
     console.log('🤖 Generating new idea...');
-    
+
     const previousTopics = await getPreviousTopics();
     console.log('Previous topics:', previousTopics);
-    
+
     const category = await getNextCategory();
     console.log('Category:', category);
-    
-    const prompt = buildPrompt(previousTopics, category);
+
+    // Get user's content structure if userId is provided
+    let contentStructure = null;
+    if (userId) {
+      const structure = await getContentStructure(userId);
+      if (structure) {
+        contentStructure = structure.structure_template;
+        console.log('Using custom content structure for user:', userId);
+      }
+    }
+
+    const prompt = buildPrompt(previousTopics, category, contentStructure);
     console.log('Prompt length:', prompt.length);
-    
+
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -50,40 +72,40 @@ export async function generateIdea() {
         temperature: 0.9
       })
     });
-    
+
     console.log('API response status:', response.status);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error('API Error:', response.status, errorText);
       throw new Error(`API request failed: ${response.status} - ${errorText}`);
     }
-    
+
     const data = await response.json();
     console.log('API response data keys:', Object.keys(data));
-    
+
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       throw new Error('Invalid API response structure');
     }
-    
+
     const content = data.choices[0].message.content.trim();
-    
+
     if (!content) {
       throw new Error('Empty response from OpenRouter');
     }
-    
+
     // Remove HTML tags to avoid Telegram parsing issues
     let cleanContent = content.replace(/<[^>]*>/g, '');
-    
+
     // Make @true_feed bold using Markdown
     cleanContent = cleanContent.replace('@true_feed', '*@true_feed*');
-    
+
     // Validate that the content includes the required structure
     if (!cleanContent.includes('🟢')) {
       console.error('❌ AI response missing required structure:', cleanContent);
       throw new Error('AI response missing required structure (Title section)');
     }
-    
+
     // Normalize Hybrid colon in title if needed
     cleanContent = cleanContent.replace(/🟢\s*Hybrid[፡:]/g, '🟢 Hybrid:');
 
@@ -95,22 +117,22 @@ export async function generateIdea() {
     cleanContent = cleanContent.replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ');
     cleanContent = cleanContent.replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2');
     cleanContent = cleanContent.replace(/[ ]{2,}/g, ' ').trim();
-    
+
     // Validate that content includes required pauses (. . . or . .)
     if (!cleanContent.includes('. . .') && !cleanContent.includes('. .')) {
       console.error('❌ AI response missing required pauses (. . . or . .):', cleanContent);
       throw new Error('AI response missing required pauses (. . .)');
     }
-    
+
     // Validate that content includes *@true_feed*
     if (!cleanContent.includes('*@true_feed*')) {
       console.error('❌ AI response missing @true_feed:', cleanContent);
       throw new Error('AI response missing @true_feed');
     }
-    
+
     const lines = cleanContent.split('\n');
     const firstLine = lines[0];
-    
+
     let topic = '';
     const colonIndex = firstLine.indexOf(':');
     if (colonIndex !== -1) {
@@ -125,20 +147,20 @@ export async function generateIdea() {
         .replace('<strong>', '')
         .trim();
     }
-    
+
     // Validate that topic does not contain "Digital"
     if (topic.includes('Digital') || topic.includes('digital')) {
       console.error('❌ Topic contains forbidden word "Digital":', topic);
       throw new Error('Topic contains forbidden word "Digital" - use "Hybrid" instead');
     }
-    
+
     const id = await saveIdea(cleanContent, topic, category);
-    
+
     console.log(`✅ Idea generated: ${topic} (ID: ${id})`);
     console.log('Content preview:', cleanContent.substring(0, 100));
-    
+
     return { id, content: cleanContent, topic, category };
-    
+
   } catch (error) {
     console.error('❌ Error generating idea:', error.message);
     throw new Error(`Failed to generate idea: ${error.message}`);

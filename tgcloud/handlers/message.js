@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
@@ -104,7 +104,8 @@ export default async function (message, ctx) {
         text: '🧪 Testing idea generation...',
       });
 
-      const idea = await generateIdea();
+      const user = await getUserByTelegramId(userId);
+      const idea = await generateIdea(user.id);
 
       console.log('Idea generated successfully:', idea.topic);
 
@@ -400,6 +401,23 @@ export default async function (message, ctx) {
         });
         return;
       }
+    }
+
+    // Handle content structure input
+    if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
+      const structureText = incomingText;
+      await saveContentStructure(user.id, structureText);
+      await clearPendingChannelAdd(userId);
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '✅ Content structure saved!\n\nThe AI will now use this structure when generating content for you.',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '⚙️ Settings', callback_data: 'settings' }]
+          ]
+        }
+      });
+      return;
     }
   }
 }

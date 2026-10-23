@@ -67,3 +67,22 @@ export const userChannels = table('user_channels', {
   is_test: integer('is_test').default(0),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
+
+export const contentStructures = table('content_structures', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  structure_template: text('structure_template').notNull(),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+  updated_at: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const autoPostSchedules = table('auto_post_schedules', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  channel_id: text('channel_id').notNull(),
+  interval_hours: integer('interval_hours').notNull(),
+  is_active: integer('is_active').default(1),
+  last_posted_at: integer('last_posted_at', { mode: 'timestamp' }),
+  next_post_at: integer('next_post_at', { mode: 'timestamp' }),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
