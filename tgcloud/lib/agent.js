@@ -25,23 +25,26 @@ function buildPrompt(previousTopics, category, structure, isOwner = false) {
 
   const structureLabel = isOwner ? 'Owner Structure' : 'User Structure';
 
-  return `Generate an Amharic business idea. Short, clear.
+  return {
+    system: `You are an expert content generator. You MUST always follow the exact structure format provided by the user. Never deviate from the specified format - copy it exactly and only replace the placeholder content with actual information.`,
+    user: `Generate an Amharic business idea. Short, clear.
 
-CRITICAL: You MUST follow this exact structure format:
+CATEGORY: ${category}
 
+STRUCTURE TO FOLLOW (copy exactly):
 ${structureLabel}:
 ${structure}
 
-Instructions:
-1. Copy the structure format EXACTLY as shown above
-2. Replace placeholders like [Name], [Problem], [Solution] with actual content
-3. Keep all emojis, spacing, and formatting exactly as shown
-4. Generate content that fits the category: ${category}
-5. Avoid these topics: ${previousTopicsList}
-6. Use ". . ." for pauses. No Amharic punctuation (።፤፣፡)
-7. Include @true_feed attribution at the end
+REQUIREMENTS:
+- Use this EXACT structure format above
+- Replace placeholders like [Name], [Problem], [Solution] with actual content
+- Keep all emojis, spacing, and formatting exactly as shown
+- Avoid these topics: ${previousTopicsList}
+- Use ". . ." for pauses. No Amharic punctuation (።፤፣፡)
+- Include @true_feed attribution at the end
 
-Do NOT change the structure format. Only replace the placeholder content.`;
+Generate the content now:`
+  };
 }
 
 export async function generateIdea(userId = null) {
@@ -92,9 +95,9 @@ export async function generateIdea(userId = null) {
     }
 
     const prompt = buildPrompt(previousTopics, category, structure, isOwner);
-    console.log('Prompt length:', prompt.length);
+    console.log('Prompt length:', prompt.user.length);
     console.log('Structure type:', isOwner ? 'OWNER' : (userId ? 'USER' : 'DEFAULT'));
-    console.log('Full prompt preview:', prompt.substring(0, 500));
+    console.log('Full prompt preview:', prompt.user.substring(0, 500));
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -105,7 +108,8 @@ export async function generateIdea(userId = null) {
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-lite',
         messages: [
-          { role: 'user', content: prompt }
+          { role: 'system', content: prompt.system },
+          { role: 'user', content: prompt.user }
         ],
         max_tokens: isOwner ? 500 : 800,
         temperature: 0.9
