@@ -5,7 +5,7 @@ import { generateIdea } from '../lib/agent.js';
 import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
+import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic } from '../lib/news.js';
 import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
@@ -222,7 +222,10 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+            { text: 'Translate to Amharic', callback_data: `news_translate_${platformId}_${nextIndex}` },
+            { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
+          ],
+          [
             { text: 'Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
           ],
           [
@@ -235,7 +238,10 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+            { text: 'Translate to Amharic', callback_data: `news_translate_${platformId}_${nextIndex}` },
+            { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
+          ],
+          [
             { text: 'Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
           ],
           [
@@ -591,6 +597,11 @@ export default async function (callbackQuery, ctx) {
 
   if (data.startsWith('news_user_test_channel_')) {
     await handlePostToUserTestChannel(callbackQuery, userId, data);
+    return;
+  }
+
+  if (data.startsWith('news_translate_')) {
+    await handleTranslate(callbackQuery, userId, data);
     return;
   }
 
@@ -1048,10 +1059,16 @@ export default async function (callbackQuery, ctx) {
 
     // Add content structure and auto post options for non-guest users
     if (!isGuest) {
+      // Only show Content Structure for regular users (not owner - owner has fixed structure)
+      if (!isOwner) {
+        keyboard.push(
+          [
+            { text: 'Content Structure', callback_data: 'content_structure' }
+          ]
+        );
+      }
+
       keyboard.push(
-        [
-          { text: 'Content Structure', callback_data: 'content_structure' }
-        ],
         [
           { text: 'Auto Post', callback_data: 'auto_post' }
         ],
@@ -1071,7 +1088,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\nContent Structure: ${contentStructureStatus}\nAuto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
+      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\n${!isOwner ? `Content Structure: ${contentStructureStatus}\n` : ''}Auto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -1147,6 +1164,23 @@ export default async function (callbackQuery, ctx) {
   // Handle content structure button
   if (data === 'content_structure') {
     const user = await getUserByTelegramId(userId);
+
+    // Owner has a fixed hardcoded structure - cannot edit
+    if (userId === OWNER_CHAT_ID) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Content Structure\n\n👑 Owner Structure (Fixed)\n\nYou are using the hardcoded owner structure:\n\n🟢 Hybrid: [Name]\n\nValue [5+ lines insight]\n\n@true_feed\n\nThis structure is fixed and cannot be changed. It is hardcoded in the system for consistency.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
     const contentStructure = await getContentStructure(user.id);
 
     if (contentStructure) {
@@ -1493,8 +1527,10 @@ export default async function (callbackQuery, ctx) {
     try {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `🔄 Running auto post...`,
+        text: `🔄 Running auto post...\n\nGenerating content...`,
       });
+
+      console.log('Starting auto post for user:', user.id, 'to channel:', schedule.channel_id);
 
       // Generate content using user's content structure
       const idea = await generateIdea(user.id);
@@ -1506,6 +1542,7 @@ export default async function (callbackQuery, ctx) {
         text: idea.content,
         parse_mode: 'Markdown',
       });
+      console.log('Posted to channel:', schedule.channel_id);
 
       // Create post record
       await createPost(user.id, schedule.channel_id, idea.content, idea.category, null, null);
@@ -1515,9 +1552,12 @@ export default async function (callbackQuery, ctx) {
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `✅ Auto post successful!\n\nPosted to: ${schedule.channel_id}\nTopic: ${idea.topic}`,
+        text: `✅ Auto post successful!\n\nPosted to: ${schedule.channel_id}\nTopic: ${idea.topic}\n\nClick button to run again or go back to settings.`,
         reply_markup: {
           inline_keyboard: [
+            [
+              { text: '▶️ Run Again', callback_data: 'run_auto_post_now' }
+            ],
             [
               { text: 'Back', callback_data: 'auto_post' }
             ]
@@ -1527,11 +1567,17 @@ export default async function (callbackQuery, ctx) {
 
     } catch (error) {
       console.error('Error running auto post:', error);
+      const errorMessage = error.message || 'Unknown error';
+      const errorDetails = error.toString ? error.toString() : String(error);
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `❌ Auto post failed: ${error.message}`,
+        text: `❌ Auto post failed\n\nError: ${errorMessage}\n\nDetails: ${errorDetails.substring(0, 200)}${errorDetails.length > 200 ? '...' : ''}\n\nPlease try again or check your content structure settings.`,
         reply_markup: {
           inline_keyboard: [
+            [
+              { text: '▶️ Try Again', callback_data: 'run_auto_post_now' }
+            ],
             [
               { text: 'Back', callback_data: 'auto_post' }
             ]
@@ -3307,6 +3353,244 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: ` Failed to post article: ${error.message}`,
+    });
+  }
+}
+
+async function handleTranslate(callbackQuery, userId, data) {
+  const parts = data.replace('news_translate_', '').split('_');
+  const platformId = parts[0];
+  const currentIndex = parseInt(parts[1]);
+
+  const user = await getUserByTelegramId(userId);
+  let platform = getPlatformById(platformId);
+
+  // Handle custom sources
+  if (!platform && platformId.startsWith('custom_')) {
+    const customSourceId = parseInt(platformId.replace('custom_', ''));
+    const customSources = await getCustomSources(user.id);
+    const customSource = customSources.find(s => s.id === customSourceId);
+    if (customSource) {
+      platform = {
+        id: platformId,
+        name: customSource.source_name,
+        category: 'custom',
+        url: customSource.source_url,
+        isCustom: true
+      };
+    }
+  }
+
+  if (!platform) {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: 'Platform not found.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'get_news' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  try {
+    // Show loading message
+    const loadingMessage = await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🔄 Translating to Amharic...',
+    });
+
+    // Fetch the article
+    const articles = await fetchRSSFeed(platform.url, platform.name);
+    const article = articles[currentIndex];
+
+    if (!article) {
+      await api.deleteMessage({
+        chat_id: callbackQuery.message.chat.id,
+        message_id: loadingMessage.message_id,
+      });
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: 'Article not found.',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'get_news' }
+            ]
+        ]
+      }
+    });
+    return;
+  }
+
+    // Get article text (strip HTML for translation)
+    const articleText = article.title + '\n\n' + (article.description || article.content || '');
+
+    // Translate to Amharic
+    const translatedText = await translateToAmharic(articleText);
+
+    // Get user channel link for attribution
+    let userChannelLink = null;
+    if (user && user.user_type !== 'guest') {
+      const userChannels = await getUserChannels(user.id);
+      if (userChannels.length > 0) {
+        const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
+        const channelName = mainChannel.channel_name || mainChannel.channel_id;
+        if (channelName) {
+          if (channelName.startsWith('@')) {
+            userChannelLink = channelName;
+          } else {
+            userChannelLink = `t.me/${channelName}`;
+          }
+        }
+      }
+    }
+
+    const showSourceLink = user?.show_source_link === 1;
+    const useDotPunctuation = user?.use_dot_punctuation === 1;
+
+    // Format the translated text
+    const formattedText = await formatNewsArticle(
+      { ...article, description: translatedText },
+      userChannelLink,
+      showSourceLink,
+      useDotPunctuation
+    );
+
+    // Delete loading message
+    await api.deleteMessage({
+      chat_id: callbackQuery.message.chat.id,
+      message_id: loadingMessage.message_id,
+    });
+
+    // Determine keyboard based on user type and test channel availability
+    const hasTestChannel = user && user.test_channel_id;
+    let keyboard;
+
+    if (hasTestChannel) {
+      keyboard = [
+        [
+          { text: ' Main Channel', callback_data: `news_user_channel_${platformId}_${currentIndex}` },
+          { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${currentIndex}` }
+        ],
+        [
+          { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
+          { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
+        ],
+        [
+          { text: 'Back', callback_data: 'get_news' }
+        ]
+      ];
+    } else {
+      keyboard = [
+        [
+          { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${currentIndex}` }
+        ],
+        [
+          { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
+          { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
+        ],
+        [
+          { text: 'Back', callback_data: 'get_news' }
+        ]
+      ];
+    }
+
+    // Send with video if available, otherwise image, otherwise just text
+    if (article.video) {
+      try {
+        await api.sendVideo({
+          chat_id: callbackQuery.message.chat.id,
+          video: article.video,
+          caption: formattedText,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } catch (videoError) {
+        console.error('Failed to send video, falling back to image:', videoError.message);
+        if (article.image) {
+          try {
+            await api.sendPhoto({
+              chat_id: callbackQuery.message.chat.id,
+              photo: article.image,
+              caption: formattedText,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: keyboard
+              }
+            });
+          } catch (photoError) {
+            console.error('Failed to send photo, falling back to text:', photoError.message);
+            await api.sendMessage({
+              chat_id: callbackQuery.message.chat.id,
+              text: formattedText,
+              parse_mode: 'HTML',
+              reply_markup: {
+                inline_keyboard: keyboard
+              }
+            });
+          }
+        } else {
+          await api.sendMessage({
+            chat_id: callbackQuery.message.chat.id,
+            text: formattedText,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: keyboard
+            }
+          });
+        }
+      }
+    } else if (article.image) {
+      try {
+        await api.sendPhoto({
+          chat_id: callbackQuery.message.chat.id,
+          photo: article.image,
+          caption: formattedText,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      } catch (photoError) {
+        console.error('Failed to send photo, falling back to text:', photoError.message);
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: formattedText,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      }
+    } else {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: formattedText,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboard
+        }
+      });
+    }
+
+  } catch (error) {
+    console.error('Error translating article:', error);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `❌ Translation failed: ${error.message}`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'get_news' }
+          ]
+        ]
+      }
     });
   }
 }

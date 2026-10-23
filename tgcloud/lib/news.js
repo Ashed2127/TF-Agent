@@ -2,6 +2,65 @@ import { fetch } from 'sdk';
 import { OPENROUTER_API_KEY } from './secrets.js';
 import { getCustomSources } from './database.js';
 
+export async function translateToAmharic(text) {
+  try {
+    console.log('Translating text to Amharic...');
+
+    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash-lite',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a professional translator. Translate the given text to Amharic. Keep the meaning accurate and use natural Amharic phrasing. Use ". . ." for pauses instead of Amharic punctuation marks (።፤፣፡).'
+          },
+          {
+            role: 'user',
+            content: `Translate this to Amharic:\n\n${text}`
+          }
+        ],
+        max_tokens: 1000,
+        temperature: 0.7
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Translation API Error:', response.status, errorText);
+      throw new Error(`Translation API request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+      throw new Error('Invalid translation API response');
+    }
+
+    const translatedText = data.choices[0].message.content.trim();
+
+    // Replace Amharic punctuation with . . and . . . pauses
+    let cleanText = translatedText.replace(/[።፤]/g, ' . . . ');
+    cleanText = cleanText.replace(/[፣፡]/g, ' . . ');
+
+    // Normalize spacing around pauses
+    cleanText = cleanText.replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ');
+    cleanText = cleanText.replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2');
+    cleanText = cleanText.replace(/[ ]{2,}/g, ' ').trim();
+
+    console.log('Translation completed successfully');
+    return cleanText;
+
+  } catch (error) {
+    console.error('Translation error:', error);
+    throw new Error(`Failed to translate: ${error.message}`);
+  }
+}
+
 
 
 /**

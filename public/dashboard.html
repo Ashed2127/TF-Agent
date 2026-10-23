@@ -723,7 +723,12 @@
         }
 
         if (!data) throw new Error('Empty response from dashboard endpoint');
-        if (data.error) throw new Error(data.error);
+        if (data.error) {
+          if (data.message === 'Only the owner can access the dashboard') {
+            throw new Error('Access Denied: This dashboard is for the owner only');
+          }
+          throw new Error(data.error);
+        }
 
         // Update KPI Counters with smooth counting
         const totalUsers = data.users?.total_users || 0;

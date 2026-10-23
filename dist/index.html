@@ -559,6 +559,14 @@
           <span class="status-dot"></span>
           <span>Live System</span>
         </div>
+        <button id="exportBtn" class="btn-refresh" onclick="exportData()" style="background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%); margin-right: 8px;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>Export DB</span>
+        </button>
         <button id="refreshBtn" class="btn-refresh" onclick="loadDashboard()">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
@@ -715,7 +723,12 @@
         }
 
         if (!data) throw new Error('Empty response from dashboard endpoint');
-        if (data.error) throw new Error(data.error);
+        if (data.error) {
+          if (data.message === 'Only the owner can access the dashboard') {
+            throw new Error('Access Denied: This dashboard is for the owner only');
+          }
+          throw new Error(data.error);
+        }
 
         // Update KPI Counters with smooth counting
         const totalUsers = data.users?.total_users || 0;
@@ -733,6 +746,20 @@
         // Render Creators Table
         const usersTbody = document.getElementById('usersTableBody');
         if (data.recentUsers && data.recentUsers.length > 0) {
+          // Category ID to name mapping
+          const categoryMap = {
+            'tech': '💻 Tech & AI',
+            'business': '📈 Business & Finance',
+            'world': '🌍 World News',
+            'startups': '🚀 Startups & Africa',
+            'science': '🔬 Science & Space',
+            'education': '📚 Education',
+            'research': '🔬 Research & Academia',
+            'crypto': '🪙 Crypto & Web3',
+            'entertainment': '🎬 Entertainment',
+            'sports': '⚽ Sports'
+          };
+
           usersTbody.innerHTML = data.recentUsers.map(user => {
             const rawCat = user.categories;
             let catStr = 'All Categories';
@@ -740,7 +767,7 @@
               try {
                 const parsed = typeof rawCat === 'string' ? JSON.parse(rawCat) : rawCat;
                 if (Array.isArray(parsed) && parsed.length > 0) {
-                  catStr = parsed.join(', ');
+                  catStr = parsed.map(catId => categoryMap[catId] || catId).join(', ');
                 }
               } catch (e) {}
             }
@@ -810,6 +837,54 @@
         content.style.display = 'block';
       } finally {
         btn.classList.remove('loading');
+      }
+    }
+
+    async function exportData() {
+      const btn = document.getElementById('exportBtn');
+      btn.classList.add('loading');
+      btn.disabled = true;
+
+      try {
+        let data = null;
+
+        // Try Telegram Serverless SDK call first
+        if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.Serverless) {
+          data = await new Promise((resolve, reject) => {
+            window.Telegram.WebApp.Serverless.call('exportData', {}, (err, result) => {
+              if (err) reject(err);
+              else resolve(result);
+            });
+          });
+        } else {
+          // Standard HTTP API fallback
+          const res = await fetch('/api/exportData', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+            .catch(() => fetch('/api/exportData'));
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          data = await res.json();
+        }
+
+        if (!data) throw new Error('Empty response from export endpoint');
+        if (data.error) throw new Error(data.error);
+
+        // Create JSON string
+        const jsonStr = JSON.stringify(data, null, 2);
+
+        // Try to copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(jsonStr);
+          alert('✅ Data exported to clipboard!\n\nThe JSON data has been copied to your clipboard. You can now paste it anywhere (notes, text editor, etc.).');
+        } else {
+          // Fallback: show in alert (Telegram web view)
+          alert('⚠️ Could not copy to clipboard\n\nPlease open this dashboard in an external browser (Chrome/Firefox) to download the file.');
+        }
+
+      } catch (err) {
+        console.error('Export failed:', err);
+        alert('Export failed: ' + err.message);
+      } finally {
+        btn.classList.remove('loading');
+        btn.disabled = false;
       }
     }
 

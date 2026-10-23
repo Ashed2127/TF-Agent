@@ -2,36 +2,39 @@ import { fetch } from 'sdk';
 import { getPreviousTopics, getNextCategory, saveIdea, getContentStructure } from './database.js';
 import { OPENROUTER_API_KEY } from './secrets.js';
 
-function buildPrompt(previousTopics, category, contentStructure = null) {
+const OWNER_CHAT_ID = 685669468;
+
+// Owner's fixed structure (hardcoded, never changes)
+const OWNER_STRUCTURE = `🟢 Hybrid: [Name]
+
+Value [5+ lines insight]
+
+@true_feed`;
+
+// Default user structure (used when user hasn't set a custom one)
+const DEFAULT_USER_STRUCTURE = `🟢 Hybrid: [Name]
+
+Value [5+ lines insight]
+
+@true_feed`;
+
+function buildPrompt(previousTopics, category, structure, isOwner = false) {
   const previousTopicsList = previousTopics.length > 0
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
-  let basePrompt = `Amharic business idea. Short, clear.
+  const structureLabel = isOwner ? 'Owner Structure' : 'User Structure';
 
-Format:
-🟢 Hybrid: [Name]
+  return `Amharic business idea. Short, clear.
 
-Value [5+ lines insight]
+${structureLabel} (Follow this format exactly):
+${structure}
 
-@true_feed
-
-Avoid: ${previousTopicsList}
-Category: ${category}
-
-Use ". . ." for pauses. No Amharic punctuation (።፤፣፡). Output only from 🟢 to @true_feed.`;
-
-  // If user has a custom content structure, use it as additional context
-  if (contentStructure) {
-    basePrompt = `${basePrompt}
-
-User's Content Structure/Style Guide:
-${contentStructure}
-
-Please follow this structure and style as closely as possible while maintaining the required format above.`;
-  }
-
-  return basePrompt;
+Additional Requirements:
+- Avoid these topics: ${previousTopicsList}
+- Category: ${category}
+- Use ". . ." for pauses. No Amharic punctuation (።፤፣፡)
+- Include @true_feed attribution`;
 }
 
 export async function generateIdea(userId = null) {
@@ -44,18 +47,35 @@ export async function generateIdea(userId = null) {
     const category = await getNextCategory();
     console.log('Category:', category);
 
-    // Get user's content structure if userId is provided
-    let contentStructure = null;
-    if (userId) {
-      const structure = await getContentStructure(userId);
-      if (structure) {
-        contentStructure = structure.structure_template;
-        console.log('Using custom content structure for user:', userId);
+    // Determine which structure to use
+    let structure = null;
+    let isOwner = false;
+
+    if (userId === OWNER_CHAT_ID) {
+      // Owner always uses the fixed owner structure
+      structure = OWNER_STRUCTURE;
+      isOwner = true;
+      console.log('👑 Using OWNER structure for user:', userId);
+    } else if (userId) {
+      // Regular user: check if they have a custom structure
+      const customStructure = await getContentStructure(userId);
+      if (customStructure) {
+        structure = customStructure.structure_template;
+        console.log('✅ Using USER custom structure for user:', userId);
+        console.log('Custom structure preview:', structure.substring(0, 200));
+      } else {
+        structure = DEFAULT_USER_STRUCTURE;
+        console.log('ℹ️ Using DEFAULT USER structure for user:', userId);
       }
+    } else {
+      // No userId provided (fallback)
+      structure = DEFAULT_USER_STRUCTURE;
+      console.log('ℹ️ No userId provided, using DEFAULT USER structure');
     }
 
-    const prompt = buildPrompt(previousTopics, category, contentStructure);
+    const prompt = buildPrompt(previousTopics, category, structure, isOwner);
     console.log('Prompt length:', prompt.length);
+    console.log('Structure type:', isOwner ? 'OWNER' : (userId ? 'USER' : 'DEFAULT'));
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -68,7 +88,7 @@ export async function generateIdea(userId = null) {
         messages: [
           { role: 'user', content: prompt }
         ],
-        max_tokens: 500,
+        max_tokens: isOwner ? 500 : 800,
         temperature: 0.9
       })
     });
@@ -100,7 +120,7 @@ export async function generateIdea(userId = null) {
     // Make @true_feed bold using Markdown
     cleanContent = cleanContent.replace('@true_feed', '*@true_feed*');
 
-    // Validate that the content includes the required structure
+    // Validate that the content includes the required structure (🟢 emoji)
     if (!cleanContent.includes('🟢')) {
       console.error('❌ AI response missing required structure:', cleanContent);
       throw new Error('AI response missing required structure (Title section)');
@@ -109,7 +129,7 @@ export async function generateIdea(userId = null) {
     // Normalize Hybrid colon in title if needed
     cleanContent = cleanContent.replace(/🟢\s*Hybrid[፡:]/g, '🟢 Hybrid:');
 
-    // Replace Amharic punctuation with . . and . . . pauses
+    // Replace Amharic punctuation with . . and . . . pauses (always apply)
     cleanContent = cleanContent.replace(/[።፤]/g, ' . . . ');
     cleanContent = cleanContent.replace(/[፣፡]/g, ' . . ');
 
@@ -118,13 +138,13 @@ export async function generateIdea(userId = null) {
     cleanContent = cleanContent.replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2');
     cleanContent = cleanContent.replace(/[ ]{2,}/g, ' ').trim();
 
-    // Validate that content includes required pauses (. . . or . .)
+    // Validate that content includes required pauses (. . . or . .) - always required
     if (!cleanContent.includes('. . .') && !cleanContent.includes('. .')) {
       console.error('❌ AI response missing required pauses (. . . or . .):', cleanContent);
       throw new Error('AI response missing required pauses (. . .)');
     }
 
-    // Validate that content includes *@true_feed*
+    // Validate that content includes *@true_feed* (always required)
     if (!cleanContent.includes('*@true_feed*')) {
       console.error('❌ AI response missing @true_feed:', cleanContent);
       throw new Error('AI response missing @true_feed');
@@ -146,9 +166,14 @@ export async function generateIdea(userId = null) {
         .replace('</strong>', '')
         .replace('<strong>', '')
         .trim();
+
+      // If topic is still empty after cleaning, use first 50 chars of content
+      if (!topic || topic.length < 3) {
+        topic = cleanContent.split('\n')[0].substring(0, 50).trim();
+      }
     }
 
-    // Validate that topic does not contain "Digital"
+    // Validate that topic does not contain "Digital" (always enforce)
     if (topic.includes('Digital') || topic.includes('digital')) {
       console.error('❌ Topic contains forbidden word "Digital":', topic);
       throw new Error('Topic contains forbidden word "Digital" - use "Hybrid" instead');
