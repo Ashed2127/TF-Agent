@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle } from '../lib/news.js';
@@ -1245,6 +1245,9 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
+              { text: '▶️ Run Auto Post Now', callback_data: 'run_auto_post_now' }
+            ],
+            [
               { text: autoPostSchedule.is_active === 1 ? 'Pause' : 'Resume', callback_data: 'toggle_auto_post' }
             ],
             [
@@ -1444,6 +1447,93 @@ export default async function (callbackQuery, ctx) {
           inline_keyboard: [
             [
               { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle run auto post now
+  if (data === 'run_auto_post_now') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+
+    if (!schedule) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `No auto post schedule found.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'auto_post' }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
+    if (schedule.is_active !== 1) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Auto post is paused. Please resume it first.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'auto_post' }
+            ]
+          ]
+        }
+      });
+      return;
+    }
+
+    try {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `🔄 Running auto post...`,
+      });
+
+      // Generate content using user's content structure
+      const idea = await generateIdea(user.id);
+      console.log(`Generated idea: ${idea.topic}`);
+
+      // Post to channel
+      await api.sendMessage({
+        chat_id: schedule.channel_id,
+        text: idea.content,
+        parse_mode: 'Markdown',
+      });
+
+      // Create post record
+      await createPost(user.id, schedule.channel_id, idea.content, idea.category, null, null);
+
+      // Update schedule with last posted time
+      await updateAutoPostLastPosted(schedule.id);
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Auto post successful!\n\nPosted to: ${schedule.channel_id}\nTopic: ${idea.topic}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'auto_post' }
+            ]
+          ]
+        }
+      });
+
+    } catch (error) {
+      console.error('Error running auto post:', error);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Auto post failed: ${error.message}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'auto_post' }
             ]
           ]
         }
