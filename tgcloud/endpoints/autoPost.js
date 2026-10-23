@@ -24,7 +24,7 @@ export default async function (input, ctx) {
         }
 
         // Generate content using user's content structure
-        const idea = await generateIdea(user.id);
+        const idea = await generateIdea(user.telegram_id);
         console.log(`Generated idea: ${idea.topic}`);
 
         // Post to channel

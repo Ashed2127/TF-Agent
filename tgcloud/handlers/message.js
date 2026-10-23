@@ -105,7 +105,7 @@ export default async function (message, ctx) {
       });
 
       const user = await getUserByTelegramId(userId);
-      const idea = await generateIdea(user.id);
+      const idea = await generateIdea(user.telegram_id);
 
       console.log('Idea generated successfully:', idea.topic);
 

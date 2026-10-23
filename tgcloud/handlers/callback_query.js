@@ -92,7 +92,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
   // Handle custom sources
   if (!platform && platformId.startsWith('custom_')) {
     const customSourceId = parseInt(platformId.replace('custom_', ''));
-    const customSources = await getCustomSources(user.id);
+    const customSources = await getCustomSources(user.telegram_id);
     const customSource = customSources.find(s => s.id === customSourceId);
     if (customSource) {
       platform = {
@@ -746,7 +746,7 @@ export default async function (callbackQuery, ctx) {
     // Handle custom sources
     if (!platform && platformId.startsWith('custom_')) {
       const customSourceId = parseInt(platformId.replace('custom_', ''));
-      const customSources = await getCustomSources(user.id);
+      const customSources = await getCustomSources(user.telegram_id);
       const customSource = customSources.find(s => s.id === customSourceId);
       if (customSource) {
         platform = {
@@ -1378,7 +1378,7 @@ export default async function (callbackQuery, ctx) {
   // Handle toggle auto post
   if (data === 'toggle_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.telegram_id);
     if (schedule) {
       const updated = await toggleAutoPostSchedule(schedule.id);
       const statusText = updated.is_active === 1 ? 'Active' : 'Paused';
@@ -1445,7 +1445,7 @@ export default async function (callbackQuery, ctx) {
     const intervalHours = parseFloat(parts[1]);
 
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.telegram_id);
     if (schedule) {
       await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true);
 
@@ -1471,7 +1471,7 @@ export default async function (callbackQuery, ctx) {
   // Handle delete auto post
   if (data === 'delete_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.telegram_id);
     if (schedule) {
       await deleteAutoPostSchedule(schedule.id);
       await api.sendMessage({
@@ -1492,7 +1492,7 @@ export default async function (callbackQuery, ctx) {
   // Handle run auto post now
   if (data === 'run_auto_post_now') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.telegram_id);
 
     if (!schedule) {
       await api.sendMessage({
@@ -1533,7 +1533,7 @@ export default async function (callbackQuery, ctx) {
       console.log('Starting auto post for user:', user.id, 'to channel:', schedule.channel_id);
 
       // Generate content using user's content structure
-      const idea = await generateIdea(user.id);
+      const idea = await generateIdea(user.telegram_id);
       console.log(`Generated idea: ${idea.topic}`);
 
       // Post to channel
@@ -1889,7 +1889,7 @@ export default async function (callbackQuery, ctx) {
       });
 
       const user = await getUserByTelegramId(userId);
-      const idea = await generateIdea(user.id);
+      const idea = await generateIdea(user.telegram_id);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -2258,7 +2258,7 @@ export default async function (callbackQuery, ctx) {
       });
 
       const user = await getUserByTelegramId(userId);
-      const idea = await generateIdea(user.id);
+      const idea = await generateIdea(user.telegram_id);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
@@ -3368,7 +3368,7 @@ async function handleTranslate(callbackQuery, userId, data) {
   // Handle custom sources
   if (!platform && platformId.startsWith('custom_')) {
     const customSourceId = parseInt(platformId.replace('custom_', ''));
-    const customSources = await getCustomSources(user.id);
+    const customSources = await getCustomSources(user.telegram_id);
     const customSource = customSources.find(s => s.id === customSourceId);
     if (customSource) {
       platform = {

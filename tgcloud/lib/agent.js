@@ -1,5 +1,5 @@
 import { fetch } from 'sdk';
-import { getPreviousTopics, getNextCategory, saveIdea, getContentStructure } from './database.js';
+import { getPreviousTopics, getNextCategory, saveIdea, getContentStructure, getUserByTelegramId } from './database.js';
 import { OPENROUTER_API_KEY } from './secrets.js';
 
 const OWNER_CHAT_ID = 685669468;
@@ -58,14 +58,21 @@ export async function generateIdea(userId = null) {
       console.log('👑 Using OWNER structure for user:', userId);
     } else if (userId) {
       // Regular user: check if they have a custom structure
-      const customStructure = await getContentStructure(userId);
-      if (customStructure) {
-        structure = customStructure.structure_template;
-        console.log('✅ Using USER custom structure for user:', userId);
-        console.log('Custom structure preview:', structure.substring(0, 200));
+      // userId here is telegram_id, but we need to convert to database id for getContentStructure
+      const user = await getUserByTelegramId(userId);
+      if (user) {
+        const customStructure = await getContentStructure(user.id);
+        if (customStructure) {
+          structure = customStructure.structure_template;
+          console.log('✅ Using USER custom structure for user:', userId);
+          console.log('Custom structure preview:', structure.substring(0, 200));
+        } else {
+          structure = DEFAULT_USER_STRUCTURE;
+          console.log('ℹ️ Using DEFAULT USER structure for user:', userId);
+        }
       } else {
         structure = DEFAULT_USER_STRUCTURE;
-        console.log('ℹ️ Using DEFAULT USER structure for user:', userId);
+        console.log('ℹ️ User not found, using DEFAULT USER structure');
       }
     } else {
       // No userId provided (fallback)
