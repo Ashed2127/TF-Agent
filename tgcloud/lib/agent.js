@@ -25,16 +25,23 @@ function buildPrompt(previousTopics, category, structure, isOwner = false) {
 
   const structureLabel = isOwner ? 'Owner Structure' : 'User Structure';
 
-  return `Amharic business idea. Short, clear.
+  return `Generate an Amharic business idea. Short, clear.
 
-${structureLabel} (Follow this format exactly):
+CRITICAL: You MUST follow this exact structure format:
+
+${structureLabel}:
 ${structure}
 
-Additional Requirements:
-- Avoid these topics: ${previousTopicsList}
-- Category: ${category}
-- Use ". . ." for pauses. No Amharic punctuation (።፤፣፡)
-- Include @true_feed attribution`;
+Instructions:
+1. Copy the structure format EXACTLY as shown above
+2. Replace placeholders like [Name], [Problem], [Solution] with actual content
+3. Keep all emojis, spacing, and formatting exactly as shown
+4. Generate content that fits the category: ${category}
+5. Avoid these topics: ${previousTopicsList}
+6. Use ". . ." for pauses. No Amharic punctuation (።፤፣፡)
+7. Include @true_feed attribution at the end
+
+Do NOT change the structure format. Only replace the placeholder content.`;
 }
 
 export async function generateIdea(userId = null) {
@@ -65,14 +72,18 @@ export async function generateIdea(userId = null) {
         if (customStructure) {
           structure = customStructure.structure_template;
           console.log('✅ Using USER custom structure for user:', userId);
-          console.log('Custom structure preview:', structure.substring(0, 200));
+          console.log('User database ID:', user.id);
+          console.log('Custom structure full:', structure);
         } else {
           structure = DEFAULT_USER_STRUCTURE;
           console.log('ℹ️ Using DEFAULT USER structure for user:', userId);
+          console.log('User database ID:', user.id);
+          console.log('No custom structure found in database');
         }
       } else {
         structure = DEFAULT_USER_STRUCTURE;
         console.log('ℹ️ User not found, using DEFAULT USER structure');
+        console.log('Telegram ID:', userId);
       }
     } else {
       // No userId provided (fallback)
@@ -83,6 +94,7 @@ export async function generateIdea(userId = null) {
     const prompt = buildPrompt(previousTopics, category, structure, isOwner);
     console.log('Prompt length:', prompt.length);
     console.log('Structure type:', isOwner ? 'OWNER' : (userId ? 'USER' : 'DEFAULT'));
+    console.log('Full prompt preview:', prompt.substring(0, 500));
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
