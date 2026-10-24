@@ -458,13 +458,33 @@ const DEFAULT_USER_STRUCTURE = `<b>[Title in Amharic]</b>
 • [Key point 3]`;
 
 /**
+ * Free Google Translate fallback when OpenRouter has no credits or fails
+ */
+export async function translateWithGoogle(text) {
+  if (!text) return '';
+  try {
+    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=am&dt=t&q=' + encodeURIComponent(text);
+    const res = await fetch(url);
+    if (!res.ok) return text;
+    const data = await res.json();
+    if (Array.isArray(data) && Array.isArray(data[0])) {
+      return data[0].map(s => s[0]).join('');
+    }
+    return text;
+  } catch (e) {
+    console.error('Google Translate fallback error:', e.message);
+    return text;
+  }
+}
+
+/**
  * Generate fallback news content respecting structure placeholders if AI generation fails
  */
-function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false) {
+async function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false) {
   const cleanDescription = (article.description || '')
     .replace(/<[^>]*>/g, '')
     .trim()
-    .substring(0, 300);
+    .substring(0, 400);
 
   if (structure) {
     let clean = structure.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
@@ -477,24 +497,30 @@ function generateFallbackContent(article, structure, userChannelLink, showSource
       clean += `\n\n${userChannelLink}`;
     }
 
-    // Replace headline/title placeholders
-    clean = clean.replace(/\[(?:Headline|Title|Name|Topic|ርዕስ|ዜና)\]/gi, article.title);
+    // Replace Source link placeholder
+    const sourceText = article.link ? `<a href="${article.link}">${article.platform || 'Source'}</a>` : '';
+    clean = clean.replace(/\[(?:Source\s*link|Source|Link|ምንጭ|የምንጭ\s*ሊንክ)\]/gi, sourceText);
 
-    // Replace insight/content placeholders
-    clean = clean.replace(/\[(?:5\+\s*lines\s*insight|insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር)\]/gi, cleanDescription + ' . . .');
-    clean = clean.replace(/\[(?:Fact|Point|ነጥብ)\s*\d*\]/gi, cleanDescription);
+    // Translate headline to Amharic
+    const translatedTitle = await translateWithGoogle(article.title);
+    let cleanTitle = translatedTitle.replace(/[።፤]/g, ' . . . ').replace(/[፣፡]/g, ' . . ').trim();
+    clean = clean.replace(/\[(?:Headline|Title|Name|Topic|ርዕስ|ዜና)\]/gi, cleanTitle);
 
-    // If showSourceLink is requested and structure has a placeholder for it
-    if (showSourceLink && article.link) {
-      if (/\[(?:Source|Link|ምንጭ)\]/i.test(clean)) {
-        clean = clean.replace(/\[(?:Source|Link|ምንጭ)\]/gi, `<a href="${article.link}">${article.platform || 'Source'}</a>`);
-      }
+    // Translate description/insight if placeholders exist
+    if (/\[(?:5\+\s*lines\s*insight|insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር|Fact|Point|ነጥብ)/i.test(clean)) {
+      const translatedDesc = await translateWithGoogle(cleanDescription);
+      let cleanDesc = translatedDesc.replace(/[።፤]/g, ' . . . ').replace(/[፣፡]/g, ' . . ').trim();
+      clean = clean.replace(/\[(?:5\+\s*lines\s*insight|insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር)\]/gi, cleanDesc);
+      clean = clean.replace(/\[(?:Fact|Point|ነጥብ)\s*\d*\]/gi, cleanDesc);
     }
 
     return clean;
   }
 
-  let fallbackText = `<b>${article.title}</b>\n\n• ${cleanDescription}...`;
+  // Generic fallback if no structure
+  const translatedTitle = await translateWithGoogle(article.title);
+  const translatedDesc = await translateWithGoogle(cleanDescription.substring(0, 150));
+  let fallbackText = `<b>${translatedTitle}</b>\n\n• ${translatedDesc}...`;
   if (showSourceLink && article.link) {
     fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
   }
@@ -565,11 +591,13 @@ The user wants you to format the news content into their exact structure templat
 RULES:
 1. Replicate the user's template layout, emojis, spacing, and formatting EXACTLY.
 2. Replace any headline/title placeholders (such as [Headline], [Title], [Name], [Topic], [ርዕስ], [ዜና]) with the translated Amharic headline.
-3. Replace any body/details placeholders (such as [Insight], [Content], [Facts], [5+ lines insight], [መረጃ]) with the translated Amharic news information.
-4. If a channel handle exists in the template or a channel is provided (${targetChannel}), ensure it uses '${targetChannel}'. Never output duplicate channel handles.
-5. Do NOT add any extra text, intro, outro, headers, or extra lines that are not in the template.
-6. Use ". . ." for pauses instead of Amharic punctuation (።፤፣፡).
-7. Output ONLY the filled-in template.`;
+3. Replace any source link placeholders (such as [Source link], [Source Link], [Source], [Link], [ምንጭ]) with <a href="${article.link}">${article.platform || 'Source'}</a>.
+4. Replace any body/details placeholders (such as [Insight], [Content], [Facts], [5+ lines insight], [መረጃ]) with the translated Amharic news information.
+5. If a channel handle exists in the template or a channel is provided (${targetChannel}), ensure it uses '${targetChannel}'. Never output duplicate channel handles.
+6. Do NOT add any extra text, intro, outro, headers, or extra lines that are not in the template.
+7. Use ". . ." for pauses instead of Amharic punctuation (።፤፣፡).
+8. Never output unreplaced brackets like [Headline] or [Source link].
+9. Output ONLY the filled-in template.`;
 
     const userPrompt = `TEMPLATE TO FOLLOW:
 ${cleanStructure}
@@ -599,14 +627,14 @@ Output the final post now:`;
 
     if (!response.ok) {
       console.error('AI generation failed with status:', response.status);
-      return generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner);
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner);
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      return generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner);
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner);
     }
 
     const content = data.choices[0].message.content.trim();
@@ -627,7 +655,7 @@ Output the final post now:`;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);
-    return generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner);
+    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner);
   }
 }
 
