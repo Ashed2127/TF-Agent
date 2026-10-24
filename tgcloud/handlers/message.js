@@ -405,7 +405,7 @@ export default async function (message, ctx) {
 
     // Handle content structure input
     if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
-      const structureText = incomingText;
+      const structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
       console.log('💾 Saving content structure for user:', user.id);
       console.log('📝 Structure text:', structureText);
       await saveContentStructure(user.id, structureText);
