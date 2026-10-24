@@ -23,27 +23,46 @@ function buildPrompt(previousTopics, category, structure, isOwner = false) {
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
-  const structureLabel = isOwner ? 'Owner Structure' : 'User Structure';
+  if (isOwner) {
+    return {
+      system: `You are an expert content generator. You MUST strictly follow the EXACT structure template provided. Do not modify the template format, emojis, spacing, or layout. Only replace the placeholder text with actual content. The structure is a template - copy it exactly as shown and fill in the placeholders.`,
+      user: `Generate an Amharic business idea in the category: ${category}
 
-  return {
-    system: `You are an expert content generator. You MUST always follow the exact structure format provided by the user. Never deviate from the specified format - copy it exactly and only replace the placeholder content with actual information.`,
-    user: `Generate an Amharic business idea. Short, clear.
-
-CATEGORY: ${category}
-
-STRUCTURE TO FOLLOW (copy exactly):
-${structureLabel}:
+TEMPLATE TO FOLLOW (copy this exact format and fill in placeholders):
 ${structure}
 
-REQUIREMENTS:
-- Use this EXACT structure format above
-- Replace placeholders like [Name], [Problem], [Solution] with actual content
-- Keep all emojis, spacing, and formatting exactly as shown
-- Avoid these topics: ${previousTopicsList}
-- Use ". . ." for pauses. No Amharic punctuation (።፤፣፡)
-- Include @true_feed attribution at the end
+INSTRUCTIONS:
+1. Copy the template above EXACTLY as shown
+2. Replace ONLY the placeholder text with actual content:
+   - [Name] → the business name in Amharic
+   - [5+ lines insight] → 5+ lines of Amharic content describing the value
+3. Keep ALL emojis (🟢), spacing, line breaks, and formatting exactly as shown
+4. Do NOT add or remove any lines from the template
+5. The output must look exactly like the template but with filled-in content
+6. Avoid these previously used topics: ${previousTopicsList}
+7. Use ". . ." for pauses instead of Amharic punctuation (።፤፣፡)
+8. Ensure @true_feed is at the end
 
-Generate the content now:`
+Now generate the content following the template:`
+    };
+  }
+
+  return {
+    system: `You are an expert content generator. You MUST strictly follow the EXACT structure template provided by the user. Match the layout, section sequence, blank lines, bullet styles, and emojis of the template.`,
+    user: `Generate an Amharic business idea in the category: ${category}
+
+TEMPLATE TO FOLLOW:
+${structure}
+
+INSTRUCTIONS:
+1. Follow the template layout, section order, emojis, and formatting EXACTLY
+2. If the template uses placeholders (like [Name], [Title], [Idea], [Details], etc.), replace each placeholder with appropriate Amharic content for this category. Do not leave the brackets.
+3. If the template is a sample post, replicate its exact style and structure, replacing the sample text with a new business idea.
+4. Keep all fixed emojis, prefixes, formatting, and channel attributions from the template
+5. Avoid these previously used topics: ${previousTopicsList}
+6. Use ". . ." for pauses instead of Amharic punctuation (።፤፣፡)
+
+Now generate the content following the template:`
   };
 }
 

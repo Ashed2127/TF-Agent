@@ -92,7 +92,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
   // Handle custom sources
   if (!platform && platformId.startsWith('custom_')) {
     const customSourceId = parseInt(platformId.replace('custom_', ''));
-    const customSources = await getCustomSources(user.telegram_id);
+    const customSources = user ? await getCustomSources(user.id) : [];
     const customSource = customSources.find(s => s.id === customSourceId);
     if (customSource) {
       platform = {
@@ -174,7 +174,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation);
+    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
     // Delete loading message
     await api.deleteMessage({
@@ -802,23 +802,26 @@ export default async function (callbackQuery, ctx) {
 
       // Get user channel link for content creator attribution (only for non-guest users)
       let userChannelLink = null;
-      if (user && user.user_type !== 'guest') {
-        if (user.channel_name) {
-          // Format as @channelname if it starts with @, otherwise as t.me/channelname
-          if (user.channel_name.startsWith('@')) {
-            userChannelLink = user.channel_name;
-          } else {
-            userChannelLink = `t.me/${user.channel_name}`;
+      if (isOwner) {
+        userChannelLink = '@true_feed';
+      } else if (user && user.user_type !== 'guest') {
+        const userChannels = await getUserChannels(user.id);
+        if (userChannels.length > 0) {
+          const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
+          const channelName = mainChannel.channel_name || mainChannel.channel_id;
+          if (channelName) {
+            if (channelName.startsWith('@')) {
+              userChannelLink = channelName;
+            } else {
+              userChannelLink = `t.me/${channelName}`;
+            }
           }
-        } else if (user.channel_id) {
-          // Use channel_id if channel_name is not available
-          userChannelLink = user.channel_id;
         }
       }
 
       const showSourceLink = user?.show_source_link === 1;
       const useDotPunctuation = user?.use_dot_punctuation === 1;
-      const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation);
+      const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
       // Different buttons for owner vs user vs guest
       let keyboard;
@@ -1956,7 +1959,7 @@ export default async function (callbackQuery, ctx) {
       const article = articles[currentIndex];
       const showSourceLink = user?.show_source_link === 1;
       const useDotPunctuation = user?.use_dot_punctuation === 1;
-      const articleText = await formatNewsArticle(article, '@true_feed', showSourceLink, useDotPunctuation);
+      const articleText = await formatNewsArticle(article, '@true_feed', showSourceLink, useDotPunctuation, userId);
       
       // Post to the True Feed channel
       if (article.image) {
@@ -2033,7 +2036,7 @@ export default async function (callbackQuery, ctx) {
       const article = articles[currentIndex];
       const showSourceLink = user?.show_source_link === 1;
       const useDotPunctuation = user?.use_dot_punctuation === 1;
-      const articleText = await formatNewsArticle(article, '@true_feed', showSourceLink, useDotPunctuation);
+      const articleText = await formatNewsArticle(article, '@true_feed', showSourceLink, useDotPunctuation, userId);
 
       // Post to theTest channel
       if (article.image) {
@@ -2859,7 +2862,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation);
+    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
     // Post to the channel
     if (article.video) {
@@ -2994,7 +2997,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation);
+    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
     // Post to the user's test channel
     if (article.video) {
@@ -3251,7 +3254,7 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
 
     const showSourceLink = user?.show_source_link === 1;
     const useDotPunctuation = user?.use_dot_punctuation === 1;
-    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation);
+    const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
     // Post to all channels
     let successCount = 0;
@@ -3368,7 +3371,7 @@ async function handleTranslate(callbackQuery, userId, data) {
   // Handle custom sources
   if (!platform && platformId.startsWith('custom_')) {
     const customSourceId = parseInt(platformId.replace('custom_', ''));
-    const customSources = await getCustomSources(user.telegram_id);
+    const customSources = user ? await getCustomSources(user.id) : [];
     const customSource = customSources.find(s => s.id === customSourceId);
     if (customSource) {
       platform = {
@@ -3457,7 +3460,8 @@ async function handleTranslate(callbackQuery, userId, data) {
       { ...article, description: translatedText },
       userChannelLink,
       showSourceLink,
-      useDotPunctuation
+      useDotPunctuation,
+      userId
     );
 
     // Delete loading message

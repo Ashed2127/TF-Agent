@@ -406,6 +406,8 @@ export default async function (message, ctx) {
     // Handle content structure input
     if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
       const structureText = incomingText;
+      console.log('💾 Saving content structure for user:', user.id);
+      console.log('📝 Structure text:', structureText);
       await saveContentStructure(user.id, structureText);
       await clearPendingChannelAdd(userId);
       await api.sendMessage({

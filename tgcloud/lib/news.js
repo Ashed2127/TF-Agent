@@ -1,6 +1,6 @@
 import { fetch } from 'sdk';
 import { OPENROUTER_API_KEY } from './secrets.js';
-import { getCustomSources } from './database.js';
+import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
 
 export async function translateToAmharic(text) {
   try {
@@ -443,10 +443,60 @@ export function getPlatformById(platformId) {
   return NEWS_PLATFORMS.find(p => p.id === platformId);
 }
 
+const OWNER_CHAT_ID = 685669468;
+
+const OWNER_STRUCTURE = `🟢 Hybrid: [Name]
+
+Value [5+ lines insight]
+
+@true_feed`;
+
+const DEFAULT_USER_STRUCTURE = `<b>[Title in Amharic]</b>
+
+• [Key point 1]
+• [Key point 2]
+• [Key point 3]`;
+
+/**
+ * Generate fallback news content respecting structure placeholders if AI generation fails
+ */
+function generateFallbackContent(article, structure, userChannelLink, showSourceLink) {
+  const cleanDescription = article.description
+    ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 200)
+    : '';
+
+  if (structure) {
+    let populated = structure;
+    populated = populated.replace(/\[(?:Name|Title|ርዕስ)\]/gi, article.title);
+    populated = populated.replace(/\[(?:5\+\s*lines\s*insight|insight|content|Problem|Solution|መረጃ|ዝርዝር)\]/gi, cleanDescription + ' . . .');
+    populated = populated.replace(/\[(?:Fact|Point|ነጥብ)\s*\d*\]/gi, cleanDescription);
+
+    if (!populated.includes('[Name]') && !populated.includes('[Title]')) {
+      if (userChannelLink && !populated.includes(userChannelLink)) {
+        populated += `\n\n${userChannelLink}`;
+      }
+      if (showSourceLink && article.link && !populated.includes(article.link)) {
+        populated += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
+      }
+      return populated;
+    }
+  }
+
+  let fallbackText = `<b>${article.title}</b>\n\n• ${cleanDescription}...`;
+  if (showSourceLink && article.link) {
+    fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
+  }
+  if (userChannelLink) {
+    fallbackText += `\n${userChannelLink}`;
+  }
+  return fallbackText;
+}
+
 /**
  * Generate Amharic news content using AI
  */
-async function generateAmharicNews(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false) {
+async function generateAmharicNews(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null) {
+  let structure = null;
   try {
     // Use RSS description for context (no web scraping)
     let articleContext = article.description
@@ -457,32 +507,74 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
       articleContext = article.title;
     }
 
-    // Build the source line with user channel link if provided
-    let sourceLine = '';
-    if (showSourceLink) {
-      sourceLine = `<a href="${article.link}">${article.platform}</a>`;
-      if (userChannelLink) {
-        sourceLine += `\n${userChannelLink}`;
-      }
-    } else if (userChannelLink) {
-      sourceLine = userChannelLink;
+    // Identify user
+    let user = null;
+    if (userId) {
+      user = await getUserByTelegramId(userId);
     }
 
-    const prompt = `Translate news to Amharic. Direct, accurate, no hallucinations.
+    const isOwner = (userId === OWNER_CHAT_ID) || (user?.telegram_id === OWNER_CHAT_ID);
 
-Format:
-<b>Amharic title</b>
+    // Get user's content structure if userId is provided
+    if (user) {
+      console.log('🔍 Fetching user for userId:', userId);
+      console.log('✅ User found, database ID:', user.id);
+      const customStructure = await getContentStructure(user.id);
+      console.log('🔍 Custom structure query result:', customStructure);
+      if (customStructure && customStructure.structure_template) {
+        structure = customStructure.structure_template;
+        console.log('✅ Using USER custom structure for news translation:', userId);
+        console.log('📋 Structure content:', structure);
+      } else {
+        console.log('ℹ️ No custom structure found for user:', user.id);
+      }
+    } else {
+      console.log('ℹ️ No user found for userId:', userId);
+    }
 
-• Fact 1
-• Fact 2
-• Fact 3
-${showSourceLink ? `\n<a href="${article.link}">${article.platform}</a>` : ''}
-${userChannelLink ? `\n${userChannelLink}` : ''}
+    // If no custom structure, use owner structure for owner or default format for user
+    if (!structure) {
+      if (isOwner) {
+        structure = OWNER_STRUCTURE;
+        console.log('👑 Using OWNER structure for news translation');
+      } else {
+        structure = DEFAULT_USER_STRUCTURE;
+        console.log('ℹ️ Using DEFAULT structure for news translation');
+      }
+    }
 
+    // Build attribution notes if not already in structure
+    const attributionNotes = [];
+    if (userChannelLink && !structure.includes(userChannelLink)) {
+      attributionNotes.push(`Channel Attribution: ${userChannelLink}`);
+    }
+    if (showSourceLink && article.link && !structure.includes(article.link)) {
+      attributionNotes.push(`Source Link: <a href="${article.link}">${article.platform || 'Source'}</a>`);
+    }
+
+    const systemPrompt = `You are an expert Amharic content creator and translator.
+Your task is to translate and adapt news articles into Amharic, following the provided structure template EXACTLY.
+
+CRITICAL RULES:
+1. STRUCTURE ADHERENCE:
+   - Match the exact layout, section sequence, blank lines, bullet styles, and emojis of the provided template.
+   - If the template uses placeholders (such as [Name], [Title], [ርዕስ], [Insight], [Fact 1], [Summary], etc.), replace each placeholder with appropriate Amharic content derived from the news. Do NOT keep the brackets or placeholder names.
+   - If the template is a sample post, replicate its exact structure (title format, bullet emojis, paragraph count, closing) and replace the sample text with the translated news content.
+   - Keep any static labels, emojis, prefixes, and channel handles (e.g., '🟢 Hybrid:', 'Value', '@true_feed') exactly as they appear in the template.
+2. AMHARIC TRANSLATION:
+   - Provide an accurate, natural, professional Amharic translation based on the news article.
+   - Use ". . ." for pauses instead of traditional Amharic punctuation (።፤፣፡).
+3. NO EXTRA TEXT:
+   - Output ONLY the final Amharic post. Do not include any explanations, greetings, or intro/outro text.`;
+
+    const userPrompt = `TEMPLATE TO FOLLOW:
+${structure}
+
+NEWS ARTICLE:
 Title: ${article.title}
-Text: ${articleContext}
-
-Output only translation.`;
+Content: ${articleContext}
+${attributionNotes.length > 0 ? attributionNotes.join('\n') + '\n' : ''}
+Generate the final post now following the structure template exactly:`;
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -493,48 +585,24 @@ Output only translation.`;
       body: JSON.stringify({
         model: 'google/gemini-2.5-flash-lite',
         messages: [
-          { role: 'user', content: prompt }
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
         ],
-        max_tokens: 400,
-        temperature: 0.7
+        max_tokens: 250,
+        temperature: 0.4
       })
     });
 
     if (!response.ok) {
-      console.error('AI generation failed:', response.status);
-      // Fallback to simple format if AI fails
-      let fallbackText = `<b>${article.title}</b>
-
-• ${cleanDescription.substring(0, 100)}...`;
-
-      if (showSourceLink) {
-        fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
-      }
-
-      if (userChannelLink) {
-        fallbackText += `\n${userChannelLink}`;
-      }
-
-      return fallbackText;
+      console.error('AI generation failed with status:', response.status);
+      return generateFallbackContent(article, structure, userChannelLink, showSourceLink);
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      let fallbackText = `<b>${article.title}</b>
-
-• ${cleanDescription.substring(0, 100)}...`;
-
-      if (showSourceLink) {
-        fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
-      }
-
-      if (userChannelLink) {
-        fallbackText += `\n${userChannelLink}`;
-      }
-
-      return fallbackText;
+      return generateFallbackContent(article, structure, userChannelLink, showSourceLink);
     }
 
     const content = data.choices[0].message.content.trim();
@@ -555,31 +623,16 @@ Output only translation.`;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);
-    // Fallback to simple format
-    const cleanDescription = article.description
-      ? article.description.replace(/<[^>]*>/g, '').trim().substring(0, 100)
-      : '';
-
-    let fallbackText = `<b>${article.title}</b>
-
-• ${cleanDescription}...
-
-<a href="${article.link}">${article.platform || 'Source'}</a>`;
-
-    if (userChannelLink) {
-      fallbackText += `\n${userChannelLink}`;
-    }
-
-    return fallbackText;
+    return generateFallbackContent(article, structure, userChannelLink, showSourceLink);
   }
 }
 
 /**
  * Format single news article for Telegram
  */
-export async function formatNewsArticle(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false) {
+export async function formatNewsArticle(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null) {
   // Generate Amharic content with AI
-  const amharicContent = await generateAmharicNews(article, userChannelLink, showSourceLink, useDotPunctuation);
+  const amharicContent = await generateAmharicNews(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
   return amharicContent;
 }
 
