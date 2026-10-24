@@ -746,7 +746,7 @@ export default async function (callbackQuery, ctx) {
     // Handle custom sources
     if (!platform && platformId.startsWith('custom_')) {
       const customSourceId = parseInt(platformId.replace('custom_', ''));
-      const customSources = await getCustomSources(user.telegram_id);
+      const customSources = user ? await getCustomSources(user.id) : [];
       const customSource = customSources.find(s => s.id === customSourceId);
       if (customSource) {
         platform = {
