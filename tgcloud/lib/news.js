@@ -477,57 +477,134 @@ export async function translateWithGoogle(text) {
   }
 }
 
+function cleanAmharicPunctuation(text) {
+  if (!text) return '';
+  return text
+    .replace(/[።፤]/g, ' . . . ')
+    .replace(/[፣፡]/g, ' . . ')
+    .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+    .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+    .replace(/[ ]{2,}/g, ' ')
+    .trim();
+}
+
 /**
- * Generate fallback news content respecting structure placeholders if AI generation fails
+ * Generate news content respecting the user structure template
  */
 async function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false) {
-  const cleanDescription = (article.description || '')
-    .replace(/<[^>]*>/g, '')
-    .trim()
-    .substring(0, 400);
+  let clean = (structure || DEFAULT_USER_STRUCTURE)
+    .replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '')
+    .trim();
 
-  if (structure) {
-    let clean = structure.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
+  const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
+  const sourceLink = article.link ? `<a href="${article.link}">${article.platform || 'Source'}</a>` : '';
 
-    // Replace channel handle or placeholder
-    const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
-    if (clean.includes('@') || /\[(?:Channel|ቻናል)\]/i.test(clean)) {
-      clean = clean.replace(/@\w+/g, targetChannel).replace(/\[(?:Channel|ቻናል)\]/gi, targetChannel);
-    } else if (userChannelLink && !clean.includes(userChannelLink)) {
-      clean += `\n\n${userChannelLink}`;
+  // 1. Channel replacement
+  if (clean.includes('@') || /\[(?:Channel|ቻናል)\]/i.test(clean)) {
+    clean = clean.replace(/@\w+/g, targetChannel).replace(/\[(?:Channel|ቻናል)\]/gi, targetChannel);
+  }
+
+  // 2. Source link replacement
+  clean = clean.replace(/\[(?:Source\s*link|Source|Link|ምንጭ|የምንጭ\s*ሊንክ)\]/gi, sourceLink);
+
+  // 3. Translate title
+  const rawTitle = article.title || '';
+  const translatedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle));
+
+  // 4. Translate description
+  const rawDesc = (article.description || '').replace(/<[^>]*>/g, '').trim().substring(0, 500);
+  const translatedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc));
+
+  // Split description into sentences/points for bullet points
+  const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+  const translatedPoints = [];
+  for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
+    const t = cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]));
+    translatedPoints.push(t);
+  }
+  if (translatedPoints.length === 0 && translatedDesc) {
+    translatedPoints.push(translatedDesc);
+  }
+
+  // 5. Check if structure has bracket placeholders
+  const hasPlaceholders = /\[.*?\]/.test(clean);
+
+  if (hasPlaceholders) {
+    // Replace headline/title
+    clean = clean.replace(/\[(?:Headline|Title|Name|Topic|ርዕስ|ዜና)\]/gi, translatedTitle);
+
+    // Replace 5+ lines insight for Owner structure
+    if (/\[5\+\s*lines\s*insight\]/i.test(clean)) {
+      const insightLines = translatedPoints.length > 1
+        ? translatedPoints.map(p => p + ' . . .').join('\n')
+        : translatedDesc + ' . . .\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው . . .';
+      clean = clean.replace(/\[5\+\s*lines\s*insight\]/gi, insightLines);
     }
 
-    // Replace Source link placeholder
-    const sourceText = article.link ? `<a href="${article.link}">${article.platform || 'Source'}</a>` : '';
-    clean = clean.replace(/\[(?:Source\s*link|Source|Link|ምንጭ|የምንጭ\s*ሊንክ)\]/gi, sourceText);
+    // Replace other insight/content placeholders
+    clean = clean.replace(/\[(?:insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር)\]/gi, translatedDesc);
 
-    // Translate headline to Amharic
-    const translatedTitle = await translateWithGoogle(article.title);
-    let cleanTitle = translatedTitle.replace(/[።፤]/g, ' . . . ').replace(/[፣፡]/g, ' . . ').trim();
-    clean = clean.replace(/\[(?:Headline|Title|Name|Topic|ርዕስ|ዜና)\]/gi, cleanTitle);
+    // Replace numbered facts/points: [Point 1], [Fact 1], etc.
+    let pointIndex = 0;
+    clean = clean.replace(/\[(?:Fact|Point|ነጥብ)\s*(\d*)\]/gi, (match, num) => {
+      const idx = num ? parseInt(num) - 1 : pointIndex++;
+      return translatedPoints[idx] || translatedPoints[0] || translatedDesc;
+    });
 
-    // Translate description/insight if placeholders exist
-    if (/\[(?:5\+\s*lines\s*insight|insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር|Fact|Point|ነጥብ)/i.test(clean)) {
-      const translatedDesc = await translateWithGoogle(cleanDescription);
-      let cleanDesc = translatedDesc.replace(/[።፤]/g, ' . . . ').replace(/[፣፡]/g, ' . . ').trim();
-      clean = clean.replace(/\[(?:5\+\s*lines\s*insight|insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር)\]/gi, cleanDesc);
-      clean = clean.replace(/\[(?:Fact|Point|ነጥብ)\s*\d*\]/gi, cleanDesc);
-    }
+    // Replace summary
+    clean = clean.replace(/\[(?:Summary|ማጠቃለያ)\]/gi, translatedDesc.slice(0, 150) + ' . . .');
+
+    // Replace any remaining bracket placeholder with translated title or description
+    clean = clean.replace(/\[(?:[A-Za-z\s]+)\]/g, translatedTitle);
 
     return clean;
   }
 
-  // Generic fallback if no structure
-  const translatedTitle = await translateWithGoogle(article.title);
-  const translatedDesc = await translateWithGoogle(cleanDescription.substring(0, 150));
-  let fallbackText = `<b>${translatedTitle}</b>\n\n• ${translatedDesc}...`;
-  if (showSourceLink && article.link) {
-    fallbackText += `\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
+  // 6. If structure is a sample post (no brackets)
+  const lines = clean.split('\n');
+  const resultLines = [];
+  let titlePlaced = false;
+  let pIdx = 0;
+
+  for (let line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      resultLines.push('');
+      continue;
+    }
+
+    if (trimmed.startsWith('@')) {
+      resultLines.push(targetChannel);
+      continue;
+    }
+
+    // Bullet line
+    const bulletMatch = trimmed.match(/^([•\-\*🔹▪️▫️🔸♦️])\s*(.*)$/);
+    if (bulletMatch) {
+      const bulletChar = bulletMatch[1];
+      const pointText = translatedPoints[pIdx] || translatedPoints[0] || translatedDesc;
+      pIdx++;
+      resultLines.push(`${bulletChar} ${pointText}`);
+      continue;
+    }
+
+    // Title line (first non-empty line)
+    if (!titlePlaced) {
+      const emojiMatch = trimmed.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])\s*(.*)$/);
+      if (emojiMatch) {
+        resultLines.push(`${emojiMatch[1]} ${translatedTitle}`);
+      } else {
+        resultLines.push(translatedTitle);
+      }
+      titlePlaced = true;
+      continue;
+    }
+
+    // Body / summary line
+    resultLines.push(translatedDesc);
   }
-  if (userChannelLink) {
-    fallbackText += `\n${userChannelLink}`;
-  }
-  return fallbackText;
+
+  return resultLines.join('\n');
 }
 
 /**
