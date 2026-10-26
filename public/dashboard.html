@@ -685,19 +685,10 @@
             <span class="badge badge-green" id="engageCountBadge">0 Total</span>
           </div>
 
-          <!-- Emoji Reaction Filter -->
-          <div class="reaction-filter-bar">
+          <!-- Emoji Reaction Filter (Dynamically populated with native emojis) -->
+          <div class="reaction-filter-bar" id="reactionFilterBar">
             <button class="filter-btn active" onclick="filterReactions('all', this)">
               <span>🌟</span> All Interactions (<span id="countAll">0</span>)
-            </button>
-            <button class="filter-btn" onclick="filterReactions('like', this)">
-              <span>❤️</span> Likes (<span id="countLike">0</span>)
-            </button>
-            <button class="filter-btn" onclick="filterReactions('fire', this)">
-              <span>🔥</span> Fire (<span id="countFire">0</span>)
-            </button>
-            <button class="filter-btn" onclick="filterReactions('bulb', this)">
-              <span>💡</span> Insights (<span id="countBulb">0</span>)
             </button>
           </div>
 
@@ -921,17 +912,9 @@
         overviewList.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No publications registered yet.</p></div>`;
       }
 
-      // 3. Interactions Counts & List (Engage Tab)
-      const countLike = interactions.filter(i => i.reaction_type === 'like').length;
-      const countFire = interactions.filter(i => i.reaction_type === 'fire').length;
-      const countBulb = interactions.filter(i => i.reaction_type === 'bulb').length;
-
-      document.getElementById('countAll').textContent = interactions.length;
-      document.getElementById('countLike').textContent = countLike;
-      document.getElementById('countFire').textContent = countFire;
-      document.getElementById('countBulb').textContent = countBulb;
+      // 3. Interactions Counts & Filter Pills (Engage Tab)
+      renderReactionFilters(interactions);
       document.getElementById('engageCountBadge').textContent = `${interactions.length} Total`;
-
       renderInteractionsList();
 
       // 4. Creators List
@@ -984,6 +967,69 @@
       }
     }
 
+    function renderReactionFilters(interactions) {
+      const filterBar = document.getElementById('reactionFilterBar');
+      if (!filterBar) return;
+
+      // Group counts by reaction_type
+      const reactionCounts = {};
+      interactions.forEach(item => {
+        const type = item.reaction_type || 'like';
+        reactionCounts[type] = (reactionCounts[type] || 0) + 1;
+      });
+
+      let html = `
+        <button class="filter-btn ${currentReactionFilter === 'all' ? 'active' : ''}" onclick="filterReactions('all', this)">
+          <span>🌟</span> All (<span id="countAll">${interactions.length}</span>)
+        </button>
+      `;
+
+      // Render button for each reaction type
+      for (const [type, count] of Object.entries(reactionCounts)) {
+        const display = getReactionDisplay(type);
+        const isActive = currentReactionFilter === type ? 'active' : '';
+        html += `
+          <button class="filter-btn ${isActive}" onclick="filterReactions('${escapeHtml(type)}', this)">
+            <span>${display.symbol}</span> ${escapeHtml(display.label)} (<span>${count}</span>)
+          </button>
+        `;
+      }
+
+      filterBar.innerHTML = html;
+    }
+
+    // Reaction Helper: resolve symbol, badge color and label for any emoji (native or preset)
+    function getReactionDisplay(reactionType) {
+      if (!reactionType) return { symbol: '❤️', badge: 'badge-red', label: 'Like' };
+
+      const presetMap = {
+        'like': { symbol: '❤️', badge: 'badge-red', label: 'Like' },
+        'fire': { symbol: '🔥', badge: 'badge-amber', label: 'Fire' },
+        'bulb': { symbol: '💡', badge: 'badge-blue', label: 'Insight' },
+        'custom': { symbol: '⭐', badge: 'badge-purple', label: 'Reaction' },
+        'reaction': { symbol: '👍', badge: 'badge-green', label: 'Reaction' }
+      };
+
+      if (presetMap[reactionType]) return presetMap[reactionType];
+
+      // If it's already a native Telegram emoji character (e.g. 👍, ❤️, 🔥, 👏, 🚀, 😍, etc.)
+      const isHeart = reactionType.includes('❤️') || reactionType.includes('💖') || reactionType.includes('😍');
+      const isFire = reactionType.includes('🔥') || reactionType.includes('⚡');
+      const isGreen = reactionType.includes('👍') || reactionType.includes('✅') || reactionType.includes('🎉');
+      const isBlue = reactionType.includes('💡') || reactionType.includes('👏') || reactionType.includes('🚀');
+
+      let badge = 'badge-green';
+      if (isHeart) badge = 'badge-red';
+      else if (isFire) badge = 'badge-amber';
+      else if (isBlue) badge = 'badge-blue';
+
+      return {
+        symbol: reactionType,
+        badge: badge,
+        label: reactionType
+      };
+    }
+
     function renderInteractionsList() {
       const container = document.getElementById('interactionsList');
       if (!container) return;
@@ -994,27 +1040,21 @@
         : interactions.filter(i => i.reaction_type === currentReactionFilter);
 
       if (filtered.length === 0) {
-        const emojiMap = { all: '❤️', like: '❤️', fire: '🔥', bulb: '💡' };
+        const filterDisplay = getReactionDisplay(currentReactionFilter);
         container.innerHTML = `
           <div class="empty-state">
-            <div class="empty-icon">${emojiMap[currentReactionFilter] || '❤️'}</div>
+            <div class="empty-icon">${currentReactionFilter === 'all' ? '❤️' : filterDisplay.symbol}</div>
             <p>No ${currentReactionFilter === 'all' ? 'reactions' : currentReactionFilter + ' reactions'} recorded yet.</p>
             <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
-              Subscribers who tap reaction buttons beneath channel posts will appear here with their exact Telegram username and name.
+              Subscribers who react with native Telegram emojis on channel posts will appear here with their exact Telegram username and name.
             </p>
           </div>
         `;
         return;
       }
 
-      const emojiMap = {
-        like: { symbol: '❤️', badge: 'badge-red', label: 'Liked' },
-        fire: { symbol: '🔥', badge: 'badge-amber', label: 'Fire' },
-        bulb: { symbol: '💡', badge: 'badge-blue', label: 'Insight' }
-      };
-
       container.innerHTML = filtered.map(item => {
-        const typeInfo = emojiMap[item.reaction_type] || emojiMap.like;
+        const typeInfo = getReactionDisplay(item.reaction_type);
         const timeStr = item.created_at ? new Date(item.created_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
 
         const usernameDisplay = item.username
@@ -1189,26 +1229,40 @@
         if (reactionsChartInstance) reactionsChartInstance.destroy();
 
         const interactions = globalData.interactions || [];
-        const countLike = interactions.filter(i => i.reaction_type === 'like').length;
-        const countFire = interactions.filter(i => i.reaction_type === 'fire').length;
-        const countBulb = interactions.filter(i => i.reaction_type === 'bulb').length;
+        const reactionCounts = {};
+        interactions.forEach(item => {
+          const type = item.reaction_type || 'like';
+          reactionCounts[type] = (reactionCounts[type] || 0) + 1;
+        });
 
         const badgeEl = document.getElementById('analyticsReactionTotalBadge');
         if (badgeEl) badgeEl.textContent = `${interactions.length} Interactions`;
 
+        const types = Object.keys(reactionCounts);
+        const labels = types.length > 0
+          ? types.map(t => {
+              const d = getReactionDisplay(t);
+              return `${d.symbol} ${d.label}`;
+            })
+          : ['❤️ Likes', '🔥 Fire', '💡 Insights'];
+
+        const dataVals = types.length > 0
+          ? types.map(t => reactionCounts[t])
+          : [0, 0, 0];
+
+        const palette = [
+          '#f43f5e', '#f59e0b', '#38bdf8', '#10b981', '#a855f7', '#ec4899', '#6366f1'
+        ];
+
         reactionsChartInstance = new Chart(reactionsCtx, {
           type: 'bar',
           data: {
-            labels: ['❤️ Likes', '🔥 Fire', '💡 Insights'],
+            labels: labels,
             datasets: [{
               label: 'Reactions',
-              data: [countLike, countFire, countBulb],
-              backgroundColor: [
-                'rgba(244, 63, 94, 0.75)',
-                'rgba(245, 158, 11, 0.75)',
-                'rgba(56, 189, 248, 0.75)'
-              ],
-              borderColor: ['#f43f5e', '#f59e0b', '#38bdf8'],
+              data: dataVals,
+              backgroundColor: dataVals.map((_, i) => palette[i % palette.length] + 'bf'),
+              borderColor: dataVals.map((_, i) => palette[i % palette.length]),
               borderWidth: 1.5,
               borderRadius: 8
             }]
