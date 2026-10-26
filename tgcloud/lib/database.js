@@ -331,19 +331,37 @@ export async function getDashboardStats() {
     .from(users)
     .all();
 
+  const allPosts = await db.select()
+    .from(posts)
+    .all();
+
+  const allChannels = await db.select()
+    .from(userChannels)
+    .all();
+
+  const allSchedules = await db.select()
+    .from(autoPostSchedules)
+    .all();
+
+  const allCustomSources = await db.select()
+    .from(customSources)
+    .all();
+
   const activeUsers = allUsers.filter(u => u.onboarding_step === 'completed');
-  const totalPosts = allUsers.reduce((sum, u) => sum + (u.posts_count || 0), 0);
+  const totalPostsCount = allUsers.reduce((sum, u) => sum + (u.posts_count || 0), 0);
+  const registeredPostsCount = allPosts.length;
+  const activeSchedulesCount = allSchedules.filter(s => s.is_active === 1).length;
 
   const recentPosts = await db.select()
     .from(posts)
     .orderBy(desc(posts.created_at))
-    .limit(10)
+    .limit(20)
     .all();
 
   const recentUsers = await db.select()
     .from(users)
     .orderBy(desc(users.created_at))
-    .limit(15)
+    .limit(25)
     .all();
 
   // Convert timestamps to numbers for JSON serialization
@@ -359,14 +377,32 @@ export async function getDashboardStats() {
     last_posted_at: user.last_posted_at ? Number(user.last_posted_at) : null
   }));
 
+  const serializedChannels = allChannels.map(ch => ({
+    ...ch,
+    created_at: ch.created_at ? Number(ch.created_at) : null
+  }));
+
+  const serializedSchedules = allSchedules.map(sc => ({
+    ...sc,
+    last_posted_at: sc.last_posted_at ? Number(sc.last_posted_at) : null,
+    next_post_at: sc.next_post_at ? Number(sc.next_post_at) : null,
+    created_at: sc.created_at ? Number(sc.created_at) : null
+  }));
+
   return {
     users: {
       total_users: allUsers.length,
       active_users: activeUsers.length,
-      total_posts: totalPosts
+      total_posts: Math.max(totalPostsCount, registeredPostsCount),
+      total_channels: allChannels.length,
+      active_schedules: activeSchedulesCount,
+      custom_sources: allCustomSources.length
     },
     recentPosts: serializedPosts,
-    recentUsers: serializedUsers
+    recentUsers: serializedUsers,
+    channels: serializedChannels,
+    schedules: serializedSchedules,
+    customSourcesCount: allCustomSources.length
   };
 }
 
