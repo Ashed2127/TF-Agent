@@ -86,3 +86,14 @@ export const autoPostSchedules = table('auto_post_schedules', {
   next_post_at: integer('next_post_at', { mode: 'timestamp' }),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
+
+export const postInteractions = table('post_interactions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  post_id: integer('post_id'),
+  channel_id: text('channel_id'),
+  user_telegram_id: integer('user_telegram_id').notNull(),
+  username: text('username'),
+  first_name: text('first_name'),
+  reaction_type: text('reaction_type').notNull().default('like'),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});

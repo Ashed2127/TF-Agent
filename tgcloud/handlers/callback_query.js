@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -10,6 +10,23 @@ import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
 const OWNER_CHAT_ID = 685669468;
+
+/**
+ * Build reaction buttons keyboard for published posts
+ */
+export function buildPostReactionKeyboard(postId, counts = { like: 0, fire: 0, bulb: 0 }) {
+  const likeCount = counts.like > 0 ? ` ${counts.like}` : '';
+  const fireCount = counts.fire > 0 ? ` ${counts.fire}` : '';
+  const bulbCount = counts.bulb > 0 ? ` ${counts.bulb}` : '';
+
+  return [
+    [
+      { text: `❤️${likeCount}`, callback_data: `react:like:${postId}` },
+      { text: `🔥${fireCount}`, callback_data: `react:fire:${postId}` },
+      { text: `💡${bulbCount}`, callback_data: `react:bulb:${postId}` }
+    ]
+  ];
+}
 
 /**
  * Helper function to show the main menu for public users
@@ -363,6 +380,53 @@ export default async function (callbackQuery, ctx) {
 
   const data = callbackQuery.data;
   console.log('Callback received:', data, 'from user:', userId);
+
+  // Handle reaction on posted channel content (e.g., react:like:123 or react:fire:123)
+  if (data && data.startsWith('react:')) {
+    const parts = data.split(':');
+    const reactionType = parts[1] || 'like';
+    const postId = parseInt(parts[2], 10);
+    const channelId = callbackQuery.message?.chat?.id || null;
+
+    try {
+      const username = callbackQuery.from.username ? `@${callbackQuery.from.username}` : null;
+      const firstName = callbackQuery.from.first_name || '';
+
+      const result = await recordPostInteraction(postId, channelId, userId, username, firstName, reactionType);
+      const summary = await getPostReactionsSummary(postId);
+
+      const emojiMap = { like: '❤️', fire: '🔥', bulb: '💡' };
+      const alertMsg = result.action === 'added'
+        ? `You reacted with ${emojiMap[reactionType] || '❤️'}!`
+        : `Reaction removed!`;
+
+      try {
+        await api.answerCallbackQuery({
+          callback_query_id: callbackQuery.id,
+          text: alertMsg,
+        });
+      } catch (_) {}
+
+      // Update button counters on the post
+      const updatedKeyboard = buildPostReactionKeyboard(postId, summary.counts);
+      if (callbackQuery.message?.message_id && callbackQuery.message?.chat?.id) {
+        try {
+          await api.editMessageReplyMarkup({
+            chat_id: callbackQuery.message.chat.id,
+            message_id: callbackQuery.message.message_id,
+            reply_markup: {
+              inline_keyboard: updatedKeyboard
+            }
+          });
+        } catch (e) {
+          console.log('Failed to update inline reaction markup:', e.message);
+        }
+      }
+    } catch (err) {
+      console.error('Error handling reaction callback:', err.message);
+    }
+    return;
+  }
 
   // Answer the callback query (skip if it might be old)
   try {
@@ -1780,6 +1844,9 @@ export default async function (callbackQuery, ctx) {
 
       console.log('Posting edited news to selected user channel:', targetChannel.channel_id);
 
+      const createdPost = await createPost(user.id, targetChannel.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+      const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+
       if (pendingEdit.image_url) {
         try {
           await api.sendPhoto({
@@ -1787,6 +1854,7 @@ export default async function (callbackQuery, ctx) {
             photo: pendingEdit.image_url,
             caption: pendingEdit.text,
             parse_mode: 'HTML',
+            reply_markup: reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined
           });
         } catch (photoError) {
           console.error('Failed to post photo to channel, falling back to text:', photoError);
@@ -1794,6 +1862,7 @@ export default async function (callbackQuery, ctx) {
             chat_id: targetChannel.channel_id,
             text: pendingEdit.text,
             parse_mode: 'HTML',
+            reply_markup: reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined
           });
         }
       } else {
@@ -1801,10 +1870,10 @@ export default async function (callbackQuery, ctx) {
           chat_id: targetChannel.channel_id,
           text: pendingEdit.text,
           parse_mode: 'HTML',
+          reply_markup: reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined
         });
       }
 
-      await createPost(user.id, targetChannel.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
       await deletePendingEdit(callbackQuery.from.id);
 
       await api.sendMessage({
@@ -1859,6 +1928,9 @@ export default async function (callbackQuery, ctx) {
 
       for (const ch of userChannels) {
         try {
+          const createdPost = await createPost(user.id, ch.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+          const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+
           if (pendingEdit.image_url) {
             try {
               await api.sendPhoto({
@@ -1866,12 +1938,14 @@ export default async function (callbackQuery, ctx) {
                 photo: pendingEdit.image_url,
                 caption: pendingEdit.text,
                 parse_mode: 'HTML',
+                reply_markup: reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined
               });
             } catch (err) {
               await api.sendMessage({
                 chat_id: ch.channel_id,
                 text: pendingEdit.text,
                 parse_mode: 'HTML',
+                reply_markup: reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined
               });
             }
           } else {
@@ -1879,9 +1953,9 @@ export default async function (callbackQuery, ctx) {
               chat_id: ch.channel_id,
               text: pendingEdit.text,
               parse_mode: 'HTML',
+              reply_markup: reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined
             });
           }
-          await createPost(user.id, ch.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
           successCount++;
         } catch (postErr) {
           console.error(`Failed to post to channel ${ch.channel_id}:`, postErr);
@@ -3119,6 +3193,11 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
     const useDotPunctuation = user?.use_dot_punctuation === 1;
     const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
+    // Track the post and prepare reaction buttons
+    const createdPost = await createPost(user.id, telegramChannelId, articleText, article.category || 'news', platform.name, article.video || article.image);
+    const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+    const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
+
     // Post to the channel
     if (article.video) {
       try {
@@ -3127,6 +3206,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
           video: article.video,
           caption: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup
         });
       } catch (videoError) {
         console.error('Failed to send video to channel, falling back to image:', videoError.message);
@@ -3137,6 +3217,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
               photo: article.image,
               caption: articleText,
               parse_mode: 'HTML',
+              reply_markup: postMarkup
             });
           } catch (photoError) {
             console.error('Failed to send photo to channel, falling back to text:', photoError.message);
@@ -3144,6 +3225,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
               chat_id: telegramChannelId,
               text: articleText,
               parse_mode: 'HTML',
+              reply_markup: postMarkup
             });
           }
         } else {
@@ -3151,6 +3233,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
             chat_id: telegramChannelId,
             text: articleText,
             parse_mode: 'HTML',
+            reply_markup: postMarkup
           });
         }
       }
@@ -3161,6 +3244,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
           photo: article.image,
           caption: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup
         });
       } catch (photoError) {
         console.error('Failed to send photo to channel, falling back to text:', photoError.message);
@@ -3168,6 +3252,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
           chat_id: telegramChannelId,
           text: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup
         });
       }
     } else {
@@ -3175,11 +3260,9 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
         chat_id: telegramChannelId,
         text: articleText,
         parse_mode: 'HTML',
+        reply_markup: postMarkup
       });
     }
-
-    // Track the post
-    await createPost(user.id, telegramChannelId, articleText, article.category || 'news', platform.name, article.video || article.image);
 
     // Confirm to the user
     await api.sendMessage({

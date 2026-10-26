@@ -1,6 +1,6 @@
 import { db } from 'sdk';
 import { eq, desc, sql, and } from 'sdk/db';
-import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules } from '../schema.js';
+import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules, postInteractions } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -347,6 +347,12 @@ export async function getDashboardStats() {
     .from(customSources)
     .all();
 
+  const allInteractions = await db.select()
+    .from(postInteractions)
+    .orderBy(desc(postInteractions.created_at))
+    .limit(100)
+    .all();
+
   const activeUsers = allUsers.filter(u => u.onboarding_step === 'completed');
   const totalPostsCount = allUsers.reduce((sum, u) => sum + (u.posts_count || 0), 0);
   const registeredPostsCount = allPosts.length;
@@ -389,6 +395,11 @@ export async function getDashboardStats() {
     created_at: sc.created_at ? Number(sc.created_at) : null
   }));
 
+  const serializedInteractions = allInteractions.map(inter => ({
+    ...inter,
+    created_at: inter.created_at ? Number(inter.created_at) : null
+  }));
+
   return {
     users: {
       total_users: allUsers.length,
@@ -396,12 +407,14 @@ export async function getDashboardStats() {
       total_posts: Math.max(totalPostsCount, registeredPostsCount),
       total_channels: allChannels.length,
       active_schedules: activeSchedulesCount,
-      custom_sources: allCustomSources.length
+      custom_sources: allCustomSources.length,
+      total_interactions: allInteractions.length
     },
     recentPosts: serializedPosts,
     recentUsers: serializedUsers,
     channels: serializedChannels,
     schedules: serializedSchedules,
+    interactions: serializedInteractions,
     customSourcesCount: allCustomSources.length
   };
 }
@@ -696,5 +709,63 @@ export async function getDueAutoPostSchedules() {
       eq(autoPostSchedules.is_active, 1),
       sql`${autoPostSchedules.next_post_at} <= ${now}`
     ))
+    .all();
+}
+
+// Post Interactions (Reactions) Functions
+
+export async function recordPostInteraction(postId, channelId, userTelegramId, username = null, firstName = null, reactionType = 'like') {
+  // Check if user already reacted with this reaction
+  const existing = await db.select()
+    .from(postInteractions)
+    .where(and(
+      eq(postInteractions.post_id, postId),
+      eq(postInteractions.user_telegram_id, userTelegramId),
+      eq(postInteractions.reaction_type, reactionType)
+    ))
+    .limit(1)
+    .all();
+
+  if (existing.length > 0) {
+    // Toggle off (unlike)
+    await db.delete(postInteractions)
+      .where(eq(postInteractions.id, existing[0].id))
+      .run();
+    return { action: 'removed', reactionType };
+  }
+
+  // Insert reaction
+  const [created] = await db.insert(postInteractions)
+    .values({
+      post_id: postId,
+      channel_id: channelId ? String(channelId) : null,
+      user_telegram_id: userTelegramId,
+      username: username || null,
+      first_name: firstName || null,
+      reaction_type: reactionType
+    })
+    .returning()
+    .run();
+
+  return { action: 'added', reactionType, interaction: created };
+}
+
+export async function getPostReactionsSummary(postId) {
+  const reactions = await db.select()
+    .from(postInteractions)
+    .where(eq(postInteractions.post_id, postId))
+    .all();
+
+  const counts = { like: 0, fire: 0, bulb: 0 };
+  for (const r of reactions) {
+    counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+  }
+  return { counts, total: reactions.length, reactions };
+}
+
+export async function getAllInteractions() {
+  return await db.select()
+    .from(postInteractions)
+    .orderBy(desc(postInteractions.created_at))
     .all();
 }

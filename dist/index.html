@@ -27,6 +27,7 @@
       --blue-accent: #38bdf8;
       --purple-accent: #a855f7;
       --amber-accent: #f59e0b;
+      --red-accent: #f43f5e;
     }
 
     * {
@@ -140,8 +141,8 @@
     /* ─── Navigation Bar (Segmented Switcher) ─── */
     .nav-tabs {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 8px;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 6px;
       padding: 6px;
       background: var(--bg-surface);
       backdrop-filter: blur(16px);
@@ -154,9 +155,9 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 10px 6px;
+      padding: 10px 4px;
       border-radius: 12px;
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       font-weight: 600;
       font-family: inherit;
       cursor: pointer;
@@ -317,6 +318,43 @@
       }
     }
 
+    /* ─── Emoji Reaction Filter Bar ─── */
+    .reaction-filter-bar {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+      scrollbar-width: none;
+    }
+
+    .reaction-filter-bar::-webkit-scrollbar {
+      display: none;
+    }
+
+    .filter-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active {
+      background: rgba(34, 197, 94, 0.2);
+      border-color: var(--green-bright);
+      color: var(--green-neon);
+      box-shadow: 0 0 14px rgba(0, 255, 135, 0.2);
+    }
+
     /* ─── Modern List Cards (Clean Mobile) ─── */
     .item-list {
       display: flex;
@@ -402,6 +440,12 @@
       border: 1px solid rgba(245, 158, 11, 0.3);
     }
 
+    .badge-red {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--red-accent);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
     .post-text-snippet {
       font-size: 0.8rem;
       color: var(--text-muted);
@@ -424,6 +468,18 @@
 
     .channel-link:hover {
       text-decoration: underline;
+    }
+
+    .user-avatar-tag {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #1e293b, #334155);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
     /* ─── State Loaders & Empty State ─── */
@@ -458,12 +514,12 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: rgba(6, 9, 8, 0.9);
+      background: rgba(6, 9, 8, 0.94);
       backdrop-filter: blur(20px);
       border-top: 1px solid var(--border-green);
       display: flex;
       justify-content: space-around;
-      padding: 8px 12px;
+      padding: 8px 6px;
       z-index: 100;
     }
 
@@ -471,20 +527,20 @@
       background: transparent;
       border: none;
       color: var(--text-muted);
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       font-weight: 600;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 3px;
       cursor: pointer;
-      padding: 6px 12px;
+      padding: 6px 8px;
       border-radius: 12px;
       transition: all 0.2s;
     }
 
     .bottom-tab .tab-icon {
-      font-size: 1.25rem;
+      font-size: 1.2rem;
     }
 
     .bottom-tab.active {
@@ -495,7 +551,6 @@
       filter: drop-shadow(0 0 8px rgba(0, 255, 135, 0.5));
     }
 
-    /* Hide desktop nav tabs on mobile, use bottom bar; and vice-versa */
     @media (max-width: 640px) {
       .nav-tabs {
         display: none;
@@ -539,6 +594,10 @@
         <span class="nav-icon">📊</span>
         <span>Overview</span>
       </button>
+      <button class="nav-btn" data-tab="engage" onclick="switchTab('engage')">
+        <span class="nav-icon">❤️</span>
+        <span>Engage</span>
+      </button>
       <button class="nav-btn" data-tab="analytics" onclick="switchTab('analytics')">
         <span class="nav-icon">📈</span>
         <span>Analytics</span>
@@ -549,7 +608,7 @@
       </button>
       <button class="nav-btn" data-tab="posts" onclick="switchTab('posts')">
         <span class="nav-icon">📰</span>
-        <span>Live Posts</span>
+        <span>Posts</span>
       </button>
     </nav>
 
@@ -577,6 +636,15 @@
 
           <div class="kpi-card">
             <div class="kpi-header">
+              <span class="kpi-label">Interactions</span>
+              <span class="kpi-icon">❤️</span>
+            </div>
+            <div class="kpi-value" id="kpiInteractions">0</div>
+            <div class="kpi-trend"><span>⚡</span> Likes & reactions</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-header">
               <span class="kpi-label">Articles Published</span>
               <span class="kpi-icon">🚀</span>
             </div>
@@ -592,15 +660,6 @@
             <div class="kpi-value" id="kpiTotalChannels">0</div>
             <div class="kpi-trend"><span>🌟</span> Multi-channel mesh</div>
           </div>
-
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-label">Auto-Post Crons</span>
-              <span class="kpi-icon">🤖</span>
-            </div>
-            <div class="kpi-value" id="kpiActiveSchedules">0</div>
-            <div class="kpi-trend"><span>🕒</span> Cloud scheduled</div>
-          </div>
         </div>
 
         <!-- Quick Activity Summary -->
@@ -608,14 +667,46 @@
           <div class="panel-header">
             <div>
               <div class="panel-title">⚡ Real-time Pulse</div>
-              <div class="panel-subtitle">Latest actions and publications across all channels</div>
+              <div class="panel-subtitle">Latest actions, publications and reactions</div>
             </div>
           </div>
           <div id="overviewRecentList" class="item-list"></div>
         </div>
       </section>
 
-      <!-- 2. ANALYTICS TAB -->
+      <!-- 2. ENGAGE TAB (Who Interacted & Liked) -->
+      <section id="tab-engage" class="tab-panel">
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">❤️ Content Interactions & Likes</div>
+              <div class="panel-subtitle">List of exact users who reacted to posts with emojis</div>
+            </div>
+            <span class="badge badge-green" id="engageCountBadge">0 Total</span>
+          </div>
+
+          <!-- Emoji Reaction Filter -->
+          <div class="reaction-filter-bar">
+            <button class="filter-btn active" onclick="filterReactions('all', this)">
+              <span>🌟</span> All Interactions (<span id="countAll">0</span>)
+            </button>
+            <button class="filter-btn" onclick="filterReactions('like', this)">
+              <span>❤️</span> Likes (<span id="countLike">0</span>)
+            </button>
+            <button class="filter-btn" onclick="filterReactions('fire', this)">
+              <span>🔥</span> Fire (<span id="countFire">0</span>)
+            </button>
+            <button class="filter-btn" onclick="filterReactions('bulb', this)">
+              <span>💡</span> Insights (<span id="countBulb">0</span>)
+            </button>
+          </div>
+
+          <!-- List of Interacting Users -->
+          <div id="interactionsList" class="item-list"></div>
+        </div>
+      </section>
+
+      <!-- 3. ANALYTICS TAB -->
       <section id="tab-analytics" class="tab-panel">
         <div class="panel-card">
           <div class="panel-header">
@@ -642,7 +733,7 @@
         </div>
       </section>
 
-      <!-- 3. CREATORS TAB -->
+      <!-- 4. CREATORS TAB -->
       <section id="tab-creators" class="tab-panel">
         <div class="panel-card">
           <div class="panel-header">
@@ -655,7 +746,7 @@
         </div>
       </section>
 
-      <!-- 4. LIVE POSTS TAB -->
+      <!-- 5. LIVE POSTS TAB -->
       <section id="tab-posts" class="tab-panel">
         <div class="panel-card">
           <div class="panel-header">
@@ -675,6 +766,10 @@
       <button class="bottom-tab active" data-tab="overview" onclick="switchTab('overview')">
         <span class="tab-icon">📊</span>
         <span>Overview</span>
+      </button>
+      <button class="bottom-tab" data-tab="engage" onclick="switchTab('engage')">
+        <span class="tab-icon">❤️</span>
+        <span>Engage</span>
       </button>
       <button class="bottom-tab" data-tab="analytics" onclick="switchTab('analytics')">
         <span class="tab-icon">📈</span>
@@ -705,6 +800,7 @@
     }
 
     let globalData = null;
+    let currentReactionFilter = 'all';
     let postsChartInstance = null;
     let categoriesChartInstance = null;
 
@@ -730,6 +826,14 @@
       if (tabId === 'analytics' && globalData) {
         setTimeout(renderAnalyticsCharts, 100);
       }
+    }
+
+    // Reaction Type Filter
+    function filterReactions(type, btnEl) {
+      currentReactionFilter = type;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      renderInteractionsList();
     }
 
     // Load Telemetry Data
@@ -787,13 +891,15 @@
     function renderDashboardData(data) {
       // 1. KPI Stats
       const users = data.users || {};
+      const interactions = data.interactions || [];
+
       animateNumber('kpiActiveUsers', users.active_users || 0);
       animateNumber('kpiTotalUsers', users.total_users || 0);
       animateNumber('kpiTotalPosts', users.total_posts || 0);
       animateNumber('kpiTotalChannels', users.total_channels || (data.channels ? data.channels.length : 0));
-      animateNumber('kpiActiveSchedules', users.active_schedules || (data.schedules ? data.schedules.length : 0));
+      animateNumber('kpiInteractions', interactions.length);
 
-      // 2. Overview Recent Stream (top 5 posts)
+      // 2. Overview Recent Stream
       const overviewList = document.getElementById('overviewRecentList');
       if (data.recentPosts && data.recentPosts.length > 0) {
         overviewList.innerHTML = data.recentPosts.slice(0, 5).map(post => renderPostItem(post)).join('');
@@ -801,7 +907,20 @@
         overviewList.innerHTML = `<div class="empty-state"><div class="empty-icon">📭</div><p>No publications registered yet.</p></div>`;
       }
 
-      // 3. Creators List
+      // 3. Interactions Counts & List (Engage Tab)
+      const countLike = interactions.filter(i => i.reaction_type === 'like').length;
+      const countFire = interactions.filter(i => i.reaction_type === 'fire').length;
+      const countBulb = interactions.filter(i => i.reaction_type === 'bulb').length;
+
+      document.getElementById('countAll').textContent = interactions.length;
+      document.getElementById('countLike').textContent = countLike;
+      document.getElementById('countFire').textContent = countFire;
+      document.getElementById('countBulb').textContent = countBulb;
+      document.getElementById('engageCountBadge').textContent = `${interactions.length} Total`;
+
+      renderInteractionsList();
+
+      // 4. Creators List
       const creatorsList = document.getElementById('creatorsList');
       if (data.recentUsers && data.recentUsers.length > 0) {
         creatorsList.innerHTML = data.recentUsers.map(user => {
@@ -842,13 +961,83 @@
         creatorsList.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>No creators registered yet.</p></div>`;
       }
 
-      // 4. Live Posts List
+      // 5. Live Posts List
       const postsList = document.getElementById('postsList');
       if (data.recentPosts && data.recentPosts.length > 0) {
         postsList.innerHTML = data.recentPosts.map(post => renderPostItem(post)).join('');
       } else {
         postsList.innerHTML = `<div class="empty-state"><div class="empty-icon">📰</div><p>No published articles yet.</p></div>`;
       }
+    }
+
+    function renderInteractionsList() {
+      const container = document.getElementById('interactionsList');
+      if (!container) return;
+
+      const interactions = globalData?.interactions || [];
+      const filtered = currentReactionFilter === 'all'
+        ? interactions
+        : interactions.filter(i => i.reaction_type === currentReactionFilter);
+
+      if (filtered.length === 0) {
+        const emojiMap = { all: '❤️', like: '❤️', fire: '🔥', bulb: '💡' };
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon">${emojiMap[currentReactionFilter] || '❤️'}</div>
+            <p>No ${currentReactionFilter === 'all' ? 'reactions' : currentReactionFilter + ' reactions'} recorded yet.</p>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+              Subscribers who tap reaction buttons beneath channel posts will appear here with their exact Telegram username and name.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      const emojiMap = {
+        like: { symbol: '❤️', badge: 'badge-red', label: 'Liked' },
+        fire: { symbol: '🔥', badge: 'badge-amber', label: 'Fire' },
+        bulb: { symbol: '💡', badge: 'badge-blue', label: 'Insight' }
+      };
+
+      container.innerHTML = filtered.map(item => {
+        const typeInfo = emojiMap[item.reaction_type] || emojiMap.like;
+        const timeStr = item.created_at ? new Date(item.created_at * 1000).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Recent';
+
+        const usernameDisplay = item.username
+          ? `<a href="https://t.me/${item.username.replace('@', '')}" target="_blank" class="channel-link">${escapeHtml(item.username)}</a>`
+          : '<span style="color: var(--text-dim); font-size: 0.78rem;">No public username</span>';
+
+        const nameDisplay = escapeHtml(item.first_name || 'Subscriber');
+        const channelDisplay = item.channel_id
+          ? `<span class="badge badge-purple">📢 ${escapeHtml(item.channel_id)}</span>`
+          : '';
+
+        const postIdDisplay = item.post_id
+          ? `<span class="badge badge-green">Post #${item.post_id}</span>`
+          : '';
+
+        return `
+          <div class="list-item">
+            <div class="item-top">
+              <div class="item-title">
+                <span class="user-avatar-tag">${typeInfo.symbol}</span>
+                <div>
+                  <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-white);">${nameDisplay}</div>
+                  <div style="font-size: 0.78rem; font-weight: 500;">${usernameDisplay}</div>
+                </div>
+              </div>
+              <span class="badge ${typeInfo.badge}">${typeInfo.symbol} ${typeInfo.label}</span>
+            </div>
+            <div class="item-badges" style="margin-top: 4px;">
+              ${channelDisplay}
+              ${postIdDisplay}
+              <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto; font-family: 'JetBrains Mono', monospace;">
+                ${timeStr}
+              </span>
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function renderPostItem(post) {
@@ -886,11 +1075,9 @@
       const postsCtx = document.getElementById('postsChart');
       const categoriesCtx = document.getElementById('categoriesChart');
 
-      // 1. Posts Activity Chart
       if (postsCtx) {
         if (postsChartInstance) postsChartInstance.destroy();
 
-        // Calculate posts per day from recentPosts
         const dayCounts = {};
         const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         days.forEach(d => dayCounts[d] = 0);
@@ -941,7 +1128,6 @@
         });
       }
 
-      // 2. Categories Distribution Chart
       if (categoriesCtx) {
         if (categoriesChartInstance) categoriesChartInstance.destroy();
 
