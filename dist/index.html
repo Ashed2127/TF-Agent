@@ -998,19 +998,23 @@
       filterBar.innerHTML = html;
     }
 
-    // Reaction Helper: resolve symbol, badge color and label for any emoji (native or preset)
+    // Reaction Helper: resolve symbol, badge color and label for funny stickers & native emojis
     function getReactionDisplay(reactionType) {
-      if (!reactionType) return { symbol: '❤️', badge: 'badge-red', label: 'Like' };
+      if (!reactionType) return { symbol: '🤣', badge: 'badge-amber', label: 'Dead', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742751.png' };
 
-      const presetMap = {
-        'like': { symbol: '❤️', badge: 'badge-red', label: 'Like' },
-        'fire': { symbol: '🔥', badge: 'badge-amber', label: 'Fire' },
-        'bulb': { symbol: '💡', badge: 'badge-blue', label: 'Insight' },
-        'custom': { symbol: '⭐', badge: 'badge-purple', label: 'Reaction' },
-        'reaction': { symbol: '👍', badge: 'badge-green', label: 'Reaction' }
+      const funnyStickersMap = {
+        'lol': { symbol: '🤣', badge: 'badge-amber', label: 'Dead', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742751.png' },
+        'mindblown': { symbol: '🤯', badge: 'badge-purple', label: 'Mindblown', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742752.png' },
+        'chad': { symbol: '😎', badge: 'badge-blue', label: 'Chad', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' },
+        'shocked': { symbol: '💀', badge: 'badge-amber', label: 'Cooked', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742817.png' },
+        'fire': { symbol: '🔥', badge: 'badge-amber', label: 'Fire', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742774.png' },
+        'like': { symbol: '❤️', badge: 'badge-red', label: 'Like', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' },
+        'bulb': { symbol: '💡', badge: 'badge-blue', label: 'Insight', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742752.png' },
+        'custom': { symbol: '⭐', badge: 'badge-purple', label: 'Reaction', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742751.png' },
+        'reaction': { symbol: '👍', badge: 'badge-green', label: 'Reaction', sticker: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' }
       };
 
-      if (presetMap[reactionType]) return presetMap[reactionType];
+      if (funnyStickersMap[reactionType]) return funnyStickersMap[reactionType];
 
       // If it's already a native Telegram emoji character (e.g. 👍, ❤️, 🔥, 👏, 🚀, 😍, etc.)
       const isHeart = reactionType.includes('❤️') || reactionType.includes('💖') || reactionType.includes('😍');
@@ -1026,7 +1030,8 @@
       return {
         symbol: reactionType,
         badge: badge,
-        label: reactionType
+        label: reactionType,
+        sticker: null
       };
     }
 
@@ -1070,11 +1075,15 @@
           ? `<span class="badge badge-green">Post #${item.post_id}</span>`
           : '';
 
+        const avatarTag = typeInfo.sticker
+          ? `<span class="user-avatar-tag" style="background: transparent; border: none;"><img src="${typeInfo.sticker}" alt="${typeInfo.label}" style="width: 28px; height: 28px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));" /></span>`
+          : `<span class="user-avatar-tag">${typeInfo.symbol}</span>`;
+
         return `
           <div class="list-item">
             <div class="item-top">
               <div class="item-title">
-                <span class="user-avatar-tag">${typeInfo.symbol}</span>
+                ${avatarTag}
                 <div>
                   <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-white);">${nameDisplay}</div>
                   <div style="font-size: 0.78rem; font-weight: 500;">${usernameDisplay}</div>

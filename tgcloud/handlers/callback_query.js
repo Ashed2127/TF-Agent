@@ -12,20 +12,32 @@ import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatB
 const OWNER_CHAT_ID = 685669468;
 
 /**
- * Build reaction buttons keyboard for published posts
+ * Top funny meme / sticker reaction types definition
+ * Emojis and labels representing popular funny sticker emotions (lol/dead, mindblown, chad/cool, shocked/crying)
  */
-export function buildPostReactionKeyboard(postId, counts = { like: 0, fire: 0, bulb: 0 }) {
-  const likeCount = counts.like > 0 ? ` ${counts.like}` : '';
-  const fireCount = counts.fire > 0 ? ` ${counts.fire}` : '';
-  const bulbCount = counts.bulb > 0 ? ` ${counts.bulb}` : '';
+export const FUNNY_STICKER_REACTIONS = [
+  { id: 'lol', emoji: '🤣', label: 'Dead', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742751.png' },
+  { id: 'mindblown', emoji: '🤯', label: 'Mindblown', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742752.png' },
+  { id: 'chad', emoji: '😎', label: 'Chad', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' },
+  { id: 'shocked', emoji: '💀', label: 'Cooked', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742817.png' },
+  { id: 'fire', emoji: '🔥', label: 'Fire', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742774.png' }
+];
 
-  return [
-    [
-      { text: `❤️${likeCount}`, callback_data: `react:like:${postId}` },
-      { text: `🔥${fireCount}`, callback_data: `react:fire:${postId}` },
-      { text: `💡${bulbCount}`, callback_data: `react:bulb:${postId}` }
-    ]
-  ];
+/**
+ * Build reaction buttons keyboard for published posts using top funny image/sticker styles
+ */
+export function buildPostReactionKeyboard(postId, counts = {}) {
+  // Construct funny sticker reaction row
+  const buttons = FUNNY_STICKER_REACTIONS.map(sticker => {
+    const count = counts[sticker.id] || 0;
+    const badge = count > 0 ? ` ${count}` : '';
+    return {
+      text: `${sticker.emoji}${badge}`,
+      callback_data: `react:${sticker.id}:${postId}`
+    };
+  });
+
+  return [buttons];
 }
 
 /**
@@ -395,9 +407,10 @@ export default async function (callbackQuery, ctx) {
       const result = await recordPostInteraction(postId, channelId, userId, username, firstName, reactionType);
       const summary = await getPostReactionsSummary(postId);
 
-      const emojiMap = { like: '❤️', fire: '🔥', bulb: '💡' };
+      const stickerDef = FUNNY_STICKER_REACTIONS.find(s => s.id === reactionType);
+      const stickerSymbol = stickerDef ? stickerDef.emoji : (reactionType === 'like' ? '❤️' : reactionType);
       const alertMsg = result.action === 'added'
-        ? `You reacted with ${emojiMap[reactionType] || '❤️'}!`
+        ? `You reacted with ${stickerSymbol} ${stickerDef ? stickerDef.label : ''}!`
         : `Reaction removed!`;
 
       try {
@@ -2289,7 +2302,12 @@ export default async function (callbackQuery, ctx) {
       const useDotPunctuation = user?.use_dot_punctuation === 1;
       const articleText = await formatNewsArticle(article, '@true_feed', showSourceLink, useDotPunctuation, userId);
       
-      // Post to the True Feed channel
+      // Record created post & build funny sticker reaction keyboard
+      const createdPost = await createPost(user?.id || 1, TRUE_FEED_CHANNEL_ID, articleText, article.category || 'news', platform.name, article.image);
+      const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+      const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
+
+      // Post to the True Feed channel with interactive funny sticker reactions
       if (article.image) {
         try {
           await api.sendPhoto({
@@ -2297,6 +2315,7 @@ export default async function (callbackQuery, ctx) {
             photo: article.image,
             caption: articleText,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         } catch (photoError) {
           console.error('Failed to send photo to channel, falling back to text:', photoError.message);
@@ -2304,6 +2323,7 @@ export default async function (callbackQuery, ctx) {
             chat_id: TRUE_FEED_CHANNEL_ID,
             text: articleText,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         }
       } else {
@@ -2311,6 +2331,7 @@ export default async function (callbackQuery, ctx) {
           chat_id: TRUE_FEED_CHANNEL_ID,
           text: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       }
       
@@ -2423,6 +2444,10 @@ export default async function (callbackQuery, ctx) {
 
       console.log('Posting edited news toTrueFeed channel:', TRUE_FEED_CHANNEL_ID);
 
+      const createdPost = await createPost(user?.id || 1, TRUE_FEED_CHANNEL_ID, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+      const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+      const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
+
       // Post with image if available, otherwise just text
       if (pendingEdit.image_url) {
         try {
@@ -2431,6 +2456,7 @@ export default async function (callbackQuery, ctx) {
             photo: pendingEdit.image_url,
             caption: pendingEdit.text,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         } catch (photoError) {
           console.error('Failed to post edited photo toTrueFeed, falling back to text:', photoError);
@@ -2438,6 +2464,7 @@ export default async function (callbackQuery, ctx) {
             chat_id: TRUE_FEED_CHANNEL_ID,
             text: pendingEdit.text,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         }
       } else {
@@ -2445,6 +2472,7 @@ export default async function (callbackQuery, ctx) {
           chat_id: TRUE_FEED_CHANNEL_ID,
           text: pendingEdit.text,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       }
 
