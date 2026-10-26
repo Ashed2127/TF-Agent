@@ -6,7 +6,7 @@ import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure } from '../lib/database.js';
-import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic } from '../lib/news.js';
+import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
@@ -126,23 +126,33 @@ export default async function (message, ctx) {
 
   // Handle /translate command for direct translation
   if (message.text && (message.text === '/translate' || message.text.startsWith('/translate ') || message.text.startsWith('/translate\n'))) {
-    const query = message.text.replace(/^\/translate\s*/i, '').trim();
+    let rawQuery = message.text.replace(/^\/translate\s*/i, '').trim();
     const user = await getUserByTelegramId(userId);
 
-    if (query) {
+    // Check if first word is a language code: am, ti, om
+    let targetLang = 'am';
+    const firstWordMatch = rawQuery.match(/^([a-z]{2})\s+([\s\S]+)$/i);
+    if (firstWordMatch && ['am', 'ti', 'om'].includes(firstWordMatch[1].toLowerCase())) {
+      targetLang = firstWordMatch[1].toLowerCase();
+      rawQuery = firstWordMatch[2].trim();
+    }
+
+    const langInfo = SUPPORTED_LANGUAGES[targetLang] || SUPPORTED_LANGUAGES.am;
+
+    if (rawQuery) {
       const loading = await api.sendMessage({
         chat_id: message.chat.id,
-        text: '🔄 Translating directly to Amharic...',
+        text: `🔄 Translating directly to ${langInfo.name}...`,
       });
       try {
-        const translated = await directTranslateToAmharic(query);
+        const translated = await directTranslateToLanguage(rawQuery, targetLang);
         const editId = await savePendingEdit(userId, translated, null);
         const isOwner = userId === OWNER_CHAT_ID;
         const keyboard = buildDirectTranslatePostKeyboard(isOwner, user, editId);
         await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: `🌐 <b>Direct Translation:</b>\n\n${translated}`,
+          text: `🌐 <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
           parse_mode: 'HTML',
           reply_markup: { inline_keyboard: keyboard }
         });
@@ -155,13 +165,17 @@ export default async function (message, ctx) {
       }
       return;
     } else {
-      await setPendingChannelAdd(userId, 'waiting_direct_translation');
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '🌐 <b>Direct Translation to Amharic</b>\n\nPlease send or forward any text, news, or message you want to translate directly into Amharic without changing any content.',
+        text: '🌐 <b>Direct Translation</b>\n\nChoose your target language for direct translation:',
         parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [[{ text: '↩️ Back', callback_data: 'back' }]]
+          inline_keyboard: [
+            [{ text: '🇪🇹 አማርኛ (Amharic)', callback_data: 'direct_translate_lang_am' }],
+            [{ text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: 'direct_translate_lang_ti' }],
+            [{ text: '🇪🇹 Afaan Oromoo', callback_data: 'direct_translate_lang_om' }],
+            [{ text: '↩️ Back', callback_data: 'back' }]
+          ]
         }
       });
       return;
@@ -469,17 +483,22 @@ export default async function (message, ctx) {
     }
 
     // Handle direct translation input
-    if (pendingChannel && pendingChannel.channelId === 'waiting_direct_translation') {
+    if (pendingChannel && (pendingChannel.channelId === 'waiting_direct_translation' || pendingChannel.channelId.startsWith('waiting_direct_'))) {
+      const targetLang = pendingChannel.channelId.startsWith('waiting_direct_') && pendingChannel.channelId !== 'waiting_direct_translation'
+        ? pendingChannel.channelId.replace('waiting_direct_', '')
+        : 'am';
+      const langInfo = SUPPORTED_LANGUAGES[targetLang] || SUPPORTED_LANGUAGES.am;
+
       await clearPendingChannelAdd(userId);
       const loading = await api.sendMessage({
         chat_id: message.chat.id,
-        text: '🔄 Translating directly to Amharic...',
+        text: `🔄 Translating directly to ${langInfo.name}...`,
       });
       try {
         const photoId = (message.photo && message.photo.length > 0)
           ? message.photo[message.photo.length - 1].file_id
           : null;
-        const translated = await directTranslateToAmharic(incomingText);
+        const translated = await directTranslateToLanguage(incomingText, targetLang);
         const editId = await savePendingEdit(userId, translated, photoId);
         const isOwner = userId === OWNER_CHAT_ID;
         const keyboard = buildDirectTranslatePostKeyboard(isOwner, user, editId);
@@ -489,14 +508,14 @@ export default async function (message, ctx) {
           await api.sendPhoto({
             chat_id: message.chat.id,
             photo: photoId,
-            caption: `🌐 <b>Direct Translation:</b>\n\n${translated}`,
+            caption: `🌐 <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: keyboard }
           });
         } else {
           await api.sendMessage({
             chat_id: message.chat.id,
-            text: `🌐 <b>Direct Translation:</b>\n\n${translated}`,
+            text: `🌐 <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: keyboard }
           });

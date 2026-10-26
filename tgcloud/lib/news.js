@@ -2,14 +2,27 @@ import { fetch } from 'sdk';
 import { OPENROUTER_API_KEY } from './secrets.js';
 import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
 
+export const SUPPORTED_LANGUAGES = {
+  am: { code: 'am', name: 'Amharic', label: '🇪🇹 አማርኛ (Amharic)', flag: '🇪🇹' },
+  ti: { code: 'ti', name: 'Tigrinya', label: '🇪🇹 ትግርኛ (Tigrinya)', flag: '🇪🇹' },
+  om: { code: 'om', name: 'Afaan Oromo', label: '🇪🇹 Afaan Oromoo', flag: '🇪🇹' }
+};
+
 export async function translateToAmharic(text) {
-  return await directTranslateToAmharic(text);
+  return await directTranslateToLanguage(text, 'am');
 }
 
 export async function directTranslateToAmharic(text) {
+  return await directTranslateToLanguage(text, 'am');
+}
+
+export async function directTranslateToLanguage(text, targetLang = 'am') {
   if (!text || !text.trim()) return '';
+  const langConfig = SUPPORTED_LANGUAGES[targetLang] || SUPPORTED_LANGUAGES.am;
+  const langName = langConfig.name;
+
   try {
-    console.log('Direct translating text to Amharic...');
+    console.log(`Direct translating text to ${langName} (${targetLang})...`);
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -22,7 +35,7 @@ export async function directTranslateToAmharic(text) {
         messages: [
           {
             role: 'system',
-            content: 'You are an accurate, direct translator. Translate the given text directly into natural Amharic. CRITICAL RULES:\n1. Preserve the exact meaning, structure, paragraphs, and all factual details completely intact.\n2. Do NOT summarize, modify, rewrite, expand, or omit any content.\n3. Do NOT add bullet points, commentary, titles, or headers that do not exist in the source.\n4. Output ONLY the translated Amharic text.'
+            content: `You are an accurate, direct translator. Translate the given text directly into natural ${langName}. CRITICAL RULES:\n1. Preserve the exact meaning, structure, paragraphs, and all factual details completely intact.\n2. Do NOT summarize, modify, rewrite, expand, or omit any content.\n3. Do NOT add bullet points, commentary, titles, or headers that do not exist in the source.\n4. Output ONLY the translated ${langName} text.`
           },
           {
             role: 'user',
@@ -35,21 +48,21 @@ export async function directTranslateToAmharic(text) {
     });
 
     if (!response.ok) {
-      console.warn('OpenRouter translation failed, falling back to Google Translate');
-      return await translateWithGoogle(text);
+      console.warn(`OpenRouter translation failed (${response.status}), falling back to Google Translate (${targetLang})`);
+      return await translateWithGoogle(text, targetLang);
     }
 
     const data = await response.json();
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      return await translateWithGoogle(text);
+      return await translateWithGoogle(text, targetLang);
     }
 
     const translatedText = data.choices[0].message.content.trim();
-    return translatedText || await translateWithGoogle(text);
+    return translatedText || await translateWithGoogle(text, targetLang);
 
   } catch (error) {
-    console.error('Error in directTranslateToAmharic:', error.message);
-    return await translateWithGoogle(text);
+    console.error(`Error in directTranslateToLanguage (${targetLang}):`, error.message);
+    return await translateWithGoogle(text, targetLang);
   }
 }
 
@@ -224,10 +237,13 @@ function parseRSS(xmlString) {
           image = thumbMatch ? thumbMatch[1].trim() : '';
         }
 
-        // Try to extract image from content HTML (only if it's a direct image URL, not embedded in complex HTML)
+        // Try to extract image from content HTML (look for img tags with src)
         if (!image && content) {
-          const imgMatch = content.match(/<img[^>]*src="([^"]*\.(?:jpg|jpeg|png|gif|webp))"[^>]*>/i);
-          image = imgMatch ? imgMatch[1].trim() : '';
+          const imgMatch = content.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^"']*)?)["']/i) ||
+                           content.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (imgMatch && !imgMatch[1].includes('feedburner') && !imgMatch[1].includes('doubleclick')) {
+            image = imgMatch[1].trim();
+          }
         }
 
         // Decode HTML entities in image URL
@@ -306,16 +322,18 @@ function parseRSS(xmlString) {
         // Extract image from various media tags
         let image = '';
 
-        // Try media:content with url attribute (but only if it's an image)
-        const mediaContentMatch = itemContent.match(/<media:content[^>]*url="([^"]*)"[^>]*type="image\/[^"]*"[^>]*>/i);
+        // Try media:content with url attribute
+        const mediaContentMatch = itemContent.match(/<media:content[^>]*url="([^"]*)"[^>]*>/i);
         if (mediaContentMatch) {
           image = mediaContentMatch[1].trim();
         }
 
-        // Try enclosure with image type
+        // Try enclosure with image type or image extension
         if (!image) {
-          const enclosureMatch = itemContent.match(/<enclosure[^>]*url="([^"]*)"[^>]*type="image\/[^"]*"[^>]*>/i);
-          image = enclosureMatch ? enclosureMatch[1].trim() : '';
+          const enclosureMatch = itemContent.match(/<enclosure[^>]*url="([^"]*)"[^>]*type="image\/[^"]*"[^>]*>/i) ||
+                                 itemContent.match(/<enclosure[^>]*type="image\/[^"]*"[^>]*url="([^"]*)"[^>]*>/i) ||
+                                 itemContent.match(/<enclosure[^>]*url="([^"]*\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^"]*)?)"[^>]*>/i);
+          image = enclosureMatch ? (enclosureMatch[1] || enclosureMatch[2] || '').trim() : '';
         }
 
         // Try media:thumbnail
@@ -324,18 +342,24 @@ function parseRSS(xmlString) {
           image = thumbMatch ? thumbMatch[1].trim() : '';
         }
 
-        // Try to extract image from description HTML (only direct image URLs)
-        if (!image && description) {
-          const imgMatch = description.match(/<img[^>]*src="([^"]*\.(?:jpg|jpeg|png|gif|webp))"[^>]*>/i);
-          image = imgMatch ? imgMatch[1].trim() : '';
-        }
-
-        // Try to extract from content:encoded (only direct image URLs)
+        // Try to extract from content:encoded first (often has full resolution images)
         if (!image) {
           const contentMatch = itemContent.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/i);
           if (contentMatch) {
-            const contentImgMatch = contentMatch[1].match(/<img[^>]*src="([^"]*\.(?:jpg|jpeg|png|gif|webp))"[^>]*>/i);
-            image = contentImgMatch ? contentImgMatch[1].trim() : '';
+            const contentImgMatch = contentMatch[1].match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^"']*)?)["']/i) ||
+                                    contentMatch[1].match(/<img[^>]+src=["']([^"']+)["']/i);
+            if (contentImgMatch && !contentImgMatch[1].includes('feedburner') && !contentImgMatch[1].includes('doubleclick')) {
+              image = contentImgMatch[1].trim();
+            }
+          }
+        }
+
+        // Try to extract image from description HTML
+        if (!image && description) {
+          const imgMatch = description.match(/<img[^>]+src=["']([^"']+\.(?:jpg|jpeg|png|gif|webp|avif)(?:\?[^"']*)?)["']/i) ||
+                           description.match(/<img[^>]+src=["']([^"']+)["']/i);
+          if (imgMatch && !imgMatch[1].includes('feedburner') && !imgMatch[1].includes('doubleclick')) {
+            image = imgMatch[1].trim();
           }
         }
 
@@ -398,6 +422,33 @@ function parseRSS(xmlString) {
 }
 
 /**
+ * Helper to fetch og:image or twitter:image from article URL when RSS lacks an image
+ */
+export async function fetchArticleImage(link) {
+  if (!link || !link.startsWith('http')) return '';
+  try {
+    const res = await fetch(link, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+      }
+    });
+    if (!res.ok) return '';
+    const html = await res.text();
+    const match = html.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']/i) ||
+                  html.match(/<meta\s+content=["']([^"']+)["']\s+property=["']og:image["']/i) ||
+                  html.match(/<meta\s+name=["']twitter:image["']\s+content=["']([^"']+)["']/i) ||
+                  html.match(/<meta\s+content=["']([^"']+)["']\s+name=["']twitter:image["']/i);
+    if (match && match[1]) {
+      return match[1].replace(/&amp;/g, '&').trim();
+    }
+    return '';
+  } catch (err) {
+    console.error('Error fetching article og:image:', err.message);
+    return '';
+  }
+}
+
+/**
  * Fetch news from a single RSS feed
  */
 export async function fetchRSSFeed(url, platformName) {
@@ -415,6 +466,18 @@ export async function fetchRSSFeed(url, platformName) {
 
     const xmlText = await response.text();
     const items = parseRSS(xmlText);
+
+    // If top articles lack images (e.g. TechCrunch, Decrypt), fetch og:image on the fly for the first 5 articles
+    for (let i = 0; i < Math.min(items.length, 5); i++) {
+      if (!items[i].image && !items[i].video && items[i].link) {
+        try {
+          const ogImg = await fetchArticleImage(items[i].link);
+          if (ogImg) {
+            items[i].image = ogImg;
+          }
+        } catch (_) {}
+      }
+    }
 
     // Add platform name
     return items.map(item => ({
@@ -452,10 +515,11 @@ const DEFAULT_USER_STRUCTURE = `<b>[Title in Amharic]</b>
 /**
  * Free Google Translate fallback when OpenRouter has no credits or fails
  */
-export async function translateWithGoogle(text) {
+export async function translateWithGoogle(text, targetLang = 'am') {
   if (!text) return '';
   try {
-    const url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=am&dt=t&q=' + encodeURIComponent(text);
+    const tl = ['am', 'ti', 'om'].includes(targetLang) ? targetLang : 'am';
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${tl}&dt=t&q=` + encodeURIComponent(text);
     const res = await fetch(url);
     if (!res.ok) return text;
     const data = await res.json();

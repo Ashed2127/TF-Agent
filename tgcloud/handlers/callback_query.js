@@ -5,7 +5,7 @@ import { generateIdea } from '../lib/agent.js';
 import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic } from '../lib/news.js';
+import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
@@ -196,7 +196,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: 'Test', callback_data: `news_test_${platformId}_${nextIndex}` }
         ],
         [
-          { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
+          { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
           { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
         ],
         [
@@ -210,7 +210,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       // Guest mode - no posting, just edit and skip
       keyboard = [
         [
-          { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
+          { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
           { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
         ],
         [
@@ -231,7 +231,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
           ],
           [
@@ -247,7 +247,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
           ],
           [
@@ -609,20 +609,76 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  if (data.startsWith('news_direct_pick_')) {
+    const parts = data.replace('news_direct_pick_', '').split('_');
+    const platformId = parts.slice(0, -1).join('_');
+    const currentIndex = parseInt(parts[parts.length - 1], 10);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🌐 <b>Choose Translation Language:</b>\n\nSelect which language you want to directly translate this article to (exact content preserved):',
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🇪🇹 አማርኛ (Amharic)', callback_data: `news_direct_am_${platformId}_${currentIndex}` }
+          ],
+          [
+            { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: `news_direct_ti_${platformId}_${currentIndex}` }
+          ],
+          [
+            { text: '🇪🇹 Afaan Oromoo', callback_data: `news_direct_om_${platformId}_${currentIndex}` }
+          ],
+          [
+            { text: '↩️ Cancel', callback_data: `news_skip_${platformId}_${currentIndex}` }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
   if (data.startsWith('news_translate_') || data.startsWith('news_direct_')) {
     await handleTranslate(callbackQuery, userId, data);
     return;
   }
 
   if (data === 'direct_translate_menu') {
-    await setPendingChannelAdd(userId, 'waiting_direct_translation');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '🌐 <b>Direct Translation to Amharic</b>\n\nSend or forward any English text, news article, or message here.\n\nThe bot will directly translate it to natural Amharic without modifying, summarizing, or changing any of the content.',
+      text: '🌐 <b>Direct Translation</b>\n\nChoose your target language for direct translation without content modification:',
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '↩️ Back', callback_data: 'back' }]
+          [
+            { text: '🇪🇹 አማርኛ (Amharic)', callback_data: 'direct_translate_lang_am' }
+          ],
+          [
+            { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: 'direct_translate_lang_ti' }
+          ],
+          [
+            { text: '🇪🇹 Afaan Oromoo', callback_data: 'direct_translate_lang_om' }
+          ],
+          [
+            { text: '↩️ Back', callback_data: 'back' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  if (data.startsWith('direct_translate_lang_')) {
+    const lang = data.replace('direct_translate_lang_', '');
+    const langInfo = SUPPORTED_LANGUAGES[lang] || SUPPORTED_LANGUAGES.am;
+    await setPendingChannelAdd(userId, `waiting_direct_${lang}`);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `🌐 <b>Direct Translation to ${langInfo.label}</b>\n\nSend or forward any English text, news article, or message here.\n\nThe bot will directly translate it to natural ${langInfo.name} without modifying, summarizing, or changing any of the content.`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '↩️ Back', callback_data: 'direct_translate_menu' }]
         ]
       }
     });
@@ -856,7 +912,7 @@ export default async function (callbackQuery, ctx) {
             { text: 'Test', callback_data: `news_test_${platformId}_0` }
           ],
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
           ],
           [
@@ -870,7 +926,7 @@ export default async function (callbackQuery, ctx) {
         // Guest mode - no posting, just edit and skip
         keyboard = [
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
           ],
           [
@@ -891,7 +947,7 @@ export default async function (callbackQuery, ctx) {
               { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_0` }
             ],
             [
-              { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+              { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
               { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
             ],
             [
@@ -907,7 +963,7 @@ export default async function (callbackQuery, ctx) {
               { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
             ],
             [
-              { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+              { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
               { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
             ],
             [
@@ -3376,9 +3432,20 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
 async function handleTranslate(callbackQuery, userId, data) {
   const cleanData = data.replace(/^news_(?:direct|translate)_/, '');
   const parts = cleanData.split('_');
-  const platformId = parts[0];
-  const currentIndex = parseInt(parts[1]);
+  let targetLang = 'am';
+  let platformId = '';
+  let currentIndex = 0;
 
+  if (['am', 'ti', 'om'].includes(parts[0])) {
+    targetLang = parts[0];
+    platformId = parts.slice(1, -1).join('_');
+    currentIndex = parseInt(parts[parts.length - 1], 10);
+  } else {
+    platformId = parts.slice(0, -1).join('_');
+    currentIndex = parseInt(parts[parts.length - 1], 10);
+  }
+
+  const langInfo = SUPPORTED_LANGUAGES[targetLang] || SUPPORTED_LANGUAGES.am;
   const user = await getUserByTelegramId(userId);
   let platform = getPlatformById(platformId);
 
@@ -3417,7 +3484,7 @@ async function handleTranslate(callbackQuery, userId, data) {
     // Show loading message
     const loadingMessage = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '🔄 Translating directly to Amharic (exact content)...',
+      text: `🔄 Translating directly to ${langInfo.name} (exact content)...`,
     });
 
     // Fetch the article
@@ -3470,8 +3537,8 @@ async function handleTranslate(callbackQuery, userId, data) {
     const cleanTitle = (article.title || '').replace(/<[^>]*>/g, '').trim();
     const cleanDesc = (article.description || article.content || '').replace(/<[^>]*>/g, '').trim();
 
-    const translatedTitle = await directTranslateToAmharic(cleanTitle);
-    const translatedDesc = await directTranslateToAmharic(cleanDesc);
+    const translatedTitle = await directTranslateToLanguage(cleanTitle, targetLang);
+    const translatedDesc = await directTranslateToLanguage(cleanDesc, targetLang);
 
     let directFormattedText = `<b>${translatedTitle}</b>\n\n${translatedDesc}`;
     if (showSourceLink && article.link) {
