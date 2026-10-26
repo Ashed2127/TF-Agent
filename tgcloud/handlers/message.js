@@ -6,7 +6,7 @@ import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure } from '../lib/database.js';
-import { formatEditedNewsText, NEWS_CATEGORIES } from '../lib/news.js';
+import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
@@ -122,6 +122,50 @@ export default async function (message, ctx) {
       });
     }
     return;
+  }
+
+  // Handle /translate command for direct translation
+  if (message.text && (message.text === '/translate' || message.text.startsWith('/translate ') || message.text.startsWith('/translate\n'))) {
+    const query = message.text.replace(/^\/translate\s*/i, '').trim();
+    const user = await getUserByTelegramId(userId);
+
+    if (query) {
+      const loading = await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '🔄 Translating directly to Amharic...',
+      });
+      try {
+        const translated = await directTranslateToAmharic(query);
+        const editId = await savePendingEdit(userId, translated, null);
+        const isOwner = userId === OWNER_CHAT_ID;
+        const keyboard = buildDirectTranslatePostKeyboard(isOwner, user, editId);
+        await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `🌐 <b>Direct Translation:</b>\n\n${translated}`,
+          parse_mode: 'HTML',
+          reply_markup: { inline_keyboard: keyboard }
+        });
+      } catch (err) {
+        await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `❌ Translation failed: ${err.message}`,
+        });
+      }
+      return;
+    } else {
+      await setPendingChannelAdd(userId, 'waiting_direct_translation');
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '🌐 <b>Direct Translation to Amharic</b>\n\nPlease send or forward any text, news, or message you want to translate directly into Amharic without changing any content.',
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [[{ text: '↩️ Back', callback_data: 'back' }]]
+        }
+      });
+      return;
+    }
   }
 
   const user = await getUserByTelegramId(userId);
@@ -421,6 +465,95 @@ export default async function (message, ctx) {
       });
       return;
     }
+
+    // Handle direct translation input
+    if (pendingChannel && pendingChannel.channelId === 'waiting_direct_translation') {
+      await clearPendingChannelAdd(userId);
+      const loading = await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '🔄 Translating directly to Amharic...',
+      });
+      try {
+        const photoId = (message.photo && message.photo.length > 0)
+          ? message.photo[message.photo.length - 1].file_id
+          : null;
+        const translated = await directTranslateToAmharic(incomingText);
+        const editId = await savePendingEdit(userId, translated, photoId);
+        const isOwner = userId === OWNER_CHAT_ID;
+        const keyboard = buildDirectTranslatePostKeyboard(isOwner, user, editId);
+        await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
+
+        if (photoId) {
+          await api.sendPhoto({
+            chat_id: message.chat.id,
+            photo: photoId,
+            caption: `🌐 <b>Direct Translation:</b>\n\n${translated}`,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: keyboard }
+          });
+        } else {
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: `🌐 <b>Direct Translation:</b>\n\n${translated}`,
+            parse_mode: 'HTML',
+            reply_markup: { inline_keyboard: keyboard }
+          });
+        }
+      } catch (err) {
+        await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `❌ Translation failed: ${err.message}`,
+        });
+      }
+      return;
+    }
+  }
+}
+
+function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
+  if (isOwner) {
+    return [
+      [
+        { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
+        { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
+      ],
+      [
+        { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
+        { text: '↩️ Main Menu', callback_data: 'back' }
+      ]
+    ];
+  } else if (user?.user_type === 'guest') {
+    return [
+      [
+        { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
+        { text: '↩️ Main Menu', callback_data: 'back' }
+      ]
+    ];
+  } else {
+    const hasTestChannel = user && user.test_channel_id;
+    if (hasTestChannel) {
+      return [
+        [
+          { text: '📢 Main Channel', callback_data: `post_edit_user_main:${editId}` },
+          { text: '🧪 Test Channel', callback_data: `post_edit_user_test:${editId}` }
+        ],
+        [
+          { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
+          { text: '↩️ Main Menu', callback_data: 'back' }
+        ]
+      ];
+    } else {
+      return [
+        [
+          { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+        ],
+        [
+          { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
+          { text: '↩️ Main Menu', callback_data: 'back' }
+        ]
+      ];
+    }
   }
 }
 
@@ -431,6 +564,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: '⚙️ Settings', callback_data: 'settings' }
     ],
     [
+      { text: '🌐 Direct Translation', callback_data: 'direct_translate_menu' },
       { text: '📊 My Stats', callback_data: 'my_stats' }
     ],
     [

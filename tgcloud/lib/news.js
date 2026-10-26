@@ -3,8 +3,13 @@ import { OPENROUTER_API_KEY } from './secrets.js';
 import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
 
 export async function translateToAmharic(text) {
+  return await directTranslateToAmharic(text);
+}
+
+export async function directTranslateToAmharic(text) {
+  if (!text || !text.trim()) return '';
   try {
-    console.log('Translating text to Amharic...');
+    console.log('Direct translating text to Amharic...');
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -17,37 +22,34 @@ export async function translateToAmharic(text) {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional translator. Translate the given text to Amharic. Keep the meaning accurate and use natural Amharic phrasing.'
+            content: 'You are an accurate, direct translator. Translate the given text directly into natural Amharic. CRITICAL RULES:\n1. Preserve the exact meaning, structure, paragraphs, and all factual details completely intact.\n2. Do NOT summarize, modify, rewrite, expand, or omit any content.\n3. Do NOT add bullet points, commentary, titles, or headers that do not exist in the source.\n4. Output ONLY the translated Amharic text.'
           },
           {
             role: 'user',
-            content: `Translate this to Amharic:\n\n${text}`
+            content: text
           }
         ],
-        max_tokens: 1000,
-        temperature: 0.7
+        max_tokens: 2000,
+        temperature: 0.2
       })
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Translation API Error:', response.status, errorText);
-      throw new Error(`Translation API request failed: ${response.status}`);
+      console.warn('OpenRouter translation failed, falling back to Google Translate');
+      return await translateWithGoogle(text);
     }
 
     const data = await response.json();
-
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid translation API response');
+      return await translateWithGoogle(text);
     }
 
     const translatedText = data.choices[0].message.content.trim();
-    console.log('Translation completed successfully');
-    return translatedText;
+    return translatedText || await translateWithGoogle(text);
 
   } catch (error) {
-    console.error('Translation error:', error);
-    throw new Error(`Failed to translate: ${error.message}`);
+    console.error('Error in directTranslateToAmharic:', error.message);
+    return await translateWithGoogle(text);
   }
 }
 

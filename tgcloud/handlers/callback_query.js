@@ -5,7 +5,7 @@ import { generateIdea } from '../lib/agent.js';
 import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic } from '../lib/news.js';
+import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic } from '../lib/news.js';
 import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
@@ -21,7 +21,10 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Settings', callback_data: 'settings' }
     ],
     [
-      { text: 'Rates', callback_data: 'get_rates' },
+      { text: '🌐 Direct Translation', callback_data: 'direct_translate_menu' },
+      { text: 'Rates', callback_data: 'get_rates' }
+    ],
+    [
       { text: 'My Stats', callback_data: 'my_stats' }
     ],
     [
@@ -193,7 +196,10 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: 'Test', callback_data: `news_test_${platformId}_${nextIndex}` }
         ],
         [
-          { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+          { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
+          { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
+        ],
+        [
           { text: 'Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
         ],
         [
@@ -204,7 +210,10 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       // Guest mode - no posting, just edit and skip
       keyboard = [
         [
-          { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` },
+          { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
+          { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
+        ],
+        [
           { text: 'Skip', callback_data: `news_skip_${platformId}_${nextIndex}` }
         ],
         [
@@ -222,7 +231,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: 'Translate to Amharic', callback_data: `news_translate_${platformId}_${nextIndex}` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
           ],
           [
@@ -238,7 +247,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: 'Translate to Amharic', callback_data: `news_translate_${platformId}_${nextIndex}` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_${nextIndex}` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
           ],
           [
@@ -600,8 +609,23 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  if (data.startsWith('news_translate_')) {
+  if (data.startsWith('news_translate_') || data.startsWith('news_direct_')) {
     await handleTranslate(callbackQuery, userId, data);
+    return;
+  }
+
+  if (data === 'direct_translate_menu') {
+    await setPendingChannelAdd(userId, 'waiting_direct_translation');
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: '🌐 <b>Direct Translation to Amharic</b>\n\nSend or forward any English text, news article, or message here.\n\nThe bot will directly translate it to natural Amharic without modifying, summarizing, or changing any of the content.',
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '↩️ Back', callback_data: 'back' }]
+        ]
+      }
+    });
     return;
   }
 
@@ -832,7 +856,10 @@ export default async function (callbackQuery, ctx) {
             { text: 'Test', callback_data: `news_test_${platformId}_0` }
           ],
           [
-            { text: 'Edit', callback_data: `news_edit_${platformId}_0` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+            { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
+          ],
+          [
             { text: 'Skip', callback_data: `news_skip_${platformId}_0` }
           ],
           [
@@ -843,7 +870,10 @@ export default async function (callbackQuery, ctx) {
         // Guest mode - no posting, just edit and skip
         keyboard = [
           [
-            { text: 'Edit', callback_data: `news_edit_${platformId}_0` },
+            { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+            { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
+          ],
+          [
             { text: 'Skip', callback_data: `news_skip_${platformId}_0` }
           ],
           [
@@ -861,7 +891,10 @@ export default async function (callbackQuery, ctx) {
               { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_0` }
             ],
             [
-              { text: 'Edit', callback_data: `news_edit_${platformId}_0` },
+              { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+              { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
+            ],
+            [
               { text: 'Skip', callback_data: `news_skip_${platformId}_0` }
             ],
             [
@@ -874,7 +907,10 @@ export default async function (callbackQuery, ctx) {
               { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
             ],
             [
-              { text: 'Edit', callback_data: `news_edit_${platformId}_0` },
+              { text: '🌐 Direct Translate', callback_data: `news_direct_${platformId}_0` },
+              { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
+            ],
+            [
               { text: 'Skip', callback_data: `news_skip_${platformId}_0` }
             ],
             [
@@ -3338,7 +3374,8 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
 }
 
 async function handleTranslate(callbackQuery, userId, data) {
-  const parts = data.replace('news_translate_', '').split('_');
+  const cleanData = data.replace(/^news_(?:direct|translate)_/, '');
+  const parts = cleanData.split('_');
   const platformId = parts[0];
   const currentIndex = parseInt(parts[1]);
 
@@ -3380,7 +3417,7 @@ async function handleTranslate(callbackQuery, userId, data) {
     // Show loading message
     const loadingMessage = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '🔄 Translating to Amharic...',
+      text: '🔄 Translating directly to Amharic (exact content)...',
     });
 
     // Fetch the article
@@ -3400,21 +3437,19 @@ async function handleTranslate(callbackQuery, userId, data) {
             [
               { text: 'Back', callback_data: 'get_news' }
             ]
-        ]
-      }
-    });
-    return;
-  }
+          ]
+        }
+      });
+      return;
+    }
 
-    // Get article text (strip HTML for translation)
-    const articleText = article.title + '\n\n' + (article.description || article.content || '');
-
-    // Translate to Amharic
-    const translatedText = await translateToAmharic(articleText);
+    const isOwner = userId === OWNER_CHAT_ID;
 
     // Get user channel link for attribution
     let userChannelLink = null;
-    if (user && user.user_type !== 'guest') {
+    if (isOwner) {
+      userChannelLink = '@true_feed';
+    } else if (user && user.user_type !== 'guest') {
       const userChannels = await getUserChannels(user.id);
       if (userChannels.length > 0) {
         const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
@@ -3430,16 +3465,24 @@ async function handleTranslate(callbackQuery, userId, data) {
     }
 
     const showSourceLink = user?.show_source_link === 1;
-    const useDotPunctuation = user?.use_dot_punctuation === 1;
 
-    // Format the translated text
-    const formattedText = await formatNewsArticle(
-      { ...article, description: translatedText },
-      userChannelLink,
-      showSourceLink,
-      useDotPunctuation,
-      userId
-    );
+    // Direct translation: translate title and description directly without restructuring
+    const cleanTitle = (article.title || '').replace(/<[^>]*>/g, '').trim();
+    const cleanDesc = (article.description || article.content || '').replace(/<[^>]*>/g, '').trim();
+
+    const translatedTitle = await directTranslateToAmharic(cleanTitle);
+    const translatedDesc = await directTranslateToAmharic(cleanDesc);
+
+    let directFormattedText = `<b>${translatedTitle}</b>\n\n${translatedDesc}`;
+    if (showSourceLink && article.link) {
+      directFormattedText += `\n\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
+    }
+    if (userChannelLink) {
+      directFormattedText += `\n\n${userChannelLink}`;
+    }
+
+    // Save as pending edit so posting uses this exact direct translation
+    const editId = await savePendingEdit(userId, directFormattedText, article.image);
 
     // Delete loading message
     await api.deleteMessage({
@@ -3447,16 +3490,24 @@ async function handleTranslate(callbackQuery, userId, data) {
       message_id: loadingMessage.message_id,
     });
 
-    // Determine keyboard based on user type and test channel availability
-    const hasTestChannel = user && user.test_channel_id;
+    // Determine keyboard based on user type
     let keyboard;
-
-    if (hasTestChannel) {
+    if (isOwner) {
       keyboard = [
         [
-          { text: ' Main Channel', callback_data: `news_user_channel_${platformId}_${currentIndex}` },
-          { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${currentIndex}` }
+          { text: 'TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
+          { text: 'Test', callback_data: `post_edit_test:${editId}` }
         ],
+        [
+          { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
+          { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
+        ],
+        [
+          { text: 'Back', callback_data: 'get_news' }
+        ]
+      ];
+    } else if (user?.user_type === 'guest') {
+      keyboard = [
         [
           { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
           { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
@@ -3466,18 +3517,35 @@ async function handleTranslate(callbackQuery, userId, data) {
         ]
       ];
     } else {
-      keyboard = [
-        [
-          { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${currentIndex}` }
-        ],
-        [
-          { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
-          { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
-        ],
-        [
-          { text: 'Back', callback_data: 'get_news' }
-        ]
-      ];
+      const hasTestChannel = user && user.test_channel_id;
+      if (hasTestChannel) {
+        keyboard = [
+          [
+            { text: ' Main Channel', callback_data: `post_edit_user_main:${editId}` },
+            { text: 'Test Channel', callback_data: `post_edit_user_test:${editId}` }
+          ],
+          [
+            { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
+            { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
+          ],
+          [
+            { text: 'Back', callback_data: 'get_news' }
+          ]
+        ];
+      } else {
+        keyboard = [
+          [
+            { text: ' Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+          ],
+          [
+            { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
+            { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
+          ],
+          [
+            { text: 'Back', callback_data: 'get_news' }
+          ]
+        ];
+      }
     }
 
     // Send with video if available, otherwise image, otherwise just text
@@ -3486,79 +3554,43 @@ async function handleTranslate(callbackQuery, userId, data) {
         await api.sendVideo({
           chat_id: callbackQuery.message.chat.id,
           video: article.video,
-          caption: formattedText,
+          caption: directFormattedText,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
           }
         });
+        return;
       } catch (videoError) {
         console.error('Failed to send video, falling back to image:', videoError.message);
-        if (article.image) {
-          try {
-            await api.sendPhoto({
-              chat_id: callbackQuery.message.chat.id,
-              photo: article.image,
-              caption: formattedText,
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: keyboard
-              }
-            });
-          } catch (photoError) {
-            console.error('Failed to send photo, falling back to text:', photoError.message);
-            await api.sendMessage({
-              chat_id: callbackQuery.message.chat.id,
-              text: formattedText,
-              parse_mode: 'HTML',
-              reply_markup: {
-                inline_keyboard: keyboard
-              }
-            });
-          }
-        } else {
-          await api.sendMessage({
-            chat_id: callbackQuery.message.chat.id,
-            text: formattedText,
-            parse_mode: 'HTML',
-            reply_markup: {
-              inline_keyboard: keyboard
-            }
-          });
-        }
       }
-    } else if (article.image) {
+    }
+
+    if (article.image) {
       try {
         await api.sendPhoto({
           chat_id: callbackQuery.message.chat.id,
           photo: article.image,
-          caption: formattedText,
+          caption: directFormattedText,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
           }
         });
+        return;
       } catch (photoError) {
         console.error('Failed to send photo, falling back to text:', photoError.message);
-        await api.sendMessage({
-          chat_id: callbackQuery.message.chat.id,
-          text: formattedText,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
-          }
-        });
       }
-    } else {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: formattedText,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: keyboard
-        }
-      });
     }
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: directFormattedText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
 
   } catch (error) {
     console.error('Error translating article:', error);
