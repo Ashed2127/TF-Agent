@@ -24,15 +24,15 @@ export const FUNNY_STICKER_REACTIONS = [
 ];
 
 /**
- * Build reaction buttons keyboard for published posts using top funny image/sticker styles
+ * Build reaction buttons keyboard for published posts using top funny image/sticker styles:
+ * [ 🤣 0 ]  [ 🤯 0 ]  [ 😎 0 ]  [ 💀 0 ]  [ 🔥 0 ]
  */
 export function buildPostReactionKeyboard(postId, counts = {}) {
-  // Construct funny sticker reaction row
+  // Construct funny sticker reaction row with explicit count numbers always shown: [ 🤣 0 ]
   const buttons = FUNNY_STICKER_REACTIONS.map(sticker => {
-    const count = counts[sticker.id] || 0;
-    const badge = count > 0 ? ` ${count}` : '';
+    const count = counts[sticker.id] !== undefined ? counts[sticker.id] : 0;
     return {
-      text: `${sticker.emoji}${badge}`,
+      text: `${sticker.emoji} ${count}`,
       callback_data: `react:${sticker.id}:${postId}`
     };
   });
