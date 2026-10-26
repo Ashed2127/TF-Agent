@@ -553,10 +553,20 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     .replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '')
     .trim();
 
+  // Auto-normalize missing opening bracket if line ends with ]
+  clean = clean.replace(/^([^\[\n\r]+\])/, '[$1');
+  clean = clean.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
+    return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
+  });
+
   const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
   const sourceLink = article.link ? `<a href="${article.link}">${article.platform || 'Source'}</a>` : '';
 
-  // 1. Channel replacement: only replace [Channel] or [ቻናል] placeholders
+  // 1. Channel replacement: handle [@true_feed in Bold style], [Channel], [@channel], etc.
+  clean = clean.replace(/\[\s*(@[a-zA-Z0-9_]+)\s+in\s+bold(?:\s+style)?\s*\]/gi, '<b>$1</b>');
+  clean = clean.replace(/\[\s*(@[a-zA-Z0-9_]+)\s+in\s+italic(?:\s+style)?\s*\]/gi, '<i>$1</i>');
+  clean = clean.replace(/\[\s*(@[a-zA-Z0-9_]+)\s*\]/gi, '$1');
+
   if (/\[(?:Channel|ቻናል)\]/i.test(clean)) {
     clean = clean.replace(/\[(?:Channel|ቻናል)\]/gi, targetChannel);
   }
@@ -571,19 +581,26 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   const hasPlaceholders = /\[.*?\]/.test(clean);
 
   if (hasPlaceholders) {
-    // 3. Title handling (check for English and Bold directives)
+    // 3. Title handling (check for English, Bold, and Italic directives)
     const isEnglishTitle = /\[.*?(?:headline|title|name).*?english.*?\]/i.test(clean);
     const isBoldTitle = /\[.*?bold.*?(?:headline|title|name).*?\]/i.test(clean);
+    const isItalicTitle = /\[.*?italic.*?(?:headline|title|name).*?\]/i.test(clean);
 
     let formattedTitle;
     if (isEnglishTitle) {
-      formattedTitle = isBoldTitle ? `<b>${rawTitle}</b>` : rawTitle;
+      formattedTitle = rawTitle;
     } else {
-      const translatedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
-      formattedTitle = isBoldTitle ? `<b>${translatedTitle}</b>` : translatedTitle;
+      formattedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
     }
 
-    clean = clean.replace(/\[.*?bold.*?(?:headline|title|name|topic|ርዕስ|ዜና).*?\]/gi, formattedTitle);
+    if (isBoldTitle && isItalicTitle) {
+      formattedTitle = `<b><i>${formattedTitle}</i></b>`;
+    } else if (isBoldTitle) {
+      formattedTitle = `<b>${formattedTitle}</b>`;
+    } else if (isItalicTitle) {
+      formattedTitle = `<i>${formattedTitle}</i>`;
+    }
+
     clean = clean.replace(/\[.*?(?:headline|title|name|topic|ርዕስ|ዜና).*?\]/gi, formattedTitle);
 
     // 4. Description/Summary handling (check for English directives)
@@ -732,24 +749,37 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
     }
 
     let cleanStructure = structure.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
+
+    // Auto-normalize missing brackets in template (e.g. "Bold Headline ]" -> "[Bold Headline]")
+    cleanStructure = cleanStructure.replace(/^([^\[\n\r]+\])/, '[$1');
+    cleanStructure = cleanStructure.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
+      return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
+    });
+
     const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
 
     const systemPrompt = `You are an expert translator and content generator.
 The user wants you to format the news content into their exact structure template.
 
-RULES:
-1. Replicate the user's template layout, emojis, spacing, and formatting EXACTLY.
-2. Replace headline/title placeholders (such as [Headline], [Title], [Bold Headline in English], [ርዕስ], etc.):
-   - If the placeholder specifies English (e.g. 'in English'), keep the headline in English.
-   - If the placeholder specifies 'Bold', wrap it in <b>Headline</b>.
-   - Otherwise, translate the headline to Amharic.
-3. Replace summary/body/insight placeholders (such as [Summary in english only], [Summary], [Content], [Insight], [መረጃ], etc.):
-   - If the placeholder specifies English (e.g. 'in english', 'in english only'), provide the summary in English.
-   - Otherwise, provide the summary in Amharic.
+CRITICAL INSTRUCTIONS ON USER'S TEMPLATE:
+1. Replicate the user's template layout, emojis, spacing, line breaks, and formatting EXACTLY.
+2. Replace headline/title placeholders (such as [Headline], [Title], [Bold Headline in English], [Bold Italic Headline in English], [ርዕስ], etc.):
+   - If the placeholder specifies English (e.g. 'in English', 'in english only'), output the headline in ENGLISH.
+   - If the placeholder specifies 'Bold', wrap it in HTML <b>Headline</b>.
+   - If the placeholder specifies 'Italic', wrap it in HTML <i>Headline</i>. If both Bold and Italic: <b><i>Headline</i></b>.
+   - If no language is specified, translate the headline to Amharic.
+3. Replace summary/body/insight placeholders (such as [Long Summary in English only], [Summary in english only], [Summary], [Content], [Insight], [መረጃ], etc.):
+   - If the placeholder specifies English (e.g. 'in english', 'in english only'), output the summary in ENGLISH.
+   - If the placeholder specifies 'Long Summary', provide a detailed 3-5 sentence comprehensive summary.
+   - If no language is specified, provide the summary in Amharic.
 4. Replace source link placeholders (such as [Source link], [Source Link], [Source], [Link], [ምንጭ]) with <a href="${article.link}">${article.platform || 'Source'}</a>.
-5. If the template contains a channel handle (such as @true_feed or @channel), preserve it exactly as written in the template. If [Channel] placeholder is used, replace it with '${targetChannel}'.
-6. Do NOT add any extra text, intro, outro, headers, or extra lines that are not in the template.
-7. Never output unreplaced brackets like [Headline] or [Source link].
+5. Channel handles & attribution placeholders (such as [@true_feed in Bold style ], [Channel], [@channel], etc.):
+   - If the placeholder specifies Bold style (e.g. 'in Bold style', 'in bold'), wrap the handle in <b>@channel</b>.
+   - If the placeholder specifies Italic style, wrap in <i>@channel</i>.
+   - If a specific handle like @true_feed or @channel is written in the template, replace the placeholder bracket with that handle styled as requested (or plain if no style requested).
+   - If [Channel] is used, replace it with '${targetChannel}'.
+6. Do NOT add any extra text, intro, outro, headers, labels, or extra lines that are not in the template.
+7. Output MUST NOT contain any unreplaced bracket placeholders like [Headline] or [...].
 8. Output ONLY the filled-in template.`;
 
     const userPrompt = `TEMPLATE TO FOLLOW:

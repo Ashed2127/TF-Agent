@@ -467,16 +467,23 @@ export default async function (message, ctx) {
 
     // Handle content structure input
     if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
-      const structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
+      let structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
+
+      // Normalize missing brackets (e.g. "Headline ]" -> "[Headline]")
+      structureText = structureText.replace(/^([^\[\n\r]+\])/, '[$1');
+      structureText = structureText.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
+        return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
+      });
+
       console.log('💾 Saving content structure for user:', user.id);
-      console.log('📝 Structure text:', structureText);
-      console.log('📝 Structure length:', structureText.length);
+      console.log('📝 Normalized structure text:', structureText);
       const savedStructure = await saveContentStructure(user.id, structureText);
       console.log('✅ Saved structure result:', savedStructure);
       await clearPendingChannelAdd(userId);
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '✅ Content structure saved!\n\nThe AI will now use this structure when generating content for you.',
+        text: '✅ <b>Content structure saved!</b>\n\nThe AI will now strictly follow your exact structure, styling, and placeholders.',
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [{ text: '⚙️ Settings', callback_data: 'settings' }]

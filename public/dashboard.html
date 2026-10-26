@@ -723,6 +723,19 @@
         <div class="panel-card">
           <div class="panel-header">
             <div>
+              <div class="panel-title">❤️ Subscriber Engagement & Reaction Breakdown</div>
+              <div class="panel-subtitle">Audience reaction sentiments (Likes, Fire, Insights)</div>
+            </div>
+            <span class="badge badge-green" id="analyticsReactionTotalBadge">0 Interactions</span>
+          </div>
+          <div class="chart-container">
+            <canvas id="reactionsChart"></canvas>
+          </div>
+        </div>
+
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
               <div class="panel-title">🎯 Creator Category Distribution</div>
               <div class="panel-subtitle">Interests and coverage areas configured by creators</div>
             </div>
@@ -803,6 +816,7 @@
     let currentReactionFilter = 'all';
     let postsChartInstance = null;
     let categoriesChartInstance = null;
+    let reactionsChartInstance = null;
 
     // Tab Switching
     function switchTab(tabId) {
@@ -1163,6 +1177,57 @@
               legend: {
                 position: 'bottom',
                 labels: { color: '#94a3b8', boxWidth: 12, padding: 12, font: { family: 'Plus Jakarta Sans', size: 11 } }
+              }
+            }
+          }
+        });
+      }
+
+      // 3. Reactions Engagement Sentiment Breakdown Chart
+      const reactionsCtx = document.getElementById('reactionsChart');
+      if (reactionsCtx) {
+        if (reactionsChartInstance) reactionsChartInstance.destroy();
+
+        const interactions = globalData.interactions || [];
+        const countLike = interactions.filter(i => i.reaction_type === 'like').length;
+        const countFire = interactions.filter(i => i.reaction_type === 'fire').length;
+        const countBulb = interactions.filter(i => i.reaction_type === 'bulb').length;
+
+        const badgeEl = document.getElementById('analyticsReactionTotalBadge');
+        if (badgeEl) badgeEl.textContent = `${interactions.length} Interactions`;
+
+        reactionsChartInstance = new Chart(reactionsCtx, {
+          type: 'bar',
+          data: {
+            labels: ['❤️ Likes', '🔥 Fire', '💡 Insights'],
+            datasets: [{
+              label: 'Reactions',
+              data: [countLike, countFire, countBulb],
+              backgroundColor: [
+                'rgba(244, 63, 94, 0.75)',
+                'rgba(245, 158, 11, 0.75)',
+                'rgba(56, 189, 248, 0.75)'
+              ],
+              borderColor: ['#f43f5e', '#f59e0b', '#38bdf8'],
+              borderWidth: 1.5,
+              borderRadius: 8
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false }
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { color: '#f8fafc', font: { family: 'Plus Jakarta Sans', size: 12, weight: '600' } }
+              },
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                ticks: { color: '#94a3b8', stepSize: 1, font: { family: 'JetBrains Mono', size: 11 } }
               }
             }
           }

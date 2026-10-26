@@ -23,20 +23,31 @@ function buildPrompt(previousTopics, category, structure) {
     ? previousTopics.map(t => `- ${t}`).join('\n')
     : '(none yet)';
 
+  let clean = structure.trim();
+  clean = clean.replace(/^([^\[\n\r]+\])/, '[$1');
+  clean = clean.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
+    return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
+  });
+
   return {
     system: `You are an expert Amharic content generator. You MUST strictly follow the EXACT structure template provided by the user. Match the layout, section sequence, blank lines, bullet styles, and emojis of the template. Output ONLY the final generated post without any introductory or concluding comments.`,
     user: `Generate an Amharic business idea in the category: ${category}
 
 STRUCTURE TEMPLATE TO FOLLOW:
-${structure}
+${clean}
 
 INSTRUCTIONS:
-1. Follow the template layout, section order, emojis, and formatting EXACTLY.
-2. If the template uses placeholders (such as [Name], [Title], [Idea], [Details], [5+ lines insight], [ርዕስ], [መረጃ], etc.), replace each placeholder with appropriate Amharic content. Do not leave placeholder brackets.
-3. If the template is a sample post, replicate its exact structure, replacing the sample text with the new business idea.
-4. Keep all emojis, line breaks, prefixes, and channel handles from the template.
-5. Avoid these previously used topics: ${previousTopicsList}
-6. Output ONLY the filled-in template.`
+1. Follow the template layout, section order, emojis, spacing, and formatting EXACTLY.
+2. If the template uses placeholders (such as [Name], [Title], [Bold Headline in English], [Idea], [Details], [5+ lines insight], [ርዕስ], [መረጃ], etc.):
+   - If the placeholder specifies English (e.g. 'in English'), write that part in English.
+   - If the placeholder specifies Bold style, wrap it in <b>...</b>.
+   - If the placeholder specifies Italic style, wrap it in <i>...</i>.
+   - Replace each placeholder with appropriate content. Do not leave placeholder brackets.
+3. If the template contains channel handles (such as [@true_feed in Bold style] or @channel), format them as specified (e.g. <b>@true_feed</b>).
+4. If the template is a sample post, replicate its exact structure, replacing the sample text with the new business idea.
+5. Keep all emojis, line breaks, prefixes, and channel handles from the template.
+6. Avoid these previously used topics: ${previousTopicsList}
+7. Output ONLY the filled-in template.`
   };
 }
 
