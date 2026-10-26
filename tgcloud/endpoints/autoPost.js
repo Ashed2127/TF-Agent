@@ -1,5 +1,5 @@
 import { api } from 'sdk';
-import { getDueAutoPostSchedules, updateAutoPostLastPosted, getUserByTelegramId, createPost } from '../lib/database.js';
+import { getDueAutoPostSchedules, updateAutoPostLastPosted, getUserByTelegramId, getUserById, createPost } from '../lib/database.js';
 import { generateIdea } from '../lib/agent.js';
 
 export default async function (input, ctx) {
@@ -16,8 +16,11 @@ export default async function (input, ctx) {
       try {
         console.log(`Processing auto post for user ${schedule.user_id} to channel ${schedule.channel_id}`);
 
-        // Get user info
-        const user = await getUserByTelegramId(schedule.user_id);
+        // Get user info (schedule.user_id can be database user id or telegram_id)
+        let user = await getUserById(schedule.user_id);
+        if (!user) {
+          user = await getUserByTelegramId(schedule.user_id);
+        }
         if (!user) {
           console.error(`User not found for schedule ${schedule.id}`);
           continue;

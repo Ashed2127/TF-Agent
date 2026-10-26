@@ -17,7 +17,7 @@ export async function translateToAmharic(text) {
         messages: [
           {
             role: 'system',
-            content: 'You are a professional translator. Translate the given text to Amharic. Keep the meaning accurate and use natural Amharic phrasing. Use ". . ." for pauses instead of Amharic punctuation marks (።፤፣፡).'
+            content: 'You are a professional translator. Translate the given text to Amharic. Keep the meaning accurate and use natural Amharic phrasing.'
           },
           {
             role: 'user',
@@ -42,18 +42,8 @@ export async function translateToAmharic(text) {
     }
 
     const translatedText = data.choices[0].message.content.trim();
-
-    // Replace Amharic punctuation with . . and . . . pauses
-    let cleanText = translatedText.replace(/[።፤]/g, ' . . . ');
-    cleanText = cleanText.replace(/[፣፡]/g, ' . . ');
-
-    // Normalize spacing around pauses
-    cleanText = cleanText.replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ');
-    cleanText = cleanText.replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2');
-    cleanText = cleanText.replace(/[ ]{2,}/g, ' ').trim();
-
     console.log('Translation completed successfully');
-    return cleanText;
+    return translatedText;
 
   } catch (error) {
     console.error('Translation error:', error);
@@ -477,8 +467,9 @@ export async function translateWithGoogle(text) {
   }
 }
 
-function cleanAmharicPunctuation(text) {
+function cleanAmharicPunctuation(text, useDots = false) {
   if (!text) return '';
+  if (!useDots) return text.trim();
   return text
     .replace(/[።፤]/g, ' . . . ')
     .replace(/[፣፡]/g, ' . . ')
@@ -491,7 +482,7 @@ function cleanAmharicPunctuation(text) {
 /**
  * Generate news content respecting the user structure template
  */
-async function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false) {
+async function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false, useDots = false) {
   let clean = (structure || DEFAULT_USER_STRUCTURE)
     .replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '')
     .trim();
@@ -509,17 +500,17 @@ async function generateFallbackContent(article, structure, userChannelLink, show
 
   // 3. Translate title
   const rawTitle = article.title || '';
-  const translatedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle));
+  const translatedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
 
   // 4. Translate description
   const rawDesc = (article.description || '').replace(/<[^>]*>/g, '').trim().substring(0, 500);
-  const translatedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc));
+  const translatedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots);
 
   // Split description into sentences/points for bullet points
   const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
   const translatedPoints = [];
   for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
-    const t = cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]));
+    const t = cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots);
     translatedPoints.push(t);
   }
   if (translatedPoints.length === 0 && translatedDesc) {
@@ -536,8 +527,8 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     // Replace 5+ lines insight for Owner structure
     if (/\[5\+\s*lines\s*insight\]/i.test(clean)) {
       const insightLines = translatedPoints.length > 1
-        ? translatedPoints.map(p => p + ' . . .').join('\n')
-        : translatedDesc + ' . . .\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው . . .';
+        ? translatedPoints.join('\n')
+        : (translatedDesc + '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው');
       clean = clean.replace(/\[5\+\s*lines\s*insight\]/gi, insightLines);
     }
 
@@ -552,7 +543,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     });
 
     // Replace summary
-    clean = clean.replace(/\[(?:Summary|ማጠቃለያ)\]/gi, translatedDesc.slice(0, 150) + ' . . .');
+    clean = clean.replace(/\[(?:Summary|ማጠቃለያ)\]/gi, translatedDesc.slice(0, 150));
 
     // Replace any remaining bracket placeholder with translated title or description
     clean = clean.replace(/\[(?:[A-Za-z\s]+)\]/g, translatedTitle);
@@ -672,9 +663,8 @@ RULES:
 4. Replace any body/details placeholders (such as [Insight], [Content], [Facts], [5+ lines insight], [መረጃ]) with the translated Amharic news information.
 5. If a channel handle exists in the template or a channel is provided (${targetChannel}), ensure it uses '${targetChannel}'. Never output duplicate channel handles.
 6. Do NOT add any extra text, intro, outro, headers, or extra lines that are not in the template.
-7. Use ". . ." for pauses instead of Amharic punctuation (።፤፣፡).
-8. Never output unreplaced brackets like [Headline] or [Source link].
-9. Output ONLY the filled-in template.`;
+7. Never output unreplaced brackets like [Headline] or [Source link].
+8. Output ONLY the filled-in template.`;
 
     const userPrompt = `TEMPLATE TO FOLLOW:
 ${cleanStructure}
@@ -704,14 +694,14 @@ Output the final post now:`;
 
     if (!response.ok) {
       console.error('AI generation failed with status:', response.status);
-      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner);
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation);
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner);
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation);
     }
 
     const content = data.choices[0].message.content.trim();
@@ -732,7 +722,7 @@ Output the final post now:`;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);
-    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner);
+    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner, useDotPunctuation);
   }
 }
 

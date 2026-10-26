@@ -15,8 +15,8 @@ FORMAT:
 EXAMPLE:
 🟢 <strong>Hybrid፡ ለህፃናት አስተማሪ እቃ</strong>
 
-<strong>Value</strong> ህፃናት እንዴት እንደሚማሩ ያውቃል . . . ትኩረት ይሰጣል የእጅ እና የአይን ችሎታ ይሻሻላል
-እያንዳንዱ እቃ የተለየ ትምህርት ያስተምራል . . . ከትዳር ጀምሮ የሚያዳብር መሆን አለበት አዳዲስ ነገሮችን ማግኘት ይፈልጋል
+<strong>Value</strong> ህፃናት እንዴት እንደሚማሩ ያውቃል፣ ትኩረት ይሰጣል የእጅ እና የአይን ችሎታ ይሻሻላል
+እያንዳንዱ እቃ የተለየ ትምህርት ያስተምራል፣ ከትዳር ጀምሮ የሚያዳብር መሆን አለበት አዳዲስ ነገሮችን ማግኘት ይፈልጋል
 ግልፅ እና ቀላል መሆን አለበት የህፃናት አንግስት ማስተምር ይችላል የእውነተኛ ኑሮ ችሎታዎችን ይሻሻላል
 
 <strong>@true_feed</strong>
@@ -26,7 +26,7 @@ ${previousTopicsList}
 
 CATEGORY: ${category}
 
-Generate post in Amharic. Keep sentences short and clear. MUST use at most 2-3 ". . ." for pauses in the entire post. NEVER use ። (Ethiopian period) - use ". . ." instead. Focus ONLY on Value section with at least 5 lines of deep insightful content. Output ONLY from 🟢 to @true_feed.`;
+Generate post in Amharic. Keep sentences short and clear. Focus on Value section with at least 5 lines of deep insightful content. Output ONLY from 🟢 to @true_feed.`;
 }
 
 module.exports = {

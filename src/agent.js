@@ -49,18 +49,6 @@ async function generateIdea() {
       throw new Error('AI response missing required structure (Title section)');
     }
     
-    // Validate that content includes at least one ". . ."
-    if (!content.includes('. . .')) {
-      console.error('❌ AI response missing required pauses (. . .):', content);
-      throw new Error('AI response missing required pauses (. . .)');
-    }
-    
-    // Validate that content does NOT contain Ethiopian period ።
-    if (content.includes('።')) {
-      console.error('❌ AI response contains forbidden Ethiopian period ።:', content);
-      throw new Error('AI response contains forbidden Ethiopian period ። - use ". . ." instead');
-    }
-    
     const lines = content.split('\n');
     const firstLine = lines[0];
     

@@ -247,6 +247,15 @@ export async function getUserByTelegramId(telegramId) {
   return result[0] || null;
 }
 
+export async function getUserById(id) {
+  const result = await db.select()
+    .from(users)
+    .where(eq(users.id, id))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
 // Custom sources management
 
 export async function addCustomSource(userId, sourceName, sourceUrl) {

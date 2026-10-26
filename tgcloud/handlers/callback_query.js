@@ -1062,16 +1062,10 @@ export default async function (callbackQuery, ctx) {
 
     // Add content structure and auto post options for non-guest users
     if (!isGuest) {
-      // Only show Content Structure for regular users (not owner - owner has fixed structure)
-      if (!isOwner) {
-        keyboard.push(
-          [
-            { text: 'Content Structure', callback_data: 'content_structure' }
-          ]
-        );
-      }
-
       keyboard.push(
+        [
+          { text: 'Content Structure', callback_data: 'content_structure' }
+        ],
         [
           { text: 'Auto Post', callback_data: 'auto_post' }
         ],
@@ -1091,7 +1085,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\n${!isOwner ? `Content Structure: ${contentStructureStatus}\n` : ''}Auto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
+      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\nContent Structure: ${contentStructureStatus}\nAuto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -1167,23 +1161,6 @@ export default async function (callbackQuery, ctx) {
   // Handle content structure button
   if (data === 'content_structure') {
     const user = await getUserByTelegramId(userId);
-
-    // Owner has a fixed hardcoded structure - cannot edit
-    if (userId === OWNER_CHAT_ID) {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `Content Structure\n\n👑 Owner Structure (Fixed)\n\nYou are using the hardcoded owner structure:\n\n🟢 Hybrid: [Name]\n\nValue [5+ lines insight]\n\n@true_feed\n\nThis structure is fixed and cannot be changed. It is hardcoded in the system for consistency.`,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Back', callback_data: 'settings' }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
     const contentStructure = await getContentStructure(user.id);
 
     if (contentStructure) {
