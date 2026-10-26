@@ -1,0 +1,44 @@
+PROJECT STRUCTURE & FILE REFERENCE
+
+### 1. Telegram Cloud Serverless Platform (tgcloud/)
+
+This is the core code deployed and running on Telegram's serverless environment.
+
+• schema.js — Defines database tables: users, ideas, posts, user_channels, content_structures, auto_post_schedules, custom_sources, and pending_edits.
+• Handlers (tgcloud/handlers/):
+    • message.js — Handles incoming messages: commands (/start, /translate), manual post edits, channel setup inputs, and text translations.
+    • callback_query.js — Handles inline button clicks: news browsing, posting to channels, direct translation, channel management, and settings.
+• Libraries (tgcloud/lib/):
+    • agent.js — Generates Amharic business ideas using AI, strictly adhering to user-defined content structures.
+    • news.js — RSS news fetcher, Amharic direct translator (directTranslateToAmharic), and article formatter.
+    • database.js — Database query helpers (CRUD operations for users, channels, posts, schedules, and structures).
+    • channel.js — Channel link parser, normalizer, and permission verification.
+    • rates.js — Fetches live Ethiopian bank dollar rates (USD/ETB) and Bitcoin prices.
+    • secrets.js — Environment secrets (OpenRouter API keys, channel IDs).
+• Endpoints (tgcloud/endpoints/):
+    • autoPost.js — Webhook/cron endpoint that automatically posts scheduled ideas to user channels.
+    • dashboard.js — Backend API providing stats to the Mini App dashboard.
+    • exportData.js — Owner-only endpoint to export complete database state.
+
+─────────────────────────────────────────────────────────────────
+### 2. Mini App Frontend (dist/ & public/)
+
+The web dashboard opened inside Telegram WebApp.
+
+• dist/index.html — Main Telegram Mini App analytics and management dashboard.
+• dist/mini-app.html — Legacy/secondary Mini App view.
+• public/dashboard.html — Unbuilt static dashboard source file.
+
+─────────────────────────────────────────────────────────────────
+### 3. Local Node.js Bot Runner (src/ & Root)
+
+Alternative standalone Node.js Express & Telegraf setup for local testing.
+
+• src/bot.js / src/bot-webhook.js — Telegraf-based bot runner.
+• src/agent.js & src/prompts.js — Local prompt builders and idea generator.
+• src/database.js — MongoDB connection and query utilities.
+• src/newsScraper.js — Local news scraper across 50+ tech websites.
+• src/imageEditor.js — Sharp-based image editor for branding posts with logo overlays.
+• src/postParser.js & src/postGenerator.js — Analyzes historical posts from HTML dumps to generate style-consistent jokes and posts.
+• server.js — Local Express HTTP server.
+• tgcloud.jsonc — Configuration file linking the static Mini App folder and tgcloud CLI.
