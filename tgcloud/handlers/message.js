@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
@@ -148,7 +148,7 @@ export default async function (message, ctx) {
         const translated = await directTranslateToLanguage(rawQuery, targetLang);
         const editId = await savePendingEdit(userId, translated, null);
         const isOwner = userId === OWNER_CHAT_ID;
-        const keyboard = buildDirectTranslatePostKeyboard(isOwner, user, editId);
+        const keyboard = await buildDirectTranslatePostKeyboard(isOwner, user, editId);
         await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
         await api.sendMessage({
           chat_id: message.chat.id,
@@ -236,7 +236,7 @@ export default async function (message, ctx) {
 
       console.log('Saved pending edit with ID:', editId);
 
-      // Determine keyboard based on user type and test channel availability
+      // Determine keyboard based on user type and available channels
       const isOwner = userId === OWNER_CHAT_ID;
       let keyboard;
 
@@ -258,29 +258,33 @@ export default async function (message, ctx) {
           ]
         ];
       } else {
-        // User mode - can post to channels
-        const hasTestChannel = user && user.test_channel_id;
+        // List all user's registered channels
+        await migrateUserChannels(userId);
+        await removeDuplicateChannels(userId);
+        const channels = await getUserChannels(user.id);
 
-        if (hasTestChannel) {
-          keyboard = [
-            [
-              { text: '📢 Main Channel', callback_data: `post_edit_user_main:${editId}` },
-              { text: '🧪 Test Channel', callback_data: `post_edit_user_test:${editId}` }
-            ],
-            [
-              { text: '❌ Cancel', callback_data: 'cancel_edit' }
-            ]
-          ];
+        keyboard = [];
+        if (channels && channels.length > 0) {
+          for (const channel of channels) {
+            const channelName = channel.channel_name || channel.channel_id;
+            const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+            keyboard.push([
+              { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
+            ]);
+          }
+          if (channels.length > 1) {
+            keyboard.push([
+              { text: '📢 Post to All Channels', callback_data: `post_edit_all:${editId}` }
+            ]);
+          }
         } else {
-          keyboard = [
-            [
-              { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
-            ],
-            [
-              { text: '❌ Cancel', callback_data: 'cancel_edit' }
-            ]
-          ];
+          keyboard.push([
+            { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+          ]);
         }
+        keyboard.push([
+          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+        ]);
       }
 
       console.log('Sending preview with keyboard:', JSON.stringify(keyboard));
@@ -501,7 +505,7 @@ export default async function (message, ctx) {
         const translated = await directTranslateToLanguage(incomingText, targetLang);
         const editId = await savePendingEdit(userId, translated, photoId);
         const isOwner = userId === OWNER_CHAT_ID;
-        const keyboard = buildDirectTranslatePostKeyboard(isOwner, user, editId);
+        const keyboard = await buildDirectTranslatePostKeyboard(isOwner, user, editId);
         await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
 
         if (photoId) {
@@ -532,7 +536,7 @@ export default async function (message, ctx) {
   }
 }
 
-function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
+async function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
   if (isOwner) {
     return [
       [
@@ -552,29 +556,36 @@ function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
       ]
     ];
   } else {
-    const hasTestChannel = user && user.test_channel_id;
-    if (hasTestChannel) {
-      return [
-        [
-          { text: '📢 Main Channel', callback_data: `post_edit_user_main:${editId}` },
-          { text: '🧪 Test Channel', callback_data: `post_edit_user_test:${editId}` }
-        ],
-        [
-          { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
-          { text: '↩️ Main Menu', callback_data: 'back' }
-        ]
-      ];
+    // List all user's registered channels
+    await migrateUserChannels(user.telegram_id);
+    await removeDuplicateChannels(user.telegram_id);
+    const channels = await getUserChannels(user.id);
+
+    const keyboard = [];
+    if (channels && channels.length > 0) {
+      for (const channel of channels) {
+        const channelName = channel.channel_name || channel.channel_id;
+        const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+        keyboard.push([
+          { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
+        ]);
+      }
+      if (channels.length > 1) {
+        keyboard.push([
+          { text: '📢 Post to All Channels', callback_data: `post_edit_all:${editId}` }
+        ]);
+      }
     } else {
-      return [
-        [
-          { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
-        ],
-        [
-          { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
-          { text: '↩️ Main Menu', callback_data: 'back' }
-        ]
-      ];
+      keyboard.push([
+        { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+      ]);
     }
+
+    keyboard.push([
+      { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
+      { text: '↩️ Main Menu', callback_data: 'back' }
+    ]);
+    return keyboard;
   }
 }
 

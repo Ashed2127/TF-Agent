@@ -1674,13 +1674,38 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle post to specific channel
-  if (data.startsWith('post_to_channel_')) {
-    const parts = data.replace('post_to_channel_', '').split('_');
-    const telegramChannelId = parts[0];
-    const channelName = parts[1];
+  // Handle post to specific channel by DB channel ID
+  if (data.startsWith('post_chan:')) {
+    const parts = data.split(':');
+    const channelTableId = parseInt(parts[1], 10);
     const platformId = parts[2];
-    const currentIndex = parseInt(parts[3]);
+    const currentIndex = parseInt(parts[3], 10);
+
+    const targetChannel = await getUserChannelById(channelTableId);
+    if (!targetChannel) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ Channel not found.',
+      });
+      return;
+    }
+    const channelName = targetChannel.channel_name || targetChannel.channel_id;
+    await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, targetChannel.channel_id, channelName);
+    return;
+  }
+
+  // Handle post to specific channel (legacy fallback)
+  if (data.startsWith('post_to_channel_')) {
+    const raw = data.replace('post_to_channel_', '');
+    const lastUnderscore = raw.lastIndexOf('_');
+    const currentIndex = parseInt(raw.substring(lastUnderscore + 1), 10);
+    const rest = raw.substring(0, lastUnderscore);
+    const secondLast = rest.lastIndexOf('_');
+    const platformId = rest.substring(secondLast + 1);
+    const firstPart = rest.substring(0, secondLast);
+    const firstUnderscore = firstPart.indexOf('_');
+    const telegramChannelId = firstPart.substring(0, firstUnderscore);
+    const channelName = firstPart.substring(firstUnderscore + 1);
     await postArticleToChannel(callbackQuery, userId, platformId, currentIndex, telegramChannelId, channelName);
     return;
   }
@@ -1724,6 +1749,166 @@ export default async function (callbackQuery, ctx) {
         ]
       }
     });
+    return;
+  }
+
+  // Handle post edited news to a specific channel from user channels list
+  if (data.startsWith('post_edit_channel:')) {
+    const parts = data.split(':');
+    const channelTableId = parseInt(parts[2], 10);
+
+    try {
+      const pendingEdit = await getPendingEdit(callbackQuery.from.id);
+      if (!pendingEdit || pendingEdit.text === '__waiting__') {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '⚠️ No content found. Please try again.',
+        });
+        return;
+      }
+
+      const user = await getUserByTelegramId(callbackQuery.from.id);
+      const targetChannel = await getUserChannelById(channelTableId);
+
+      if (!targetChannel) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ Channel not found.',
+        });
+        return;
+      }
+
+      console.log('Posting edited news to selected user channel:', targetChannel.channel_id);
+
+      if (pendingEdit.image_url) {
+        try {
+          await api.sendPhoto({
+            chat_id: targetChannel.channel_id,
+            photo: pendingEdit.image_url,
+            caption: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        } catch (photoError) {
+          console.error('Failed to post photo to channel, falling back to text:', photoError);
+          await api.sendMessage({
+            chat_id: targetChannel.channel_id,
+            text: pendingEdit.text,
+            parse_mode: 'HTML',
+          });
+        }
+      } else {
+        await api.sendMessage({
+          chat_id: targetChannel.channel_id,
+          text: pendingEdit.text,
+          parse_mode: 'HTML',
+        });
+      }
+
+      await createPost(user.id, targetChannel.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+      await deletePendingEdit(callbackQuery.from.id);
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Content posted successfully to <b>${targetChannel.channel_name || targetChannel.channel_id}</b>!`,
+        parse_mode: 'HTML',
+      });
+    } catch (error) {
+      console.error('Error posting to selected channel:', error);
+      if (error instanceof BotApiError) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.description}. Make sure the bot is an admin in your channel with "Post Messages" permission.`,
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ Failed to post: ${error.message}`,
+        });
+      }
+    }
+    return;
+  }
+
+  // Handle post edited news to all user channels
+  if (data.startsWith('post_edit_all:')) {
+    try {
+      const pendingEdit = await getPendingEdit(callbackQuery.from.id);
+      if (!pendingEdit || pendingEdit.text === '__waiting__') {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '⚠️ No content found. Please try again.',
+        });
+        return;
+      }
+
+      const user = await getUserByTelegramId(callbackQuery.from.id);
+      await migrateUserChannels(userId);
+      await removeDuplicateChannels(userId);
+      const userChannels = await getUserChannels(user.id);
+
+      if (!userChannels || userChannels.length === 0) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: '❌ No channels found.',
+        });
+        return;
+      }
+
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const ch of userChannels) {
+        try {
+          if (pendingEdit.image_url) {
+            try {
+              await api.sendPhoto({
+                chat_id: ch.channel_id,
+                photo: pendingEdit.image_url,
+                caption: pendingEdit.text,
+                parse_mode: 'HTML',
+              });
+            } catch (err) {
+              await api.sendMessage({
+                chat_id: ch.channel_id,
+                text: pendingEdit.text,
+                parse_mode: 'HTML',
+              });
+            }
+          } else {
+            await api.sendMessage({
+              chat_id: ch.channel_id,
+              text: pendingEdit.text,
+              parse_mode: 'HTML',
+            });
+          }
+          await createPost(user.id, ch.channel_id, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+          successCount++;
+        } catch (postErr) {
+          console.error(`Failed to post to channel ${ch.channel_id}:`, postErr);
+          failCount++;
+        }
+      }
+
+      await deletePendingEdit(callbackQuery.from.id);
+
+      if (failCount === 0) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `✅ Posted to all ${successCount} channel(s)!`,
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `⚠️ Posted to ${successCount} channel(s), failed on ${failCount} channel(s).`,
+        });
+      }
+    } catch (error) {
+      console.error('Error posting to all channels:', error);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Failed to post: ${error.message}`,
+      });
+    }
     return;
   }
 
@@ -2860,26 +3045,27 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
   const keyboard = [];
   for (const channel of userChannels) {
     const channelName = channel.channel_name || channel.channel_id;
-    const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' ' : '');
+    const typeLabel = channel.is_main ? ' 🌟 Main' : (channel.is_test ? ' 🧪 Test' : '');
     keyboard.push([
-      { text: `${channelName}${typeLabel}`, callback_data: `post_to_channel_${channel.channel_id}_${channelName}_${platformId}_${currentIndex}` }
+      { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_chan:${channel.id}:${platformId}:${currentIndex}` }
     ]);
   }
 
   // Add "Post to All" button if user has more than 1 channel
   if (userChannels.length > 1) {
     keyboard.push([
-      { text: ' Post to All Channels', callback_data: `post_to_all_${platformId}_${currentIndex}` }
+      { text: '📢 Post to All Channels', callback_data: `post_to_all_${platformId}_${currentIndex}` }
     ]);
   }
 
   keyboard.push([
-    { text: '↩️ Cancel', callback_data: 'back' }
+    { text: '↩️ Cancel', callback_data: `news_skip_${platformId}_${currentIndex}` }
   ]);
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: ' Select Channel\n\nChoose which channel to post to:',
+    text: '📢 <b>Select Channel:</b>\n\nChoose which channel you want to post this article to:',
+    parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -3584,35 +3770,36 @@ async function handleTranslate(callbackQuery, userId, data) {
         ]
       ];
     } else {
-      const hasTestChannel = user && user.test_channel_id;
-      if (hasTestChannel) {
-        keyboard = [
-          [
-            { text: ' Main Channel', callback_data: `post_edit_user_main:${editId}` },
-            { text: 'Test Channel', callback_data: `post_edit_user_test:${editId}` }
-          ],
-          [
-            { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
-            { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
-          ],
-          [
-            { text: 'Back', callback_data: 'get_news' }
-          ]
-        ];
+      await migrateUserChannels(userId);
+      await removeDuplicateChannels(userId);
+      const userChannels = await getUserChannels(user.id);
+
+      keyboard = [];
+      if (userChannels && userChannels.length > 0) {
+        for (const channel of userChannels) {
+          const channelName = channel.channel_name || channel.channel_id;
+          const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+          keyboard.push([
+            { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
+          ]);
+        }
+        if (userChannels.length > 1) {
+          keyboard.push([
+            { text: '📢 Post to All Channels', callback_data: `post_edit_all:${editId}` }
+          ]);
+        }
       } else {
-        keyboard = [
-          [
-            { text: ' Post to Channel', callback_data: `post_edit_user_main:${editId}` }
-          ],
-          [
-            { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
-            { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
-          ],
-          [
-            { text: 'Back', callback_data: 'get_news' }
-          ]
-        ];
+        keyboard.push([
+          { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+        ]);
       }
+      keyboard.push([
+        { text: 'Edit', callback_data: `news_edit_${platformId}_${currentIndex}` },
+        { text: 'Skip', callback_data: `news_skip_${platformId}_${currentIndex}` }
+      ]);
+      keyboard.push([
+        { text: 'Back', callback_data: 'get_news' }
+      ]);
     }
 
     // Send with video if available, otherwise image, otherwise just text
