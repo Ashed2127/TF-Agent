@@ -16,7 +16,7 @@ const OWNER_CHAT_ID = 685669468;
  * Emojis and labels representing popular funny sticker emotions (lol/dead, mindblown, chad/cool, shocked/crying)
  */
 export const FUNNY_STICKER_REACTIONS = [
-  { id: 'lol', emoji: '🤣', label: 'Dead', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742751.png' },
+  { id: 'lol', emoji: '🤣', label: 'Dead', stickerUrl: 'https://app8909892200.tgcloud.ai/stickers/laugh.gif' },
   { id: 'mindblown', emoji: '🤯', label: 'Mindblown', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742752.png' },
   { id: 'chad', emoji: '😎', label: 'Chad', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' },
   { id: 'shocked', emoji: '💀', label: 'Cooked', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742817.png' },
