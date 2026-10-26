@@ -2387,6 +2387,10 @@ export default async function (callbackQuery, ctx) {
       const useDotPunctuation = user?.use_dot_punctuation === 1;
       const articleText = await formatNewsArticle(article, '@true_feed', showSourceLink, useDotPunctuation, userId);
 
+      const createdPost = await createPost(user?.id || 1, TEST_CHANNEL_ID, articleText, article.category || 'news', platform.name, article.image);
+      const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+      const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
+
       // Post to theTest channel
       if (article.image) {
         try {
@@ -2395,6 +2399,7 @@ export default async function (callbackQuery, ctx) {
             photo: article.image,
             caption: articleText,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         } catch (photoError) {
           console.error('Failed to send photo to test channel, falling back to text:', photoError.message);
@@ -2402,6 +2407,7 @@ export default async function (callbackQuery, ctx) {
             chat_id: TEST_CHANNEL_ID,
             text: articleText,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         }
       } else {
@@ -2409,6 +2415,7 @@ export default async function (callbackQuery, ctx) {
           chat_id: TEST_CHANNEL_ID,
           text: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       }
 
@@ -2513,6 +2520,10 @@ export default async function (callbackQuery, ctx) {
 
       console.log('Posting edited news toTest channel:', TEST_CHANNEL_ID);
 
+      const createdPost = await createPost(user?.id || 1, TEST_CHANNEL_ID, pendingEdit.text, 'edited', null, pendingEdit.image_url);
+      const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+      const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
+
       // Post with image if available, otherwise just text
       if (pendingEdit.image_url) {
         try {
@@ -2521,6 +2532,7 @@ export default async function (callbackQuery, ctx) {
             photo: pendingEdit.image_url,
             caption: pendingEdit.text,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         } catch (photoError) {
           console.error('Failed to post edited photo toTest channel, falling back to text:', photoError);
@@ -2528,6 +2540,7 @@ export default async function (callbackQuery, ctx) {
             chat_id: TEST_CHANNEL_ID,
             text: pendingEdit.text,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         }
       } else {
@@ -2535,6 +2548,7 @@ export default async function (callbackQuery, ctx) {
           chat_id: TEST_CHANNEL_ID,
           text: pendingEdit.text,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       }
 
@@ -3365,6 +3379,11 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
     const useDotPunctuation = user?.use_dot_punctuation === 1;
     const articleText = await formatNewsArticle(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
 
+    // Track the post and prepare reaction buttons
+    const createdPost = await createPost(user.id, user.test_channel_id, articleText, article.category || 'news', platform.name, article.video || article.image);
+    const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
+    const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
+
     // Post to the user's test channel
     if (article.video) {
       try {
@@ -3373,6 +3392,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
           video: article.video,
           caption: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       } catch (videoError) {
         console.error('Failed to send video to test channel, falling back to image:', videoError.message);
@@ -3383,6 +3403,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
               photo: article.image,
               caption: articleText,
               parse_mode: 'HTML',
+              reply_markup: postMarkup,
             });
           } catch (photoError) {
             console.error('Failed to send photo to test channel, falling back to text:', photoError.message);
@@ -3390,6 +3411,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
               chat_id: user.test_channel_id,
               text: articleText,
               parse_mode: 'HTML',
+              reply_markup: postMarkup,
             });
           }
         } else {
@@ -3397,6 +3419,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
             chat_id: user.test_channel_id,
             text: articleText,
             parse_mode: 'HTML',
+            reply_markup: postMarkup,
           });
         }
       }
@@ -3407,6 +3430,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
           photo: article.image,
           caption: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       } catch (photoError) {
         console.error('Failed to send photo to test channel, falling back to text:', photoError.message);
@@ -3414,6 +3438,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
           chat_id: user.test_channel_id,
           text: articleText,
           parse_mode: 'HTML',
+          reply_markup: postMarkup,
         });
       }
     } else {
@@ -3421,11 +3446,9 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
         chat_id: user.test_channel_id,
         text: articleText,
         parse_mode: 'HTML',
+        reply_markup: postMarkup,
       });
     }
-
-    // Track the post (but don't increment main posts count since it's test)
-    await createPost(user.id, user.test_channel_id, articleText, article.category || 'news', platform.name, article.video || article.image);
 
     // Confirm to the user
     await api.sendMessage({
