@@ -492,63 +492,78 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
   const sourceLink = article.link ? `<a href="${article.link}">${article.platform || 'Source'}</a>` : '';
 
-  // 1. Channel replacement
-  if (clean.includes('@') || /\[(?:Channel|ቻናል)\]/i.test(clean)) {
-    clean = clean.replace(/@\w+/g, targetChannel).replace(/\[(?:Channel|ቻናል)\]/gi, targetChannel);
+  // 1. Channel replacement: only replace [Channel] or [ቻናል] placeholders
+  if (/\[(?:Channel|ቻናል)\]/i.test(clean)) {
+    clean = clean.replace(/\[(?:Channel|ቻናል)\]/gi, targetChannel);
   }
 
   // 2. Source link replacement
   clean = clean.replace(/\[(?:Source\s*link|Source|Link|ምንጭ|የምንጭ\s*ሊንክ)\]/gi, sourceLink);
 
-  // 3. Translate title
-  const rawTitle = article.title || '';
-  const translatedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
-
-  // 4. Translate description
-  const rawDesc = (article.description || '').replace(/<[^>]*>/g, '').trim().substring(0, 500);
-  const translatedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots);
-
-  // Split description into sentences/points for bullet points
-  const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
-  const translatedPoints = [];
-  for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
-    const t = cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots);
-    translatedPoints.push(t);
-  }
-  if (translatedPoints.length === 0 && translatedDesc) {
-    translatedPoints.push(translatedDesc);
-  }
+  const rawTitle = (article.title || '').replace(/<[^>]*>/g, '').trim();
+  const rawDesc = (article.description || article.content || '').replace(/<[^>]*>/g, '').trim().substring(0, 500);
 
   // 5. Check if structure has bracket placeholders
   const hasPlaceholders = /\[.*?\]/.test(clean);
 
   if (hasPlaceholders) {
-    // Replace headline/title
-    clean = clean.replace(/\[(?:Headline|Title|Name|Topic|ርዕስ|ዜና)\]/gi, translatedTitle);
+    // 3. Title handling (check for English and Bold directives)
+    const isEnglishTitle = /\[.*?(?:headline|title|name).*?english.*?\]/i.test(clean);
+    const isBoldTitle = /\[.*?bold.*?(?:headline|title|name).*?\]/i.test(clean);
+
+    let formattedTitle;
+    if (isEnglishTitle) {
+      formattedTitle = isBoldTitle ? `<b>${rawTitle}</b>` : rawTitle;
+    } else {
+      const translatedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
+      formattedTitle = isBoldTitle ? `<b>${translatedTitle}</b>` : translatedTitle;
+    }
+
+    clean = clean.replace(/\[.*?bold.*?(?:headline|title|name|topic|ርዕስ|ዜና).*?\]/gi, formattedTitle);
+    clean = clean.replace(/\[.*?(?:headline|title|name|topic|ርዕስ|ዜና).*?\]/gi, formattedTitle);
+
+    // 4. Description/Summary handling (check for English directives)
+    const isEnglishDesc = /\[.*?(?:summary|insight|content|text|details|facts?).*?english.*?\]/i.test(clean);
+    let formattedDesc;
+    if (isEnglishDesc) {
+      formattedDesc = rawDesc;
+    } else {
+      formattedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots);
+    }
+
+    // Split description into sentences/points for bullet points
+    const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+    const translatedPoints = [];
+    for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
+      const t = isEnglishDesc
+        ? rawSentences[i]
+        : cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots);
+      translatedPoints.push(t);
+    }
+    if (translatedPoints.length === 0 && formattedDesc) {
+      translatedPoints.push(formattedDesc);
+    }
 
     // Replace 5+ lines insight for Owner structure
     if (/\[5\+\s*lines\s*insight\]/i.test(clean)) {
       const insightLines = translatedPoints.length > 1
         ? translatedPoints.join('\n')
-        : (translatedDesc + '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው');
+        : (formattedDesc + (isEnglishDesc ? '\nThis update provides key value.' : '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው'));
       clean = clean.replace(/\[5\+\s*lines\s*insight\]/gi, insightLines);
     }
 
-    // Replace other insight/content placeholders
-    clean = clean.replace(/\[(?:insight|content|text|details|Problem|Solution|መረጃ|ዝርዝር)\]/gi, translatedDesc);
+    // Replace summary / insight / content placeholders
+    clean = clean.replace(/\[.*?(?:summary|insight|content|text|details|problem|solution|መረጃ|ዝርዝር).*?\]/gi, formattedDesc);
 
     // Replace numbered facts/points: [Point 1], [Fact 1], etc.
     let pointIndex = 0;
     clean = clean.replace(/\[(?:Fact|Point|ነጥብ)\s*(\d*)\]/gi, (match, num) => {
       const idx = num ? parseInt(num) - 1 : pointIndex++;
-      return translatedPoints[idx] || translatedPoints[0] || translatedDesc;
+      return translatedPoints[idx] || translatedPoints[0] || formattedDesc;
     });
 
-    // Replace summary
-    clean = clean.replace(/\[(?:Summary|ማጠቃለያ)\]/gi, translatedDesc.slice(0, 150));
-
-    // Replace any remaining bracket placeholder with translated title or description
-    clean = clean.replace(/\[(?:[A-Za-z\s]+)\]/g, translatedTitle);
+    // Clean any remaining unreplaced bracket placeholders
+    clean = clean.replace(/\[.*?\]/g, '').trim();
 
     return clean;
   }
@@ -655,15 +670,20 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
     let cleanStructure = structure.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
     const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
 
-    const systemPrompt = `You are an expert Amharic translator and content generator.
+    const systemPrompt = `You are an expert translator and content generator.
 The user wants you to format the news content into their exact structure template.
 
 RULES:
 1. Replicate the user's template layout, emojis, spacing, and formatting EXACTLY.
-2. Replace any headline/title placeholders (such as [Headline], [Title], [Name], [Topic], [ርዕስ], [ዜና]) with the translated Amharic headline.
-3. Replace any source link placeholders (such as [Source link], [Source Link], [Source], [Link], [ምንጭ]) with <a href="${article.link}">${article.platform || 'Source'}</a>.
-4. Replace any body/details placeholders (such as [Insight], [Content], [Facts], [5+ lines insight], [መረጃ]) with the translated Amharic news information.
-5. If a channel handle exists in the template or a channel is provided (${targetChannel}), ensure it uses '${targetChannel}'. Never output duplicate channel handles.
+2. Replace headline/title placeholders (such as [Headline], [Title], [Bold Headline in English], [ርዕስ], etc.):
+   - If the placeholder specifies English (e.g. 'in English'), keep the headline in English.
+   - If the placeholder specifies 'Bold', wrap it in <b>Headline</b>.
+   - Otherwise, translate the headline to Amharic.
+3. Replace summary/body/insight placeholders (such as [Summary in english only], [Summary], [Content], [Insight], [መረጃ], etc.):
+   - If the placeholder specifies English (e.g. 'in english', 'in english only'), provide the summary in English.
+   - Otherwise, provide the summary in Amharic.
+4. Replace source link placeholders (such as [Source link], [Source Link], [Source], [Link], [ምንጭ]) with <a href="${article.link}">${article.platform || 'Source'}</a>.
+5. If the template contains a channel handle (such as @true_feed or @channel), preserve it exactly as written in the template. If [Channel] placeholder is used, replace it with '${targetChannel}'.
 6. Do NOT add any extra text, intro, outro, headers, or extra lines that are not in the template.
 7. Never output unreplaced brackets like [Headline] or [Source link].
 8. Output ONLY the filled-in template.`;
@@ -689,7 +709,7 @@ Output the final post now:`;
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 250,
+        max_tokens: 600,
         temperature: 0.3
       })
     });

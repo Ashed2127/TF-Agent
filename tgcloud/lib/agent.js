@@ -61,11 +61,18 @@ export async function generateIdea(userId = null) {
         user = await getUserById(userId);
       }
       if (user) {
+        console.log('🔍 Found user record for telegram_id:', userId, 'with user.id:', user.id);
         const customStructure = await getContentStructure(user.id);
+        console.log('🔍 Custom structure query result:', customStructure);
         if (customStructure && customStructure.structure_template) {
           structure = customStructure.structure_template.trim();
           console.log('✅ Using USER custom structure for user:', userId);
+          console.log('📝 Structure preview:', structure.substring(0, 100));
+        } else {
+          console.log('⚠️ No custom structure found for user.id:', user.id);
         }
+      } else {
+        console.log('⚠️ User not found for telegram_id:', userId);
       }
     }
 

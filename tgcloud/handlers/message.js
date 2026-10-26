@@ -452,7 +452,9 @@ export default async function (message, ctx) {
       const structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
       console.log('💾 Saving content structure for user:', user.id);
       console.log('📝 Structure text:', structureText);
-      await saveContentStructure(user.id, structureText);
+      console.log('📝 Structure length:', structureText.length);
+      const savedStructure = await saveContentStructure(user.id, structureText);
+      console.log('✅ Saved structure result:', savedStructure);
       await clearPendingChannelAdd(userId);
       await api.sendMessage({
         chat_id: message.chat.id,
