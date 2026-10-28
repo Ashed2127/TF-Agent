@@ -2317,30 +2317,44 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle viewing all user posts in bot
-  if (data.startsWith('admin_view_posts_')) {
-    const targetUserId = parseInt(data.replace('admin_view_posts_', ''), 10);
+  // Handle viewing all user posts in bot (with halfway & full view toggle)
+  if (data.startsWith('admin_view_posts_') || data.startsWith('admin_view_posts_full_')) {
+    const isFull = data.startsWith('admin_view_posts_full_');
+    const targetUserId = parseInt(data.replace(isFull ? 'admin_view_posts_full_' : 'admin_view_posts_', ''), 10);
     const targetUser = await getUserById(targetUserId);
     const userPosts = await getUserPosts(targetUserId);
 
     const uname = targetUser ? (targetUser.username ? `@${targetUser.username}` : `User #${targetUser.id}`) : `User #${targetUserId}`;
-    let text = `📰 <b>Posts by ${uname} (${userPosts.length} total):</b>\n\n`;
+    let text = `📰 <b>Posts by ${uname} (${userPosts.length} total) — ${isFull ? '🔍 FULL VIEW' : '📖 HALFWAY PREVIEW'}:</b>\n\n`;
 
     if (userPosts.length === 0) {
       text += '<i>No posts found for this user.</i>';
     } else {
-      userPosts.slice(0, 8).forEach((p, i) => {
-        const snippet = (p.content || '').replace(/<[^>]*>/g, '').substring(0, 110).trim();
-        text += `<b>${i + 1}.</b> 📢 ${p.channel_id || 'Channel'} [${p.category || 'News'}]\n${snippet}...\n\n`;
+      userPosts.slice(0, 6).forEach((p, i) => {
+        const clean = (p.content || '').replace(/<[^>]*>/g, '').trim();
+        // Halfway gives ~200 characters preview; full gives complete text up to Telegram message limit
+        const body = isFull ? clean : (clean.length > 200 ? clean.substring(0, 200) + '...' : clean);
+        text += `<b>${i + 1}.</b> 📢 ${p.channel_id || 'Channel'} [${p.category || 'News'}]\n${body}\n\n`;
       });
     }
 
+    const keyboard = [
+      [
+        isFull
+          ? { text: '📖 Switch to Halfway View', callback_data: `admin_view_posts_${targetUserId}` }
+          : { text: '🔍 Switch to Full View', callback_data: `admin_view_posts_full_${targetUserId}` }
+      ],
+      [
+        { text: 'Back to User', callback_data: `admin_user_${targetUserId}` }
+      ]
+    ];
+
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: text,
+      text: text.substring(0, 4000),
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [[{ text: 'Back', callback_data: `admin_user_${targetUserId}` }]]
+        inline_keyboard: keyboard
       }
     });
     return;
