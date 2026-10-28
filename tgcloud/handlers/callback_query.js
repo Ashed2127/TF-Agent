@@ -1316,7 +1316,32 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Edit Channel Link\n\nCurrent channel: ${currentChannel}\n\nPlease send your new channel link or username (e.g., @mychannel or https://t.me/mychannel)`,
+      text: `✏️ <b>Edit Channel Link</b>\n\nCurrent channel: <code>${currentChannel}</code>\n\nTap <b>"📢 Choose Channel"</b> below to select your channel directly, or send your new username or link:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: [
+          [
+            {
+              text: '📢 Choose Channel',
+              request_chat: {
+                request_id: 5,
+                chat_is_channel: true,
+                bot_is_member: false
+              }
+            },
+            {
+              text: '👥 Choose Group',
+              request_chat: {
+                request_id: 6,
+                chat_is_channel: false,
+                bot_is_member: false
+              }
+            }
+          ]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      }
     });
     await setPendingChannelAdd(userId, 'edit_channel');
     return;
@@ -2887,7 +2912,32 @@ async function handleCheckJoin(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_channel_id');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ' You\'ve joined the channel!\n\n📝 Step 1: Connect Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or simply forward any post from your channel to this chat.',
+      text: '🎉 <b>You\'ve joined the channel!</b>\n\n📝 <b>Step 1: Connect Your Channel or Group</b>\n\nTap the <b>"📢 Choose Channel"</b> button below to select from your channels, or send your channel username (e.g. <code>@yourchannel</code>), link, or forward a post.',
+      parse_mode: 'HTML',
+      reply_markup: {
+        keyboard: [
+          [
+            {
+              text: '📢 Choose Channel',
+              request_chat: {
+                request_id: 1,
+                chat_is_channel: true,
+                bot_is_member: false
+              }
+            },
+            {
+              text: '👥 Choose Group',
+              request_chat: {
+                request_id: 2,
+                chat_is_channel: false,
+                bot_is_member: false
+              }
+            }
+          ]
+        ],
+        resize_keyboard: true,
+        one_time_keyboard: true
+      }
     });
   } catch (error) {
     console.error('Error checking channel membership:', error);
@@ -2902,7 +2952,32 @@ async function handleChangeChannel(callbackQuery, userId) {
   await updateUserOnboardingStep(userId, 'provide_channel_id');
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '📝 Step 1: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+    text: '📝 <b>Select Your Channel or Group</b>\n\nTap <b>"📢 Choose Channel"</b> below to pick your channel directly, or send your username/link/forwarded message.',
+    parse_mode: 'HTML',
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: '📢 Choose Channel',
+            request_chat: {
+              request_id: 1,
+              chat_is_channel: true,
+              bot_is_member: false
+            }
+          },
+          {
+            text: '👥 Choose Group',
+            request_chat: {
+              request_id: 2,
+              chat_is_channel: false,
+              bot_is_member: false
+            }
+          }
+        ]
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: true
+    }
   });
 }
 
@@ -3715,7 +3790,32 @@ async function handleAddChannelStart(callbackQuery, userId) {
   const user = await getUserByTelegramId(userId);
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: ' Add New Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+    text: '📢 <b>Add New Channel or Group</b>\n\nTap <b>"📢 Choose Channel"</b> below to pick directly from your channels, or send your channel username (e.g., <code>@yourchannel</code>), link, or forward a message.',
+    parse_mode: 'HTML',
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: '📢 Choose Channel',
+            request_chat: {
+              request_id: 3,
+              chat_is_channel: true,
+              bot_is_member: false
+            }
+          },
+          {
+            text: '👥 Choose Group',
+            request_chat: {
+              request_id: 4,
+              chat_is_channel: false,
+              bot_is_member: false
+            }
+          }
+        ]
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: true
+    }
   });
   await setPendingChannelAdd(userId, 'waiting', null);
 }

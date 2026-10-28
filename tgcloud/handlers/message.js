@@ -700,9 +700,35 @@ async function continueOnboarding(chatId, user) {
 }
 
 async function showChannelIdInstructions(chatId) {
+  // Offer both the interactive Telegram Chat Picker button AND manual username/link/forward input
   await api.sendMessage({
     chat_id: chatId,
-    text: '📝 Step 2: Select Your Channel\n\nPlease send your channel username (e.g., @yourchannel), channel link (https://t.me/yourchannel), or forward any message from your channel to this chat.',
+    text: '📝 <b>Step 2: Connect Your Channel or Group</b>\n\nTap the <b>"📢 Choose Channel / Group"</b> button below to select your channel directly from your list, or send your channel username (e.g. <code>@yourchannel</code>), link, or forward a message.',
+    parse_mode: 'HTML',
+    reply_markup: {
+      keyboard: [
+        [
+          {
+            text: '📢 Choose Channel',
+            request_chat: {
+              request_id: 1,
+              chat_is_channel: true,
+              bot_is_member: false
+            }
+          },
+          {
+            text: '👥 Choose Group',
+            request_chat: {
+              request_id: 2,
+              chat_is_channel: false,
+              bot_is_member: false
+            }
+          }
+        ]
+      ],
+      resize_keyboard: true,
+      one_time_keyboard: true
+    }
   });
 }
 
@@ -712,6 +738,7 @@ async function showAddBotAdminInstructions(chatId, channelId = null) {
     chat_id: chatId,
     text: `🤖 Step 3: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:`,
     reply_markup: {
+      remove_keyboard: true,
       inline_keyboard: [
         [
           { text: '✅ Done', callback_data: 'bot_admin_added' }
@@ -847,6 +874,9 @@ async function showAddChannelBotAdminInstructions(chatId, channelId = null) {
   await api.sendMessage({
     chat_id: chatId,
     text: `🤖 Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, send "done" to continue:`,
+    reply_markup: {
+      remove_keyboard: true
+    }
   });
 }
 
