@@ -256,6 +256,152 @@ export async function getUserById(id) {
   return result[0] || null;
 }
 
+// User Data Management & Deletion functions (Owner actions)
+
+export async function clearUserData(userId) {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // 1. Delete user channels
+  await db.delete(userChannels)
+    .where(eq(userChannels.user_id, user.id))
+    .run();
+
+  // 2. Delete auto post schedules (by internal user.id and telegram_id)
+  await db.delete(autoPostSchedules)
+    .where(eq(autoPostSchedules.user_id, user.id))
+    .run();
+  if (user.telegram_id) {
+    await db.delete(autoPostSchedules)
+      .where(eq(autoPostSchedules.user_id, user.telegram_id))
+      .run();
+  }
+
+  // 3. Delete custom sources
+  await db.delete(customSources)
+    .where(eq(customSources.user_id, user.id))
+    .run();
+
+  // 4. Delete content structure
+  await db.delete(contentStructures)
+    .where(eq(contentStructures.user_id, user.id))
+    .run();
+
+  // 5. Delete pending edits (by telegram_id or id)
+  if (user.telegram_id) {
+    await db.delete(pendingEdits)
+      .where(eq(pendingEdits.user_id, user.telegram_id))
+      .run();
+  }
+  await db.delete(pendingEdits)
+    .where(eq(pendingEdits.user_id, user.id))
+    .run();
+
+  // 6. Delete posts
+  await db.delete(posts)
+    .where(eq(posts.user_id, user.id))
+    .run();
+
+  // 7. Reset user settings back to initial state
+  const [updatedUser] = await db.update(users)
+    .set({
+      user_type: 'guest',
+      onboarding_step: 'join_channel',
+      channel_id: null,
+      channel_name: null,
+      test_channel_id: null,
+      test_channel_name: null,
+      display_name: null,
+      bot_display_name: null,
+      show_source_link: 1,
+      use_dot_punctuation: 0,
+      categories: null,
+      posts_count: 0,
+      completed_at: null,
+      last_posted_at: null
+    })
+    .where(eq(users.id, user.id))
+    .returning()
+    .run();
+
+  return updatedUser;
+}
+
+export async function deleteUser(userId) {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  // Clear all associated data first
+  await db.delete(userChannels)
+    .where(eq(userChannels.user_id, user.id))
+    .run();
+
+  await db.delete(autoPostSchedules)
+    .where(eq(autoPostSchedules.user_id, user.id))
+    .run();
+  if (user.telegram_id) {
+    await db.delete(autoPostSchedules)
+      .where(eq(autoPostSchedules.user_id, user.telegram_id))
+      .run();
+  }
+
+  await db.delete(customSources)
+    .where(eq(customSources.user_id, user.id))
+    .run();
+
+  await db.delete(contentStructures)
+    .where(eq(contentStructures.user_id, user.id))
+    .run();
+
+  if (user.telegram_id) {
+    await db.delete(pendingEdits)
+      .where(eq(pendingEdits.user_id, user.telegram_id))
+      .run();
+  }
+  await db.delete(pendingEdits)
+    .where(eq(pendingEdits.user_id, user.id))
+    .run();
+
+  await db.delete(posts)
+    .where(eq(posts.user_id, user.id))
+    .run();
+
+  if (user.telegram_id) {
+    await db.delete(postInteractions)
+      .where(eq(postInteractions.user_telegram_id, user.telegram_id))
+      .run();
+  }
+
+  // Delete the user record
+  await db.delete(users)
+    .where(eq(users.id, user.id))
+    .run();
+
+  return { success: true, id: user.id, telegram_id: user.telegram_id };
+}
+
+export async function clearUserPosts(userId) {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new Error('User not found');
+  }
+
+  await db.delete(posts)
+    .where(eq(posts.user_id, user.id))
+    .run();
+
+  await db.update(users)
+    .set({ posts_count: 0, last_posted_at: null })
+    .where(eq(users.id, user.id))
+    .run();
+
+  return { success: true, user_id: user.id };
+}
+
 // Custom sources management
 
 export async function addCustomSource(userId, sourceName, sourceUrl) {

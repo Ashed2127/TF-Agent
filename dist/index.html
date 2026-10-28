@@ -564,6 +564,108 @@
         padding-bottom: 40px;
       }
     }
+
+    /* ─── User Management & Action Buttons ─── */
+    .user-actions-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    }
+
+    .btn-user-action {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 5px 9px;
+      border-radius: 8px;
+      font-size: 0.72rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-user-action:hover {
+      transform: translateY(-1px);
+    }
+
+    .btn-user-action.warn {
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+      color: #fbbf24;
+    }
+    .btn-user-action.warn:hover {
+      background: rgba(245, 158, 11, 0.2);
+      border-color: #f59e0b;
+    }
+
+    .btn-user-action.danger {
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171;
+    }
+    .btn-user-action.danger:hover {
+      background: rgba(239, 68, 68, 0.25);
+      border-color: #ef4444;
+    }
+
+    .btn-user-action:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    .search-input-wrap {
+      margin-bottom: 12px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--border-green);
+      border-radius: 10px;
+      padding: 9px 14px;
+      color: var(--text-main);
+      font-size: 0.82rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--green-neon);
+      box-shadow: 0 0 10px rgba(0, 255, 135, 0.15);
+    }
+
+    .toast-notice {
+      position: fixed;
+      top: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(14, 22, 18, 0.95);
+      border: 1px solid var(--green-neon);
+      color: var(--text-main);
+      padding: 10px 18px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      z-index: 9999;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(12px);
+      display: none;
+      animation: fadeInDown 0.25s ease;
+      max-width: 90vw;
+      text-align: center;
+    }
+
+    @keyframes fadeInDown {
+      from { opacity: 0; transform: translate(-50%, -10px); }
+      to { opacity: 1; transform: translate(-50%, 0); }
+    }
   </style>
 </head>
 <body>
@@ -743,9 +845,15 @@
           <div class="panel-header">
             <div>
               <div class="panel-title">👥 Registered Creators & Channels</div>
-              <div class="panel-subtitle">Channel integrations and publishing milestones</div>
+              <div class="panel-subtitle">Manage creator profiles, clear channels & data, or delete accounts</div>
             </div>
+            <span class="badge badge-blue" id="creatorsCountBadge">0 Users</span>
           </div>
+
+          <div class="search-input-wrap">
+            <input type="text" id="userSearchInput" class="search-input" placeholder="🔍 Search creators by name, @username, channel or ID..." oninput="handleUserSearch(this.value)">
+          </div>
+
           <div id="creatorsList" class="item-list"></div>
         </div>
       </section>
@@ -918,45 +1026,7 @@
       renderInteractionsList();
 
       // 4. Creators List
-      const creatorsList = document.getElementById('creatorsList');
-      if (data.recentUsers && data.recentUsers.length > 0) {
-        creatorsList.innerHTML = data.recentUsers.map(user => {
-          const channel = user.channel_name || user.channel_id;
-          const channelDisplay = channel
-            ? (channel.startsWith('@')
-                ? `<a href="https://t.me/${channel.substring(1)}" target="_blank" class="channel-link">${channel}</a>`
-                : `<span class="channel-link">${channel}</span>`)
-            : '<span style="color: var(--text-dim);">No channel</span>';
-
-          const isCompleted = user.onboarding_step === 'completed';
-          const statusBadge = isCompleted
-            ? `<span class="badge badge-green">● Active</span>`
-            : `<span class="badge badge-amber">○ Onboarding</span>`;
-
-          const dateStr = user.created_at ? new Date(user.created_at * 1000).toLocaleDateString() : 'Recent';
-
-          return `
-            <div class="list-item">
-              <div class="item-top">
-                <div class="item-title">
-                  👤 ${escapeHtml(user.username ? '@' + user.username : user.display_name || 'Creator #' + user.id)}
-                </div>
-                ${statusBadge}
-              </div>
-              <div class="item-subtitle">
-                Channel: ${channelDisplay}
-              </div>
-              <div class="item-badges">
-                <span class="badge badge-blue">🚀 ${user.posts_count || 0} posts</span>
-                <span class="badge badge-purple">Type: ${escapeHtml(user.user_type || 'user')}</span>
-                <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">Joined ${dateStr}</span>
-              </div>
-            </div>
-          `;
-        }).join('');
-      } else {
-        creatorsList.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>No creators registered yet.</p></div>`;
-      }
+      renderCreatorsList();
 
       // 5. Live Posts List
       const postsList = document.getElementById('postsList');
@@ -967,7 +1037,159 @@
       }
     }
 
-    function renderReactionFilters(interactions) {
+    // User search & Creators rendering
+    let userSearchTerm = '';
+
+    function handleUserSearch(term) {
+      userSearchTerm = (term || '').toLowerCase().trim();
+      renderCreatorsList();
+    }
+
+    function renderCreatorsList() {
+      const creatorsList = document.getElementById('creatorsList');
+      if (!creatorsList || !globalData) return;
+
+      let users = globalData.recentUsers || [];
+      const badge = document.getElementById('creatorsCountBadge');
+      if (badge) badge.textContent = `${users.length} Users`;
+
+      if (userSearchTerm) {
+        users = users.filter(u => {
+          const name = (u.display_name || '').toLowerCase();
+          const uname = (u.username || '').toLowerCase();
+          const chName = (u.channel_name || '').toLowerCase();
+          const chId = (u.channel_id || '').toLowerCase();
+          const id = String(u.id);
+          const tgId = String(u.telegram_id);
+          return name.includes(userSearchTerm) ||
+                 uname.includes(userSearchTerm) ||
+                 chName.includes(userSearchTerm) ||
+                 chId.includes(userSearchTerm) ||
+                 id.includes(userSearchTerm) ||
+                 tgId.includes(userSearchTerm);
+        });
+      }
+
+      if (users.length === 0) {
+        creatorsList.innerHTML = userSearchTerm
+          ? `<div class="empty-state"><div class="empty-icon">🔍</div><p>No creators match "${escapeHtml(userSearchTerm)}".</p></div>`
+          : `<div class="empty-state"><div class="empty-icon">👥</div><p>No creators registered yet.</p></div>`;
+        return;
+      }
+
+      creatorsList.innerHTML = users.map(user => {
+        const channel = user.channel_name || user.channel_id;
+        const channelDisplay = channel
+          ? (channel.startsWith('@')
+              ? `<a href="https://t.me/${channel.substring(1)}" target="_blank" class="channel-link">${channel}</a>`
+              : `<span class="channel-link">${channel}</span>`)
+          : '<span style="color: var(--text-dim);">No channel</span>';
+
+        const isCompleted = user.onboarding_step === 'completed';
+        const statusBadge = isCompleted
+          ? `<span class="badge badge-green">● Active</span>`
+          : `<span class="badge badge-amber">○ Onboarding</span>`;
+
+        const dateStr = user.created_at ? new Date(user.created_at * 1000).toLocaleDateString() : 'Recent';
+        const userLabel = escapeHtml(user.username ? '@' + user.username : user.display_name || 'Creator #' + user.id);
+
+        return `
+          <div class="list-item" id="user-card-${user.id}">
+            <div class="item-top">
+              <div class="item-title">
+                👤 ${userLabel}
+                <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal; margin-left: 4px;">(TG: ${user.telegram_id})</span>
+              </div>
+              ${statusBadge}
+            </div>
+            <div class="item-subtitle">
+              Channel: ${channelDisplay}
+            </div>
+            <div class="item-badges">
+              <span class="badge badge-blue">🚀 ${user.posts_count || 0} posts</span>
+              <span class="badge badge-purple">Type: ${escapeHtml(user.user_type || 'user')}</span>
+              <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">Joined ${dateStr}</span>
+            </div>
+
+            <!-- Management Actions for Owner -->
+            <div class="user-actions-row">
+              <button class="btn-user-action warn" onclick="handleManageUser(${user.id}, 'clear_data', '${escapeHtml(user.username || user.display_name || user.id)}')">
+                <span>🧹</span> Reset Onboarding & Data
+              </button>
+              <button class="btn-user-action" onclick="handleManageUser(${user.id}, 'clear_posts', '${escapeHtml(user.username || user.display_name || user.id)}')">
+                <span>🗑️</span> Clear Posts
+              </button>
+              <button class="btn-user-action danger" onclick="handleManageUser(${user.id}, 'delete_user', '${escapeHtml(user.username || user.display_name || user.id)}')">
+                <span>❌</span> Delete User
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Call serverless manageUser endpoint
+    async function handleManageUser(userId, action, identifier) {
+      let confirmPrompt = '';
+      if (action === 'clear_data') {
+        confirmPrompt = `Are you sure you want to CLEAR ALL configuration & channel data for ${identifier}?\n\nThis will reset their channels, structures, schedules, and custom sources back to fresh onboarding.`;
+      } else if (action === 'clear_posts') {
+        confirmPrompt = `Are you sure you want to delete all published posts history for ${identifier} and reset post count to 0?`;
+      } else if (action === 'delete_user') {
+        confirmPrompt = `⚠️ DANGER: Are you sure you want to PERMANENTLY DELETE user ${identifier} and ALL their associated data, schedules, channels and records? This cannot be undone.`;
+      }
+
+      if (!confirm(confirmPrompt)) return;
+
+      showToast(`⏳ Executing ${action.replace('_', ' ')}...`);
+
+      try {
+        let result = null;
+        if (tg?.Serverless) {
+          result = await new Promise((resolve, reject) => {
+            tg.Serverless.call('manageUser', { action, userId }, (err, res) => {
+              if (err) reject(err);
+              else resolve(res);
+            });
+          });
+        } else {
+          const res = await fetch('/api/manageUser', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action, userId })
+          }).catch(() => fetch('/api/manageUser'));
+          if (!res.ok) {
+            const errBody = await res.json().catch(() => ({}));
+            throw new Error(errBody.error || errBody.message || 'HTTP ' + res.status);
+          }
+          result = await res.json();
+        }
+
+        if (result?.error) throw new Error(result.error);
+
+        showToast(`✅ ${result?.message || 'Success!'}`);
+        await loadDashboard();
+      } catch (err) {
+        console.error('manageUser error:', err);
+        alert('Operation failed: ' + (err.message || err.toString()));
+      }
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById('dashboardToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'dashboardToast';
+        toast.className = 'toast-notice';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      clearTimeout(window.__toastTimer);
+      window.__toastTimer = setTimeout(() => {
+        toast.style.display = 'none';
+      }, 4000);
+    }
       const filterBar = document.getElementById('reactionFilterBar');
       if (!filterBar) return;
 
