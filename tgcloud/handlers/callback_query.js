@@ -1527,7 +1527,7 @@ export default async function (callbackQuery, ctx) {
   // Handle toggle auto post
   if (data === 'toggle_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.telegram_id);
+    const schedule = await getAutoPostSchedule(user.id);
     if (schedule) {
       const updated = await toggleAutoPostSchedule(schedule.id);
       const statusText = updated.is_active === 1 ? 'Active' : 'Paused';
@@ -1594,7 +1594,7 @@ export default async function (callbackQuery, ctx) {
     const intervalHours = parseFloat(parts[1]);
 
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.telegram_id);
+    const schedule = await getAutoPostSchedule(user.id);
     if (schedule) {
       await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true);
 
@@ -1620,7 +1620,7 @@ export default async function (callbackQuery, ctx) {
   // Handle delete auto post
   if (data === 'delete_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.telegram_id);
+    const schedule = await getAutoPostSchedule(user.id);
     if (schedule) {
       await deleteAutoPostSchedule(schedule.id);
       await api.sendMessage({
@@ -1641,7 +1641,7 @@ export default async function (callbackQuery, ctx) {
   // Handle run auto post now
   if (data === 'run_auto_post_now') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.telegram_id);
+    const schedule = await getAutoPostSchedule(user.id);
 
     if (!schedule) {
       await api.sendMessage({

@@ -762,15 +762,16 @@ export async function deleteContentStructure(userId) {
 // Auto post schedule management functions
 
 export async function createAutoPostSchedule(userId, channelId, intervalHours) {
-  const nextPostAt = new Date();
-  nextPostAt.setHours(nextPostAt.getHours() + intervalHours);
+  // Support interval in fractional hours or hours accurately
+  const nowInSeconds = Math.floor(Date.now() / 1000);
+  const nextPostAt = Math.round(nowInSeconds + (intervalHours * 3600));
 
   const [schedule] = await db.insert(autoPostSchedules)
     .values({
       user_id: userId,
       channel_id: channelId,
       interval_hours: intervalHours,
-      next_post_at: nextPostAt.getTime() / 1000
+      next_post_at: nextPostAt
     })
     .returning()
     .run();
@@ -778,18 +779,35 @@ export async function createAutoPostSchedule(userId, channelId, intervalHours) {
 }
 
 export async function getAutoPostSchedule(userId) {
-  const result = await db.select()
+  // Check by user id or fallback if telegram_id was used
+  let result = await db.select()
     .from(autoPostSchedules)
     .where(eq(autoPostSchedules.user_id, userId))
     .limit(1)
     .all();
+
+  if (result.length === 0) {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.id !== userId) {
+      result = await db.select()
+        .from(autoPostSchedules)
+        .where(eq(autoPostSchedules.user_id, user.id))
+        .limit(1)
+        .all();
+    }
+  }
+
   return result[0] || null;
 }
 
 export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive) {
   const updateData = {};
   if (channelId !== undefined) updateData.channel_id = channelId;
-  if (intervalHours !== undefined) updateData.interval_hours = intervalHours;
+  if (intervalHours !== undefined) {
+    updateData.interval_hours = intervalHours;
+    const now = Math.floor(Date.now() / 1000);
+    updateData.next_post_at = Math.round(now + (intervalHours * 3600));
+  }
   if (isActive !== undefined) updateData.is_active = isActive ? 1 : 0;
 
   const [updated] = await db.update(autoPostSchedules)
@@ -834,7 +852,7 @@ export async function updateAutoPostLastPosted(scheduleId) {
   if (schedule.length === 0) return null;
 
   const now = Math.floor(Date.now() / 1000);
-  const nextPostAt = now + (schedule[0].interval_hours * 3600);
+  const nextPostAt = Math.round(now + (schedule[0].interval_hours * 3600));
 
   const [updated] = await db.update(autoPostSchedules)
     .set({
