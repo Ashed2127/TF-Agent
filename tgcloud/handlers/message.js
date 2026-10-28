@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
@@ -49,6 +49,7 @@ export default async function (message, ctx) {
               { text: '⚙️ Settings', callback_data: 'settings' }
             ],
             [
+              { text: '👥 Manage Users', callback_data: 'owner_manage_users' },
               { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
@@ -93,6 +94,34 @@ export default async function (message, ctx) {
 
     // Show User/Guest choice for new users who haven't completed onboarding
     await showUserTypeChoice(message.chat.id);
+    return;
+  }
+
+  // Handle /users or /manage command (owner only)
+  if ((message.text === '/users' || message.text === '/manage' || message.text === '/manage_users') && userId === OWNER_CHAT_ID) {
+    const allUsers = await getAllUsers();
+    const activeCount = allUsers.filter(u => u.onboarding_step === 'completed').length;
+    let text = `👥 <b>User Management (${allUsers.length} total, ${activeCount} active):</b>\n\n`;
+
+    const keyboard = [];
+    allUsers.slice(0, 15).forEach(u => {
+      const uname = u.username ? `@${u.username}` : (u.display_name || `User #${u.id}`);
+      text += `• <b>${uname}</b> (ID: <code>${u.telegram_id}</code>)\n   Channel: ${u.channel_name || u.channel_id || 'None'} | Posts: ${u.posts_count || 0}\n`;
+      keyboard.push([
+        { text: `Manage ${uname}`, callback_data: `admin_user_${u.id}` }
+      ]);
+    });
+
+    keyboard.push([
+      { text: '📊 Open Web Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+    ]);
+
+    await api.sendMessage({
+      chat_id: message.chat.id,
+      text: text,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
     return;
   }
 

@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -70,6 +70,7 @@ async function showMainMenu(chatId, isOwner = false) {
   // Add analytics button for owner
   if (isOwner) {
     keyboard.splice(4, 0, [
+      { text: '👥 Manage Users', callback_data: 'owner_manage_users' },
       { text: ' Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ]);
   }
@@ -2186,6 +2187,7 @@ export default async function (callbackQuery, ctx) {
               { text: 'Settings', callback_data: 'settings' }
             ],
             [
+              { text: '👥 Manage Users', callback_data: 'owner_manage_users' },
               { text: ' Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
@@ -2221,6 +2223,186 @@ export default async function (callbackQuery, ctx) {
       callback_query_id: callbackQuery.id,
       text: '⛔ Unauthorized',
     });
+    return;
+  }
+
+  // Handle owner_manage_users
+  if (data === 'owner_manage_users') {
+    const allUsers = await getAllUsers();
+    let text = `👥 <b>User Management (${allUsers.length} total)</b>\n\nSelect a user to view their posts, clear data/onboarding, or delete:`;
+    const keyboard = [];
+
+    allUsers.slice(0, 15).forEach(u => {
+      const uname = u.username ? `@${u.username}` : (u.display_name || `User #${u.id}`);
+      keyboard.push([
+        { text: `👤 ${uname} (${u.posts_count || 0} posts)`, callback_data: `admin_user_${u.id}` }
+      ]);
+    });
+
+    keyboard.push([
+      { text: '📊 Open Web Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+    ]);
+    keyboard.push([
+      { text: 'Back', callback_data: 'back' }
+    ]);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: text,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+    return;
+  }
+
+  // Handle individual user details & manage options
+  if (data.startsWith('admin_user_')) {
+    const targetUserId = parseInt(data.replace('admin_user_', ''), 10);
+    const targetUser = await getUserById(targetUserId);
+
+    if (!targetUser) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ User not found.',
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'owner_manage_users' }]] }
+      });
+      return;
+    }
+
+    const uname = targetUser.username ? `@${targetUser.username}` : (targetUser.display_name || `User #${targetUser.id}`);
+    const userPosts = await getUserPosts(targetUser.id);
+    const dateStr = targetUser.created_at ? new Date(Number(targetUser.created_at) > 1e11 ? Number(targetUser.created_at) : Number(targetUser.created_at) * 1000).toLocaleDateString() : 'Unknown';
+
+    let text = `👤 <b>Creator Profile: ${uname}</b>\n\n`;
+    text += `• <b>User ID:</b> ${targetUser.id}\n`;
+    text += `• <b>Telegram ID:</b> <code>${targetUser.telegram_id}</code>\n`;
+    text += `• <b>Type:</b> ${targetUser.user_type || 'user'}\n`;
+    text += `• <b>Status:</b> ${targetUser.onboarding_step === 'completed' ? 'Active' : 'Onboarding'}\n`;
+    text += `• <b>Main Channel:</b> ${targetUser.channel_name || targetUser.channel_id || 'None'}\n`;
+    text += `• <b>Total Posts:</b> ${targetUser.posts_count || 0}\n`;
+    text += `• <b>Joined:</b> ${dateStr}\n\n`;
+
+    if (userPosts.length > 0) {
+      text += `<b>Latest Published Content:</b>\n`;
+      userPosts.slice(0, 3).forEach((p, idx) => {
+        const snippet = (p.content || '').replace(/<[^>]*>/g, '').substring(0, 75).trim();
+        text += `${idx + 1}. [${p.category || 'News'}] ${snippet}...\n`;
+      });
+    } else {
+      text += `<i>No published posts yet.</i>\n`;
+    }
+
+    const keyboard = [
+      [
+        { text: '📰 View All Posts', callback_data: `admin_view_posts_${targetUser.id}` }
+      ],
+      [
+        { text: '🧹 Reset Onboarding & Data', callback_data: `admin_clear_data_${targetUser.id}` },
+        { text: '🗑️ Clear Posts', callback_data: `admin_clear_posts_${targetUser.id}` }
+      ],
+      [
+        { text: '❌ Delete User', callback_data: `admin_delete_user_${targetUser.id}` }
+      ],
+      [
+        { text: 'Back to Users', callback_data: 'owner_manage_users' }
+      ]
+    ];
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: text,
+      parse_mode: 'HTML',
+      reply_markup: { inline_keyboard: keyboard }
+    });
+    return;
+  }
+
+  // Handle viewing all user posts in bot
+  if (data.startsWith('admin_view_posts_')) {
+    const targetUserId = parseInt(data.replace('admin_view_posts_', ''), 10);
+    const targetUser = await getUserById(targetUserId);
+    const userPosts = await getUserPosts(targetUserId);
+
+    const uname = targetUser ? (targetUser.username ? `@${targetUser.username}` : `User #${targetUser.id}`) : `User #${targetUserId}`;
+    let text = `📰 <b>Posts by ${uname} (${userPosts.length} total):</b>\n\n`;
+
+    if (userPosts.length === 0) {
+      text += '<i>No posts found for this user.</i>';
+    } else {
+      userPosts.slice(0, 8).forEach((p, i) => {
+        const snippet = (p.content || '').replace(/<[^>]*>/g, '').substring(0, 110).trim();
+        text += `<b>${i + 1}.</b> 📢 ${p.channel_id || 'Channel'} [${p.category || 'News'}]\n${snippet}...\n\n`;
+      });
+    }
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: text,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [[{ text: 'Back', callback_data: `admin_user_${targetUserId}` }]]
+      }
+    });
+    return;
+  }
+
+  // Handle action clear data in bot
+  if (data.startsWith('admin_clear_data_')) {
+    const targetUserId = parseInt(data.replace('admin_clear_data_', ''), 10);
+    try {
+      await clearUserData(targetUserId);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Successfully cleared channels, custom sources, schedules, and structures for User #${targetUserId}. User reset to fresh onboarding.`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back to User', callback_data: `admin_user_${targetUserId}` }]] }
+      });
+    } catch (err) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Error clearing data: ${err.message}`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: `admin_user_${targetUserId}` }]] }
+      });
+    }
+    return;
+  }
+
+  // Handle action clear posts in bot
+  if (data.startsWith('admin_clear_posts_')) {
+    const targetUserId = parseInt(data.replace('admin_clear_posts_', ''), 10);
+    try {
+      await clearUserPosts(targetUserId);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Successfully cleared post records and reset posts count to 0 for User #${targetUserId}.`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back to User', callback_data: `admin_user_${targetUserId}` }]] }
+      });
+    } catch (err) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Error clearing posts: ${err.message}`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: `admin_user_${targetUserId}` }]] }
+      });
+    }
+    return;
+  }
+
+  // Handle action delete user in bot
+  if (data.startsWith('admin_delete_user_')) {
+    const targetUserId = parseInt(data.replace('admin_delete_user_', ''), 10);
+    try {
+      await deleteUser(targetUserId);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Permanently deleted User #${targetUserId} and all associated records from the database.`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back to Users List', callback_data: 'owner_manage_users' }]] }
+      });
+    } catch (err) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `❌ Error deleting user: ${err.message}`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'owner_manage_users' }]] }
+      });
+    }
     return;
   }
 
