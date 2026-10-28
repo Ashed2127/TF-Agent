@@ -1322,19 +1322,19 @@ export default async function (callbackQuery, ctx) {
         keyboard: [
           [
             {
-              text: '📢 Choose Channel',
+              text: '📢 Choose My Channel',
               request_chat: {
                 request_id: 5,
                 chat_is_channel: true,
-                bot_is_member: false
+                chat_is_created: true
               }
             },
             {
-              text: '👥 Choose Group',
+              text: '👥 Choose My Group',
               request_chat: {
                 request_id: 6,
                 chat_is_channel: false,
-                bot_is_member: false
+                chat_is_created: true
               }
             }
           ]
@@ -2918,19 +2918,19 @@ async function handleCheckJoin(callbackQuery, userId) {
         keyboard: [
           [
             {
-              text: '📢 Choose Channel',
+              text: '📢 Choose My Channel',
               request_chat: {
                 request_id: 1,
                 chat_is_channel: true,
-                bot_is_member: false
+                chat_is_created: true
               }
             },
             {
-              text: '👥 Choose Group',
+              text: '👥 Choose My Group',
               request_chat: {
                 request_id: 2,
                 chat_is_channel: false,
-                bot_is_member: false
+                chat_is_created: true
               }
             }
           ]
@@ -2952,25 +2952,25 @@ async function handleChangeChannel(callbackQuery, userId) {
   await updateUserOnboardingStep(userId, 'provide_channel_id');
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '📝 <b>Select Your Channel or Group</b>\n\nTap <b>"📢 Choose Channel"</b> below to pick your channel directly, or send your username/link/forwarded message.',
+    text: '📝 <b>Select Your Channel or Group</b>\n\nTap <b>"📢 Choose My Channel"</b> below to pick from channels you own, or send your username/link/forwarded message.',
     parse_mode: 'HTML',
     reply_markup: {
       keyboard: [
         [
           {
-            text: '📢 Choose Channel',
+            text: '📢 Choose My Channel',
             request_chat: {
               request_id: 1,
               chat_is_channel: true,
-              bot_is_member: false
+              chat_is_created: true
             }
           },
           {
-            text: '👥 Choose Group',
+            text: '👥 Choose My Group',
             request_chat: {
               request_id: 2,
               chat_is_channel: false,
-              bot_is_member: false
+              chat_is_created: true
             }
           }
         ]
@@ -3796,19 +3796,19 @@ async function handleAddChannelStart(callbackQuery, userId) {
       keyboard: [
         [
           {
-            text: '📢 Choose Channel',
+            text: '📢 Choose My Channel',
             request_chat: {
               request_id: 3,
               chat_is_channel: true,
-              bot_is_member: false
+              chat_is_created: true
             }
           },
           {
-            text: '👥 Choose Group',
+            text: '👥 Choose My Group',
             request_chat: {
               request_id: 4,
               chat_is_channel: false,
-              bot_is_member: false
+              chat_is_created: true
             }
           }
         ]
