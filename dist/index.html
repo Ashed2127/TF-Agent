@@ -696,6 +696,10 @@
         <span class="nav-icon">📊</span>
         <span>Overview</span>
       </button>
+      <button class="nav-btn" data-tab="creators" onclick="switchTab('creators')">
+        <span class="nav-icon">👥</span>
+        <span>Users / Manage</span>
+      </button>
       <button class="nav-btn" data-tab="engage" onclick="switchTab('engage')">
         <span class="nav-icon">❤️</span>
         <span>Engage</span>
@@ -703,10 +707,6 @@
       <button class="nav-btn" data-tab="analytics" onclick="switchTab('analytics')">
         <span class="nav-icon">📈</span>
         <span>Analytics</span>
-      </button>
-      <button class="nav-btn" data-tab="creators" onclick="switchTab('creators')">
-        <span class="nav-icon">👥</span>
-        <span>Creators</span>
       </button>
       <button class="nav-btn" data-tab="posts" onclick="switchTab('posts')">
         <span class="nav-icon">📰</span>
@@ -727,13 +727,13 @@
       <section id="tab-overview" class="tab-panel active">
         <!-- KPI Grid -->
         <div class="kpi-grid">
-          <div class="kpi-card">
+          <div class="kpi-card" style="cursor: pointer;" onclick="switchTab('creators')">
             <div class="kpi-header">
               <span class="kpi-label">Active Creators</span>
               <span class="kpi-icon">👥</span>
             </div>
             <div class="kpi-value" id="kpiActiveUsers">0</div>
-            <div class="kpi-trend"><span>●</span> <span id="kpiTotalUsers">0</span> total users</div>
+            <div class="kpi-trend"><span>●</span> <span id="kpiTotalUsers">0</span> total users &nbsp;<span style="color: var(--green-neon); text-decoration: underline;">Manage ➔</span></div>
           </div>
 
           <div class="kpi-card">
@@ -765,6 +765,17 @@
         </div>
 
         <!-- Quick Activity Summary -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">👥 Quick User Management</div>
+              <div class="panel-subtitle">Registered creators & direct actions (Reset data, Clear posts, Delete)</div>
+            </div>
+            <button class="btn-action" onclick="switchTab('creators')">View All Users ➔</button>
+          </div>
+          <div id="overviewCreatorsQuickList" class="item-list"></div>
+        </div>
+
         <div class="panel-card">
           <div class="panel-header">
             <div>
@@ -879,6 +890,10 @@
         <span class="tab-icon">📊</span>
         <span>Overview</span>
       </button>
+      <button class="bottom-tab" data-tab="creators" onclick="switchTab('creators')">
+        <span class="tab-icon">👥</span>
+        <span>Manage</span>
+      </button>
       <button class="bottom-tab" data-tab="engage" onclick="switchTab('engage')">
         <span class="tab-icon">❤️</span>
         <span>Engage</span>
@@ -886,10 +901,6 @@
       <button class="bottom-tab" data-tab="analytics" onclick="switchTab('analytics')">
         <span class="tab-icon">📈</span>
         <span>Analytics</span>
-      </button>
-      <button class="bottom-tab" data-tab="creators" onclick="switchTab('creators')">
-        <span class="tab-icon">👥</span>
-        <span>Creators</span>
       </button>
       <button class="bottom-tab" data-tab="posts" onclick="switchTab('posts')">
         <span class="tab-icon">📰</span>
@@ -1045,11 +1056,77 @@
       renderCreatorsList();
     }
 
+    function renderUserItem(user) {
+      const channel = user.channel_name || user.channel_id;
+      const channelDisplay = channel
+        ? (channel.startsWith('@')
+            ? `<a href="https://t.me/${channel.substring(1)}" target="_blank" class="channel-link">${channel}</a>`
+            : `<span class="channel-link">${channel}</span>`)
+        : '<span style="color: var(--text-dim);">No channel</span>';
+
+      const isCompleted = user.onboarding_step === 'completed';
+      const statusBadge = isCompleted
+        ? `<span class="badge badge-green">● Active</span>`
+        : `<span class="badge badge-amber">○ Onboarding</span>`;
+
+      const dateStr = formatDateTime(user.created_at, 'date');
+      const lastPostedStr = user.last_posted_at ? formatTimeAgo(user.last_posted_at) : 'Never';
+      const userLabel = escapeHtml(user.username ? '@' + user.username : user.display_name || 'Creator #' + user.id);
+
+      return `
+        <div class="list-item" id="user-card-${user.id}">
+          <div class="item-top">
+            <div class="item-title">
+              👤 ${userLabel}
+              <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal; margin-left: 4px;">(TG: ${user.telegram_id})</span>
+            </div>
+            ${statusBadge}
+          </div>
+          <div class="item-subtitle">
+            Channel: ${channelDisplay}
+          </div>
+          <div class="item-badges">
+            <span class="badge badge-blue">🚀 ${user.posts_count || 0} posts</span>
+            <span class="badge badge-purple">Type: ${escapeHtml(user.user_type || 'user')}</span>
+            <span class="badge badge-green" title="Last content published">⏱️ Posted: ${lastPostedStr}</span>
+            <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">Joined ${dateStr}</span>
+          </div>
+
+          <!-- Management Actions for Owner -->
+          <div class="user-actions-row">
+            <button class="btn-user-action warn" onclick="handleManageUser(${user.id}, 'clear_data', '${escapeHtml(user.username || user.display_name || user.id)}')">
+              <span>🧹</span> Reset Onboarding & Data
+            </button>
+            <button class="btn-user-action" onclick="handleManageUser(${user.id}, 'clear_posts', '${escapeHtml(user.username || user.display_name || user.id)}')">
+              <span>🗑️</span> Clear Posts
+            </button>
+            <button class="btn-user-action danger" onclick="handleManageUser(${user.id}, 'delete_user', '${escapeHtml(user.username || user.display_name || user.id)}')">
+              <span>❌</span> Delete User
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
     function renderCreatorsList() {
       const creatorsList = document.getElementById('creatorsList');
-      if (!creatorsList || !globalData) return;
+      const overviewQuickList = document.getElementById('overviewCreatorsQuickList');
+      if (!globalData) return;
 
-      let users = globalData.recentUsers || [];
+      const allUsers = globalData.recentUsers || [];
+
+      // Render top 3 creators on Overview tab quick management
+      if (overviewQuickList) {
+        if (allUsers.length > 0) {
+          overviewQuickList.innerHTML = allUsers.slice(0, 3).map(user => renderUserItem(user)).join('');
+        } else {
+          overviewQuickList.innerHTML = `<div class="empty-state"><div class="empty-icon">👥</div><p>No creators registered yet.</p></div>`;
+        }
+      }
+
+      if (!creatorsList) return;
+
+      let users = allUsers;
       const badge = document.getElementById('creatorsCountBadge');
       if (badge) badge.textContent = `${users.length} Users`;
 
@@ -1077,57 +1154,7 @@
         return;
       }
 
-      creatorsList.innerHTML = users.map(user => {
-        const channel = user.channel_name || user.channel_id;
-        const channelDisplay = channel
-          ? (channel.startsWith('@')
-              ? `<a href="https://t.me/${channel.substring(1)}" target="_blank" class="channel-link">${channel}</a>`
-              : `<span class="channel-link">${channel}</span>`)
-          : '<span style="color: var(--text-dim);">No channel</span>';
-
-        const isCompleted = user.onboarding_step === 'completed';
-        const statusBadge = isCompleted
-          ? `<span class="badge badge-green">● Active</span>`
-          : `<span class="badge badge-amber">○ Onboarding</span>`;
-
-        const dateStr = formatDateTime(user.created_at, 'date');
-        const lastPostedStr = user.last_posted_at ? formatTimeAgo(user.last_posted_at) : 'Never';
-        const userLabel = escapeHtml(user.username ? '@' + user.username : user.display_name || 'Creator #' + user.id);
-
-        return `
-          <div class="list-item" id="user-card-${user.id}">
-            <div class="item-top">
-              <div class="item-title">
-                👤 ${userLabel}
-                <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal; margin-left: 4px;">(TG: ${user.telegram_id})</span>
-              </div>
-              ${statusBadge}
-            </div>
-            <div class="item-subtitle">
-              Channel: ${channelDisplay}
-            </div>
-            <div class="item-badges">
-              <span class="badge badge-blue">🚀 ${user.posts_count || 0} posts</span>
-              <span class="badge badge-purple">Type: ${escapeHtml(user.user_type || 'user')}</span>
-              <span class="badge badge-green" title="Last content published">⏱️ Posted: ${lastPostedStr}</span>
-              <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">Joined ${dateStr}</span>
-            </div>
-
-            <!-- Management Actions for Owner -->
-            <div class="user-actions-row">
-              <button class="btn-user-action warn" onclick="handleManageUser(${user.id}, 'clear_data', '${escapeHtml(user.username || user.display_name || user.id)}')">
-                <span>🧹</span> Reset Onboarding & Data
-              </button>
-              <button class="btn-user-action" onclick="handleManageUser(${user.id}, 'clear_posts', '${escapeHtml(user.username || user.display_name || user.id)}')">
-                <span>🗑️</span> Clear Posts
-              </button>
-              <button class="btn-user-action danger" onclick="handleManageUser(${user.id}, 'delete_user', '${escapeHtml(user.username || user.display_name || user.id)}')">
-                <span>❌</span> Delete User
-              </button>
-            </div>
-          </div>
-        `;
-      }).join('');
+      creatorsList.innerHTML = users.map(user => renderUserItem(user)).join('');
     }
 
     // Call serverless manageUser endpoint
