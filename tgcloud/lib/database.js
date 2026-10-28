@@ -504,23 +504,34 @@ export async function getDashboardStats() {
   const registeredPostsCount = allPosts.length;
   const activeSchedulesCount = allSchedules.filter(s => s.is_active === 1).length;
 
+  const userMap = new Map();
+  allUsers.forEach(u => {
+    userMap.set(u.id, u);
+  });
+
   const recentPosts = await db.select()
     .from(posts)
     .orderBy(desc(posts.created_at))
-    .limit(20)
+    .limit(100)
     .all();
 
   const recentUsers = await db.select()
     .from(users)
     .orderBy(desc(users.created_at))
-    .limit(25)
+    .limit(50)
     .all();
 
-  // Convert timestamps to numbers for JSON serialization
-  const serializedPosts = recentPosts.map(post => ({
-    ...post,
-    created_at: post.created_at ? Number(post.created_at) : null
-  }));
+  // Convert timestamps to numbers and enrich with author user details
+  const serializedPosts = recentPosts.map(post => {
+    const author = userMap.get(post.user_id);
+    return {
+      ...post,
+      created_at: post.created_at ? Number(post.created_at) : null,
+      author_username: author?.username || null,
+      author_name: author?.display_name || null,
+      author_telegram_id: author?.telegram_id || null
+    };
+  });
 
   const serializedUsers = recentUsers.map(user => ({
     ...user,

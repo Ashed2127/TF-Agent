@@ -875,9 +875,19 @@
           <div class="panel-header">
             <div>
               <div class="panel-title">📰 Published Content Stream</div>
-              <div class="panel-subtitle">Direct translations, business ideas, and syndicated articles</div>
+              <div class="panel-subtitle">Direct translations, business ideas, and syndicated articles by creators</div>
             </div>
+            <span class="badge badge-green" id="postsCountBadge">0 Articles</span>
           </div>
+
+          <!-- Filter posts by author/creator -->
+          <div class="search-input-wrap" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input type="text" id="postSearchInput" class="search-input" style="flex: 2; min-width: 180px;" placeholder="🔍 Search posts or content..." oninput="handlePostSearch(this.value)">
+            <select id="postAuthorFilter" class="search-input" style="flex: 1; min-width: 140px; cursor: pointer;" onchange="handlePostAuthorFilter(this.value)">
+              <option value="all">👤 All Creators</option>
+            </select>
+          </div>
+
           <div id="postsList" class="item-list"></div>
         </div>
       </section>
@@ -1039,13 +1049,74 @@
       // 4. Creators List
       renderCreatorsList();
 
-      // 5. Live Posts List
+      // 5. Live Posts List & Authors Filter Options
+      renderPostsFilterDropdown(data.recentUsers || []);
+      renderPostsList();
+    }
+
+    // Filter Posts by User / Content
+    let postSearchTerm = '';
+    let selectedPostAuthor = 'all';
+
+    function handlePostSearch(term) {
+      postSearchTerm = (term || '').toLowerCase().trim();
+      renderPostsList();
+    }
+
+    function handlePostAuthorFilter(authorId) {
+      selectedPostAuthor = authorId;
+      renderPostsList();
+    }
+
+    function renderPostsFilterDropdown(users) {
+      const select = document.getElementById('postAuthorFilter');
+      if (!select) return;
+
+      const currentValue = select.value || 'all';
+      let html = `<option value="all">👤 All Creators</option>`;
+      users.forEach(u => {
+        const label = u.username ? '@' + u.username : u.display_name || `User #${u.id}`;
+        html += `<option value="${u.id}">${escapeHtml(label)}</option>`;
+      });
+      select.innerHTML = html;
+      select.value = currentValue;
+    }
+
+    function renderPostsList() {
       const postsList = document.getElementById('postsList');
-      if (data.recentPosts && data.recentPosts.length > 0) {
-        postsList.innerHTML = data.recentPosts.map(post => renderPostItem(post)).join('');
-      } else {
-        postsList.innerHTML = `<div class="empty-state"><div class="empty-icon">📰</div><p>No published articles yet.</p></div>`;
+      if (!postsList || !globalData) return;
+
+      let posts = globalData.recentPosts || [];
+
+      // Filter by selected author
+      if (selectedPostAuthor !== 'all') {
+        const targetId = parseInt(selectedPostAuthor, 10);
+        posts = posts.filter(p => p.user_id === targetId);
       }
+
+      // Filter by search query
+      if (postSearchTerm) {
+        posts = posts.filter(p => {
+          const content = (p.content || '').toLowerCase();
+          const channel = (p.channel_id || '').toLowerCase();
+          const author = (p.author_username || p.author_name || '').toLowerCase();
+          const cat = (p.category || '').toLowerCase();
+          return content.includes(postSearchTerm) ||
+                 channel.includes(postSearchTerm) ||
+                 author.includes(postSearchTerm) ||
+                 cat.includes(postSearchTerm);
+        });
+      }
+
+      const badge = document.getElementById('postsCountBadge');
+      if (badge) badge.textContent = `${posts.length} Articles`;
+
+      if (posts.length === 0) {
+        postsList.innerHTML = `<div class="empty-state"><div class="empty-icon">📰</div><p>No published articles match the filter.</p></div>`;
+        return;
+      }
+
+      postsList.innerHTML = posts.map(post => renderPostItem(post)).join('');
     }
 
     // User search & Creators rendering
@@ -1094,6 +1165,9 @@
 
           <!-- Management Actions for Owner -->
           <div class="user-actions-row">
+            <button class="btn-user-action" onclick="filterPostsByUser(${user.id})" title="View articles published by this user">
+              <span>📰</span> View Posts (${user.posts_count || 0})
+            </button>
             <button class="btn-user-action warn" onclick="handleManageUser(${user.id}, 'clear_data', '${escapeHtml(user.username || user.display_name || user.id)}')">
               <span>🧹</span> Reset Onboarding & Data
             </button>
@@ -1362,8 +1436,13 @@
         ? `<a href="https://t.me/${channel.substring(1)}" target="_blank" class="channel-link">${channel}</a>`
         : `<span class="channel-link">${channel}</span>`;
 
-      const timeStr = formatDateTime(post.created_at, 'time');
+      const timeStr = formatDateTime(post.created_at, 'full');
+      const timeAgoStr = formatTimeAgo(post.created_at);
       const cleanContent = (post.content || '').replace(/<[^>]*>/g, '').trim();
+
+      const authorDisplay = post.author_username
+        ? `@${escapeHtml(post.author_username)}`
+        : (post.author_name ? escapeHtml(post.author_name) : `User #${post.user_id}`);
 
       return `
         <div class="list-item">
@@ -1371,9 +1450,14 @@
             <div class="item-title">
               📢 ${channelHtml}
             </div>
-            <span style="font-size: 0.72rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">${timeStr}</span>
+            <span style="font-size: 0.72rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;" title="${timeStr}">
+              ⏱️ ${timeAgoStr}
+            </span>
           </div>
           <div class="item-badges">
+            <span class="badge badge-purple" style="cursor: pointer;" onclick="filterPostsByUser(${post.user_id})" title="Click to view posts by this author">
+              👤 ${authorDisplay}
+            </span>
             <span class="badge badge-green">${escapeHtml(post.category || 'News')}</span>
             <span class="badge badge-blue">${escapeHtml(post.source || 'RSS')}</span>
           </div>
@@ -1382,6 +1466,14 @@
           </div>
         </div>
       `;
+    }
+
+    function filterPostsByUser(userId) {
+      selectedPostAuthor = String(userId);
+      const select = document.getElementById('postAuthorFilter');
+      if (select) select.value = String(userId);
+      switchTab('posts');
+      renderPostsList();
     }
 
     // Analytics Chart Rendering
