@@ -50,7 +50,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Settings', callback_data: 'settings' }
     ],
     [
-      { text: '🌐 Direct Translation', callback_data: 'direct_translate_menu' },
+      { text: 'Direct Translation', callback_data: 'direct_translate_menu' },
       { text: 'Rates', callback_data: 'get_rates' }
     ],
     [
@@ -70,7 +70,7 @@ async function showMainMenu(chatId, isOwner = false) {
   // Add analytics button for owner
   if (isOwner) {
     keyboard.splice(4, 0, [
-      { text: '👥 Manage Users', callback_data: 'owner_manage_users' },
+      { text: 'Manage Users', callback_data: 'owner_manage_users' },
       { text: ' Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ]);
   }
@@ -226,7 +226,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
           { text: 'Test', callback_data: `news_test_${platformId}_${nextIndex}` }
         ],
         [
-          { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
+          { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
           { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
         ],
         [
@@ -240,7 +240,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       // Guest mode - no posting, just edit and skip
       keyboard = [
         [
-          { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
+          { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
           { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
         ],
         [
@@ -261,7 +261,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
+            { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
           ],
           [
@@ -277,7 +277,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
             { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
           ],
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
+            { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_${nextIndex}` }
           ],
           [
@@ -520,7 +520,7 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '👤 User', callback_data: 'choose_user' },
+            { text: 'User', callback_data: 'choose_user' },
             { text: ' Guest', callback_data: 'choose_guest' }
           ],
           [
@@ -699,16 +699,16 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '🇪🇹 አማርኛ (Amharic)', callback_data: `news_direct_am_${platformId}_${currentIndex}` }
+            { text: 'አማርኛ (Amharic)', callback_data: `news_direct_am_${platformId}_${currentIndex}` }
           ],
           [
-            { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: `news_direct_ti_${platformId}_${currentIndex}` }
+            { text: 'ትግርኛ (Tigrinya)', callback_data: `news_direct_ti_${platformId}_${currentIndex}` }
           ],
           [
-            { text: '🇪🇹 Afaan Oromoo', callback_data: `news_direct_om_${platformId}_${currentIndex}` }
+            { text: 'Afaan Oromoo', callback_data: `news_direct_om_${platformId}_${currentIndex}` }
           ],
           [
-            { text: '↩️ Cancel', callback_data: `news_skip_${platformId}_${currentIndex}` }
+            { text: 'Cancel', callback_data: `news_skip_${platformId}_${currentIndex}` }
           ]
         ]
       }
@@ -729,16 +729,16 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '🇪🇹 አማርኛ (Amharic)', callback_data: 'direct_translate_lang_am' }
+            { text: 'አማርኛ (Amharic)', callback_data: 'direct_translate_lang_am' }
           ],
           [
-            { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: 'direct_translate_lang_ti' }
+            { text: 'ትግርኛ (Tigrinya)', callback_data: 'direct_translate_lang_ti' }
           ],
           [
-            { text: '🇪🇹 Afaan Oromoo', callback_data: 'direct_translate_lang_om' }
+            { text: 'Afaan Oromoo', callback_data: 'direct_translate_lang_om' }
           ],
           [
-            { text: '↩️ Back', callback_data: 'back' }
+            { text: 'Back', callback_data: 'back' }
           ]
         ]
       }
@@ -756,7 +756,7 @@ export default async function (callbackQuery, ctx) {
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '↩️ Back', callback_data: 'direct_translate_menu' }]
+          [{ text: 'Back', callback_data: 'direct_translate_menu' }]
         ]
       }
     });
@@ -880,7 +880,7 @@ export default async function (callbackQuery, ctx) {
     }
     keyboard.push([
       { text: 'Refresh', callback_data: `news_cat_${catId}` },
-      { text: '↩️ Categories', callback_data: 'get_news' }
+      { text: 'Categories', callback_data: 'get_news' }
     ]);
 
     const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
@@ -990,7 +990,7 @@ export default async function (callbackQuery, ctx) {
             { text: 'Test', callback_data: `news_test_${platformId}_0` }
           ],
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
+            { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
           ],
           [
@@ -1004,7 +1004,7 @@ export default async function (callbackQuery, ctx) {
         // Guest mode - no posting, just edit and skip
         keyboard = [
           [
-            { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
+            { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
             { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
           ],
           [
@@ -1025,7 +1025,7 @@ export default async function (callbackQuery, ctx) {
               { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_0` }
             ],
             [
-              { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
+              { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
               { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
             ],
             [
@@ -1041,7 +1041,7 @@ export default async function (callbackQuery, ctx) {
               { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
             ],
             [
-              { text: '🌐 Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
+              { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
               { text: 'Edit', callback_data: `news_edit_${platformId}_0` }
             ],
             [
@@ -1322,19 +1322,23 @@ export default async function (callbackQuery, ctx) {
         keyboard: [
           [
             {
-              text: '📢 Choose My Channel',
+              text: 'Choose My Channel',
               request_chat: {
                 request_id: 5,
                 chat_is_channel: true,
-                chat_is_created: true
+                chat_is_created: true,
+                request_title: true,
+                request_username: true
               }
             },
             {
-              text: '👥 Choose My Group',
+              text: 'Choose My Group',
               request_chat: {
                 request_id: 6,
                 chat_is_channel: false,
-                chat_is_created: true
+                chat_is_created: true,
+                request_title: true,
+                request_username: true
               }
             }
           ]
@@ -1454,7 +1458,7 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '▶️ Run Auto Post Now', callback_data: 'run_auto_post_now' }
+              { text: 'Run Auto Post Now', callback_data: 'run_auto_post_now' }
             ],
             [
               { text: autoPostSchedule.is_active === 1 ? 'Pause' : 'Resume', callback_data: 'toggle_auto_post' }
@@ -1493,7 +1497,7 @@ export default async function (callbackQuery, ctx) {
         // Add test interval (visible to all for testing)
         keyboard.push(
           ...userChannels.map(channel => [
-            { text: `🧪 TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `setup_auto_post_${channel.channel_id}_0.004` }
+            { text: `TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `setup_auto_post_${channel.channel_id}_0.004` }
           ])
         );
 
@@ -1584,7 +1588,7 @@ export default async function (callbackQuery, ctx) {
       // Add test interval (visible to all for testing)
       keyboard.push(
         ...userChannels.map(channel => [
-          { text: `🧪 TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `update_auto_post_${channel.channel_id}_0.004` }
+          { text: `TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `update_auto_post_${channel.channel_id}_0.004` }
         ])
       );
 
@@ -1731,7 +1735,7 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '▶️ Run Again', callback_data: 'run_auto_post_now' }
+              { text: 'Run Again', callback_data: 'run_auto_post_now' }
             ],
             [
               { text: 'Back', callback_data: 'auto_post' }
@@ -1751,7 +1755,7 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '▶️ Try Again', callback_data: 'run_auto_post_now' }
+              { text: 'Try Again', callback_data: 'run_auto_post_now' }
             ],
             [
               { text: 'Back', callback_data: 'auto_post' }
@@ -2212,7 +2216,7 @@ export default async function (callbackQuery, ctx) {
               { text: 'Settings', callback_data: 'settings' }
             ],
             [
-              { text: '👥 Manage Users', callback_data: 'owner_manage_users' },
+              { text: 'Manage Users', callback_data: 'owner_manage_users' },
               { text: ' Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
@@ -2226,7 +2230,7 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '👤 User', callback_data: 'choose_user' },
+              { text: 'User', callback_data: 'choose_user' },
               { text: ' Guest', callback_data: 'choose_guest' }
             ],
             [
@@ -2260,12 +2264,12 @@ export default async function (callbackQuery, ctx) {
     allUsers.slice(0, 15).forEach(u => {
       const uname = u.username ? `@${u.username}` : (u.display_name || `User #${u.id}`);
       keyboard.push([
-        { text: `👤 ${uname} (${u.posts_count || 0} posts)`, callback_data: `admin_user_${u.id}` }
+        { text: `${uname} (${u.posts_count || 0} posts)`, callback_data: `admin_user_${u.id}` }
       ]);
     });
 
     keyboard.push([
-      { text: '📊 Open Web Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+      { text: 'Open Web Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ]);
     keyboard.push([
       { text: 'Back', callback_data: 'back' }
@@ -2319,14 +2323,14 @@ export default async function (callbackQuery, ctx) {
 
     const keyboard = [
       [
-        { text: '📰 View All Posts', callback_data: `admin_view_posts_${targetUser.id}` }
+        { text: 'View All Posts', callback_data: `admin_view_posts_${targetUser.id}` }
       ],
       [
-        { text: '🧹 Reset Onboarding & Data', callback_data: `admin_clear_data_${targetUser.id}` },
-        { text: '🗑️ Clear Posts', callback_data: `admin_clear_posts_${targetUser.id}` }
+        { text: 'Reset Onboarding & Data', callback_data: `admin_clear_data_${targetUser.id}` },
+        { text: 'Clear Posts', callback_data: `admin_clear_posts_${targetUser.id}` }
       ],
       [
-        { text: '❌ Delete User', callback_data: `admin_delete_user_${targetUser.id}` }
+        { text: 'Delete User', callback_data: `admin_delete_user_${targetUser.id}` }
       ],
       [
         { text: 'Back to Users', callback_data: 'owner_manage_users' }
@@ -2366,8 +2370,8 @@ export default async function (callbackQuery, ctx) {
     const keyboard = [
       [
         isFull
-          ? { text: '📖 Switch to Halfway View', callback_data: `admin_view_posts_${targetUserId}` }
-          : { text: '🔍 Switch to Full View', callback_data: `admin_view_posts_full_${targetUserId}` }
+          ? { text: 'Switch to Halfway View', callback_data: `admin_view_posts_${targetUserId}` }
+          : { text: 'Switch to Full View', callback_data: `admin_view_posts_full_${targetUserId}` }
       ],
       [
         { text: 'Back to User', callback_data: `admin_user_${targetUserId}` }
@@ -2918,19 +2922,23 @@ async function handleCheckJoin(callbackQuery, userId) {
         keyboard: [
           [
             {
-              text: '📢 Choose My Channel',
+              text: 'Choose My Channel',
               request_chat: {
                 request_id: 1,
                 chat_is_channel: true,
-                chat_is_created: true
+                chat_is_created: true,
+                request_title: true,
+                request_username: true
               }
             },
             {
-              text: '👥 Choose My Group',
+              text: 'Choose My Group',
               request_chat: {
                 request_id: 2,
                 chat_is_channel: false,
-                chat_is_created: true
+                chat_is_created: true,
+                request_title: true,
+                request_username: true
               }
             }
           ]
@@ -2958,19 +2966,23 @@ async function handleChangeChannel(callbackQuery, userId) {
       keyboard: [
         [
           {
-            text: '📢 Choose My Channel',
+            text: 'Choose My Channel',
             request_chat: {
               request_id: 1,
               chat_is_channel: true,
-              chat_is_created: true
+              chat_is_created: true,
+              request_title: true,
+              request_username: true
             }
           },
           {
-            text: '👥 Choose My Group',
+            text: 'Choose My Group',
             request_chat: {
               request_id: 2,
               chat_is_channel: false,
-              chat_is_created: true
+              chat_is_created: true,
+              request_title: true,
+              request_username: true
             }
           }
         ]
@@ -2991,7 +3003,7 @@ async function handleBotAdminAdded(callbackQuery, userId) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '📝 Provide Channel', callback_data: 'change_channel' }
+            { text: 'Provide Channel', callback_data: 'change_channel' }
           ]
         ]
       }
@@ -3230,7 +3242,7 @@ async function handleGenerateContent(callbackQuery, userId) {
   }
   keyboard.push([
     { text: 'All Sources', callback_data: 'news_cat_all' },
-    { text: '↩️ Main Menu', callback_data: 'back' }
+    { text: 'Main Menu', callback_data: 'back' }
   ]);
 
   await api.sendMessage({
@@ -3288,7 +3300,7 @@ async function handleDollarRate(callbackQuery, userId) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '🔄 Refresh', callback_data: 'rate_dollar' }
+            { text: 'Refresh', callback_data: 'rate_dollar' }
           ],
           [
             { text: 'Back', callback_data: 'get_rates' }
@@ -3347,7 +3359,7 @@ async function handleBTCRate(callbackQuery, userId) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '🔄 Refresh', callback_data: 'rate_btc' }
+            { text: 'Refresh', callback_data: 'rate_btc' }
           ],
           [
             { text: 'Back', callback_data: 'get_rates' }
@@ -3432,21 +3444,21 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
   const keyboard = [];
   for (const channel of userChannels) {
     const channelName = channel.channel_name || channel.channel_id;
-    const typeLabel = channel.is_main ? ' 🌟 Main' : (channel.is_test ? ' 🧪 Test' : '');
+    const typeLabel = channel.is_main ? ' (Main)' : (channel.is_test ? ' (Test)' : '');
     keyboard.push([
-      { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_chan:${channel.id}:${platformId}:${currentIndex}` }
+      { text: `${channelName}${typeLabel}`, callback_data: `post_chan:${channel.id}:${platformId}:${currentIndex}` }
     ]);
   }
 
   // Add "Post to All" button if user has more than 1 channel
   if (userChannels.length > 1) {
     keyboard.push([
-      { text: '📢 Post to All Channels', callback_data: `post_to_all_${platformId}_${currentIndex}` }
+      { text: 'Post to All Channels', callback_data: `post_to_all_${platformId}_${currentIndex}` }
     ]);
   }
 
   keyboard.push([
-    { text: '↩️ Cancel', callback_data: `news_skip_${platformId}_${currentIndex}` }
+    { text: 'Cancel', callback_data: `news_skip_${platformId}_${currentIndex}` }
   ]);
 
   await api.sendMessage({
@@ -3764,7 +3776,7 @@ async function handleManageChannels(callbackQuery, userId) {
   const keyboard = [];
   for (const channel of channels) {
     const channelName = channel.channel_name || channel.channel_id;
-    const typeLabel = channel.is_main ? ' 🌟 Main' : (channel.is_test ? ' Test' : '');
+    const typeLabel = channel.is_main ? ' (Main)' : (channel.is_test ? ' (Test)' : '');
     keyboard.push([
       { text: `${channelName}${typeLabel}`, callback_data: `channel_info_${channel.id}` }
     ]);
@@ -3796,19 +3808,23 @@ async function handleAddChannelStart(callbackQuery, userId) {
       keyboard: [
         [
           {
-            text: '📢 Choose My Channel',
+            text: 'Choose My Channel',
             request_chat: {
               request_id: 3,
               chat_is_channel: true,
-              chat_is_created: true
+              chat_is_created: true,
+              request_title: true,
+              request_username: true
             }
           },
           {
-            text: '👥 Choose My Group',
+            text: 'Choose My Group',
             request_chat: {
               request_id: 4,
               chat_is_channel: false,
-              chat_is_created: true
+              chat_is_created: true,
+              request_title: true,
+              request_username: true
             }
           }
         ]
@@ -3871,7 +3887,7 @@ async function handleChannelInfo(callbackQuery, userId, channelId) {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '🗑️ Remove Channel', callback_data: `delete_channel_${channel.id}` }
+          { text: 'Remove Channel', callback_data: `delete_channel_${channel.id}` }
         ],
         [
           { text: 'Back', callback_data: 'manage_channels' }
@@ -4208,19 +4224,19 @@ async function handleTranslate(callbackQuery, userId, data) {
       if (userChannels && userChannels.length > 0) {
         for (const channel of userChannels) {
           const channelName = channel.channel_name || channel.channel_id;
-          const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+          const typeLabel = channel.is_main ? ' (Main)' : (channel.is_test ? ' (Test)' : '');
           keyboard.push([
-            { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
+            { text: `${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
           ]);
         }
         if (userChannels.length > 1) {
           keyboard.push([
-            { text: '📢 Post to All Channels', callback_data: `post_edit_all:${editId}` }
+            { text: 'Post to All Channels', callback_data: `post_edit_all:${editId}` }
           ]);
         }
       } else {
         keyboard.push([
-          { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+          { text: 'Post to Channel', callback_data: `post_edit_user_main:${editId}` }
         ]);
       }
       keyboard.push([

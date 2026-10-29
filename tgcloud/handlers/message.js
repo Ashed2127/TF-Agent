@@ -42,15 +42,15 @@ export default async function (message, ctx) {
           inline_keyboard: [
             [
               { text: 'idea', callback_data: 'new_idea' },
-              { text: '📰 news', callback_data: 'get_news' }
+              { text: 'news', callback_data: 'get_news' }
             ],
             [
-              { text: '💰 Rates', callback_data: 'get_rates' },
-              { text: '⚙️ Settings', callback_data: 'settings' }
+              { text: 'Rates', callback_data: 'get_rates' },
+              { text: 'Settings', callback_data: 'settings' }
             ],
             [
-              { text: '👥 Manage Users', callback_data: 'owner_manage_users' },
-              { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+              { text: 'Manage Users', callback_data: 'owner_manage_users' },
+              { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
         }
@@ -113,7 +113,7 @@ export default async function (message, ctx) {
     });
 
     keyboard.push([
-      { text: '📊 Open Web Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+      { text: 'Open Web Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ]);
 
     await api.sendMessage({
@@ -200,10 +200,10 @@ export default async function (message, ctx) {
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: '🇪🇹 አማርኛ (Amharic)', callback_data: 'direct_translate_lang_am' }],
-            [{ text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: 'direct_translate_lang_ti' }],
-            [{ text: '🇪🇹 Afaan Oromoo', callback_data: 'direct_translate_lang_om' }],
-            [{ text: '↩️ Back', callback_data: 'back' }]
+            [{ text: 'አማርኛ (Amharic)', callback_data: 'direct_translate_lang_am' }],
+            [{ text: 'ትግርኛ (Tigrinya)', callback_data: 'direct_translate_lang_ti' }],
+            [{ text: 'Afaan Oromoo', callback_data: 'direct_translate_lang_om' }],
+            [{ text: 'Back', callback_data: 'back' }]
           ]
         }
       });
@@ -272,18 +272,18 @@ export default async function (message, ctx) {
       if (isOwner) {
         keyboard = [
           [
-            { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
-            { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
+            { text: 'TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
+            { text: 'Test', callback_data: `post_edit_test:${editId}` }
           ],
           [
-            { text: '❌ Cancel', callback_data: 'cancel_edit' }
+            { text: 'Cancel', callback_data: 'cancel_edit' }
           ]
         ];
       } else if (user?.user_type === 'guest') {
         // Guest mode - no posting, just cancel
         keyboard = [
           [
-            { text: '❌ Cancel', callback_data: 'cancel_edit' }
+            { text: 'Cancel', callback_data: 'cancel_edit' }
           ]
         ];
       } else {
@@ -296,23 +296,23 @@ export default async function (message, ctx) {
         if (channels && channels.length > 0) {
           for (const channel of channels) {
             const channelName = channel.channel_name || channel.channel_id;
-            const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+            const typeLabel = channel.is_main ? ' (Main)' : (channel.is_test ? ' (Test)' : '');
             keyboard.push([
-              { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
+              { text: `${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
             ]);
           }
           if (channels.length > 1) {
             keyboard.push([
-              { text: '📢 Post to All Channels', callback_data: `post_edit_all:${editId}` }
+              { text: 'Post to All Channels', callback_data: `post_edit_all:${editId}` }
             ]);
           }
         } else {
           keyboard.push([
-            { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+            { text: 'Post to Channel', callback_data: `post_edit_user_main:${editId}` }
           ]);
         }
         keyboard.push([
-          { text: '❌ Cancel', callback_data: 'cancel_edit' }
+          { text: 'Cancel', callback_data: 'cancel_edit' }
         ]);
       }
 
@@ -453,7 +453,7 @@ export default async function (message, ctx) {
           text: `✅ Channel link updated to: ${newChannelName || newChannelId}`,
           reply_markup: {
             inline_keyboard: [
-              [{ text: '⚙️ Settings', callback_data: 'settings' }]
+              [{ text: 'Settings', callback_data: 'settings' }]
             ]
           }
         });
@@ -464,62 +464,12 @@ export default async function (message, ctx) {
           text: '❌ Invalid channel format. Please send a valid channel (e.g., @mychannel or https://t.me/mychannel)',
           reply_markup: {
             inline_keyboard: [
-              [{ text: '⚙️ Settings', callback_data: 'settings' }]
+              [{ text: 'Settings', callback_data: 'settings' }]
             ]
           }
         });
         return;
       }
-    }
-
-    // Handle bot admin verification for new channel
-    if (pendingChannel && pendingChannel.channelId !== 'waiting') {
-      const text = (message.text || '').trim().toLowerCase();
-      if (['done', 'done!', 'added', 'ok', 'ready', 'yes', 'check'].includes(text)) {
-        await verifyAndAddChannel(message.chat.id, user, pendingChannel.channelId, pendingChannel.channelName);
-        return;
-      }
-      if (['cancel', 'abort', 'stop', 'no'].includes(text)) {
-        await clearPendingChannelAdd(userId);
-        await api.sendMessage({
-          chat_id: message.chat.id,
-          text: '❌ Channel addition cancelled.',
-          reply_markup: {
-            inline_keyboard: [
-              [{ text: '⚙️ Settings', callback_data: 'settings' }]
-            ]
-          }
-        });
-        return;
-      }
-    }
-
-    // Handle content structure input
-    if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
-      let structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
-
-      // Normalize missing brackets (e.g. "Headline ]" -> "[Headline]")
-      structureText = structureText.replace(/^([^\[\n\r]+\])/, '[$1');
-      structureText = structureText.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
-        return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
-      });
-
-      console.log('💾 Saving content structure for user:', user.id);
-      console.log('📝 Normalized structure text:', structureText);
-      const savedStructure = await saveContentStructure(user.id, structureText);
-      console.log('✅ Saved structure result:', savedStructure);
-      await clearPendingChannelAdd(userId);
-      await api.sendMessage({
-        chat_id: message.chat.id,
-        text: '✅ <b>Content structure saved!</b>\n\nThe AI will now strictly follow your exact structure, styling, and placeholders.',
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [{ text: '⚙️ Settings', callback_data: 'settings' }]
-          ]
-        }
-      });
-      return;
     }
 
     // Handle direct translation input
@@ -569,6 +519,56 @@ export default async function (message, ctx) {
       }
       return;
     }
+
+    // Handle content structure input
+    if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
+      let structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
+
+      // Normalize missing brackets (e.g. "Headline ]" -> "[Headline]")
+      structureText = structureText.replace(/^([^\[\n\r]+\])/, '[$1');
+      structureText = structureText.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
+        return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
+      });
+
+      console.log('💾 Saving content structure for user:', user.id);
+      console.log('📝 Normalized structure text:', structureText);
+      const savedStructure = await saveContentStructure(user.id, structureText);
+      console.log('✅ Saved structure result:', savedStructure);
+      await clearPendingChannelAdd(userId);
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: '✅ <b>Content structure saved!</b>\n\nThe AI will now strictly follow your exact structure, styling, and placeholders.',
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Settings', callback_data: 'settings' }]
+          ]
+        }
+      });
+      return;
+    }
+
+    // Handle bot admin verification for new channel
+    if (pendingChannel && pendingChannel.channelId !== 'waiting') {
+      const text = (message.text || '').trim().toLowerCase();
+      if (['done', 'done!', 'added', 'ok', 'ready', 'yes', 'check'].includes(text)) {
+        await verifyAndAddChannel(message.chat.id, user, pendingChannel.channelId, pendingChannel.channelName);
+        return;
+      }
+      if (['cancel', 'abort', 'stop', 'no'].includes(text)) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: '❌ Channel addition cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Settings', callback_data: 'settings' }]
+            ]
+          }
+        });
+        return;
+      }
+    }
   }
 }
 
@@ -576,19 +576,19 @@ async function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
   if (isOwner) {
     return [
       [
-        { text: '📢 TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
-        { text: '🧪 Test', callback_data: `post_edit_test:${editId}` }
+        { text: 'TrueFeed', callback_data: `post_edit_truefeed:${editId}` },
+        { text: 'Test', callback_data: `post_edit_test:${editId}` }
       ],
       [
-        { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
-        { text: '↩️ Main Menu', callback_data: 'back' }
+        { text: 'Translate Another', callback_data: 'direct_translate_menu' },
+        { text: 'Main Menu', callback_data: 'back' }
       ]
     ];
   } else if (user?.user_type === 'guest') {
     return [
       [
-        { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
-        { text: '↩️ Main Menu', callback_data: 'back' }
+        { text: 'Translate Another', callback_data: 'direct_translate_menu' },
+        { text: 'Main Menu', callback_data: 'back' }
       ]
     ];
   } else {
@@ -601,25 +601,25 @@ async function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
     if (channels && channels.length > 0) {
       for (const channel of channels) {
         const channelName = channel.channel_name || channel.channel_id;
-        const typeLabel = channel.is_main ? ' 🌟' : (channel.is_test ? ' 🧪' : '');
+        const typeLabel = channel.is_main ? ' (Main)' : (channel.is_test ? ' (Test)' : '');
         keyboard.push([
-          { text: `📢 ${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
+          { text: `${channelName}${typeLabel}`, callback_data: `post_edit_channel:${editId}:${channel.id}` }
         ]);
       }
       if (channels.length > 1) {
         keyboard.push([
-          { text: '📢 Post to All Channels', callback_data: `post_edit_all:${editId}` }
+          { text: 'Post to All Channels', callback_data: `post_edit_all:${editId}` }
         ]);
       }
     } else {
       keyboard.push([
-        { text: '📢 Post to Channel', callback_data: `post_edit_user_main:${editId}` }
+        { text: 'Post to Channel', callback_data: `post_edit_user_main:${editId}` }
       ]);
     }
 
     keyboard.push([
-      { text: '🔄 Translate Another', callback_data: 'direct_translate_menu' },
-      { text: '↩️ Main Menu', callback_data: 'back' }
+      { text: 'Translate Another', callback_data: 'direct_translate_menu' },
+      { text: 'Main Menu', callback_data: 'back' }
     ]);
     return keyboard;
   }
@@ -628,25 +628,25 @@ async function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
 async function showMainMenu(chatId, isOwner = false) {
   const keyboard = [
     [
-      { text: '📰 Generate Content', callback_data: 'generate_content' },
-      { text: '⚙️ Settings', callback_data: 'settings' }
+      { text: 'Generate Content', callback_data: 'generate_content' },
+      { text: 'Settings', callback_data: 'settings' }
     ],
     [
-      { text: '🌐 Direct Translation', callback_data: 'direct_translate_menu' },
-      { text: '📊 My Stats', callback_data: 'my_stats' }
+      { text: 'Direct Translation', callback_data: 'direct_translate_menu' },
+      { text: 'My Stats', callback_data: 'my_stats' }
     ],
     [
-      { text: '🔄 Refresh', callback_data: 'refresh_menu' }
+      { text: 'Refresh', callback_data: 'refresh_menu' }
     ],
     [
-      { text: '↩️ Back', callback_data: 'back' }
+      { text: 'Back', callback_data: 'back' }
     ]
   ];
 
   // Add analytics button for owner
   if (isOwner) {
     keyboard.splice(3, 0, [
-      { text: '📊 Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+      { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ]);
   }
 
@@ -666,14 +666,14 @@ async function showUserTypeChoice(chatId) {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '👤 User', callback_data: 'choose_user' },
-          { text: '👻 Guest', callback_data: 'choose_guest' }
+          { text: 'User', callback_data: 'choose_user' },
+          { text: 'Guest', callback_data: 'choose_guest' }
         ],
         [
-          { text: '🔄 Refresh', callback_data: 'refresh_user_type' }
+          { text: 'Refresh', callback_data: 'refresh_user_type' }
         ],
         [
-          { text: '↩️ Back', callback_data: 'back' }
+          { text: 'Back', callback_data: 'back' }
         ]
       ]
     }
@@ -709,19 +709,23 @@ async function showChannelIdInstructions(chatId) {
       keyboard: [
         [
           {
-            text: '📢 Choose My Channel',
+            text: 'Choose My Channel',
             request_chat: {
               request_id: 1,
               chat_is_channel: true,
-              chat_is_created: true
+              chat_is_created: true,
+              request_title: true,
+              request_username: true
             }
           },
           {
-            text: '👥 Choose My Group',
+            text: 'Choose My Group',
             request_chat: {
               request_id: 2,
               chat_is_channel: false,
-              chat_is_created: true
+              chat_is_created: true,
+              request_title: true,
+              request_username: true
             }
           }
         ]
@@ -741,10 +745,10 @@ async function showAddBotAdminInstructions(chatId, channelId = null) {
       remove_keyboard: true,
       inline_keyboard: [
         [
-          { text: '✅ Done', callback_data: 'bot_admin_added' }
+          { text: 'Done', callback_data: 'bot_admin_added' }
         ],
         [
-          { text: '🔄 Change Channel', callback_data: 'change_channel' }
+          { text: 'Change Channel', callback_data: 'change_channel' }
         ]
       ]
     }
@@ -758,7 +762,7 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
       text: '❌ Channel ID not found. Please provide your channel first.',
       reply_markup: {
         inline_keyboard: [
-          [{ text: '📝 Provide Channel', callback_data: 'change_channel' }]
+          [{ text: 'Provide Channel', callback_data: 'change_channel' }]
         ]
       }
     });
@@ -786,8 +790,8 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
         text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, click the button below:`,
         reply_markup: {
           inline_keyboard: [
-            [{ text: '✅ Done', callback_data: 'bot_admin_added' }],
-            [{ text: '🔄 Change Channel', callback_data: 'change_channel' }]
+            [{ text: 'Done', callback_data: 'bot_admin_added' }],
+            [{ text: 'Change Channel', callback_data: 'change_channel' }]
           ]
         }
       });
@@ -800,7 +804,7 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
       text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")`,
       reply_markup: {
         inline_keyboard: [
-          [{ text: '⏭️ Skip This Step', callback_data: 'skip_display_name' }]
+          [{ text: 'Skip This Step', callback_data: 'skip_display_name' }]
         ]
       }
     });
@@ -816,8 +820,8 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
       text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:`,
       reply_markup: {
         inline_keyboard: [
-          [{ text: '✅ Done', callback_data: 'bot_admin_added' }],
-          [{ text: '🔄 Change Channel', callback_data: 'change_channel' }]
+          [{ text: 'Done', callback_data: 'bot_admin_added' }],
+          [{ text: 'Change Channel', callback_data: 'change_channel' }]
         ]
       }
     });
@@ -830,7 +834,7 @@ async function showDisplayNameInstructions(chatId) {
     text: '✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")',
     reply_markup: {
       inline_keyboard: [
-        [{ text: '⏭️ Skip This Step', callback_data: 'skip_display_name' }]
+        [{ text: 'Skip This Step', callback_data: 'skip_display_name' }]
       ]
     }
   });
@@ -854,10 +858,10 @@ async function showCategorySelection(chatId) {
   }
 
   keyboard.push([
-    { text: '➕ Add Custom Source', callback_data: 'add_custom_source' }
+    { text: 'Add Custom Source', callback_data: 'add_custom_source' }
   ]);
   keyboard.push([
-    { text: '✅ Complete Setup', callback_data: 'complete_setup' }
+    { text: 'Complete Setup', callback_data: 'complete_setup' }
   ]);
 
   await api.sendMessage({
@@ -923,7 +927,7 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: '⚙️ Settings', callback_data: 'settings' }
+            { text: 'Settings', callback_data: 'settings' }
           ]
         ]
       }

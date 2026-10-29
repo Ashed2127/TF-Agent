@@ -54,14 +54,18 @@ export function extractChannelFromMessage(message) {
   // Bot API 6.7+ chat_shared (when user clicks "Choose Channel / Group" button)
   if (message.chat_shared && message.chat_shared.chat_id) {
     const rawChatId = message.chat_shared.chat_id;
-    // Telegram chat_shared chat_id might be a positive integer or negative integer. Ensure -100 prefix if needed.
-    let channelId = String(rawChatId);
-    if (!channelId.startsWith('-')) {
-      channelId = `-100${channelId}`;
+    let channelId;
+    if (message.chat_shared.username) {
+      channelId = `@${message.chat_shared.username.replace(/^@/, '')}`;
+    } else {
+      channelId = String(rawChatId);
+      if (!channelId.startsWith('-')) {
+        channelId = `-100${channelId}`;
+      }
     }
     return {
       channelId,
-      channelName: message.chat_shared.title || channelId
+      channelName: message.chat_shared.title || (message.chat_shared.username ? `@${message.chat_shared.username.replace(/^@/, '')}` : channelId)
     };
   }
 
