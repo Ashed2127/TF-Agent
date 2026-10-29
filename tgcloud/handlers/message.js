@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
 
@@ -546,6 +546,63 @@ export default async function (message, ctx) {
         }
       });
       return;
+    }
+
+    // Handle owner confirmation to delete user (typing "Delete")
+    if (userId === OWNER_CHAT_ID && pendingChannel && pendingChannel.channelId.startsWith('waiting_confirm_delete_user_')) {
+      const targetUserId = parseInt(pendingChannel.channelId.replace('waiting_confirm_delete_user_', ''), 10);
+      const text = (message.text || '').trim();
+
+      if (text.toLowerCase() === 'delete') {
+        await clearPendingChannelAdd(userId);
+        try {
+          await deleteUser(targetUserId);
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: `✅ Permanently deleted ${pendingChannel.channelName || `User #${targetUserId}`} and all associated records from the database.`,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Back to Users List', callback_data: 'owner_manage_users' }]
+              ]
+            }
+          });
+        } catch (err) {
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: `❌ Error deleting user: ${err.message}`,
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Back to Users List', callback_data: 'owner_manage_users' }]
+              ]
+            }
+          });
+        }
+        return;
+      } else if (['cancel', 'abort', 'no', 'stop', 'back'].includes(text.toLowerCase())) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: '❌ User deletion cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to User', callback_data: `admin_user_${targetUserId}` }]
+            ]
+          }
+        });
+        return;
+      } else {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `⚠️ To confirm deletion of ${pendingChannel.channelName || `User #${targetUserId}`}, you must type <b>Delete</b>.\n\nOr click Cancel below to keep the user:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Cancel', callback_data: `admin_user_${targetUserId}` }]
+            ]
+          }
+        });
+        return;
+      }
     }
 
     // Handle bot admin verification for new channel

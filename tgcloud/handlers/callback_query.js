@@ -2257,6 +2257,7 @@ export default async function (callbackQuery, ctx) {
 
   // Handle owner_manage_users
   if (data === 'owner_manage_users') {
+    await clearPendingChannelAdd(userId);
     const allUsers = await getAllUsers();
     let text = `👥 <b>User Management (${allUsers.length} total)</b>\n\nSelect a user to view their posts, clear data/onboarding, or delete:`;
     const keyboard = [];
@@ -2288,6 +2289,10 @@ export default async function (callbackQuery, ctx) {
   if (data.startsWith('admin_user_')) {
     const targetUserId = parseInt(data.replace('admin_user_', ''), 10);
     const targetUser = await getUserById(targetUserId);
+
+    if (userId === OWNER_CHAT_ID) {
+      await clearPendingChannelAdd(userId);
+    }
 
     if (!targetUser) {
       await api.sendMessage({
@@ -2429,23 +2434,25 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle action delete user in bot
+  // Handle action delete user in bot - ask for "Delete" confirmation
   if (data.startsWith('admin_delete_user_')) {
     const targetUserId = parseInt(data.replace('admin_delete_user_', ''), 10);
-    try {
-      await deleteUser(targetUserId);
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `✅ Permanently deleted User #${targetUserId} and all associated records from the database.`,
-        reply_markup: { inline_keyboard: [[{ text: 'Back to Users List', callback_data: 'owner_manage_users' }]] }
-      });
-    } catch (err) {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `❌ Error deleting user: ${err.message}`,
-        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'owner_manage_users' }]] }
-      });
-    }
+    const targetUser = await getUserById(targetUserId);
+    const userLabel = targetUser ? (targetUser.username ? `@${targetUser.username}` : `User #${targetUser.id}`) : `User #${targetUserId}`;
+
+    // Store pending delete confirmation in pendingChannelAdd
+    await setPendingChannelAdd(userId, `waiting_confirm_delete_user_${targetUserId}`, userLabel);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `⚠️ <b>Confirm Deletion of ${userLabel}</b>\n\nThis will permanently delete this user and ALL their channels, schedules, structures, and posts history.\n\nTo confirm, please reply with the word <b>Delete</b>:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: `admin_user_${targetUserId}` }]
+        ]
+      }
+    });
     return;
   }
 
