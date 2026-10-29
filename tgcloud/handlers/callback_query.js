@@ -24,20 +24,11 @@ export const FUNNY_STICKER_REACTIONS = [
 ];
 
 /**
- * Build reaction buttons keyboard for published posts using top funny image/sticker styles:
- * [ 🤣 0 ]  [ 🤯 0 ]  [ 😎 0 ]  [ 💀 0 ]  [ 🔥 0 ]
+ * Build reaction buttons keyboard for published posts
+ * Disabled by default to remove inline reaction emojis from channel posts
  */
 export function buildPostReactionKeyboard(postId, counts = {}) {
-  // Construct funny sticker reaction row with explicit count numbers always shown: [ 🤣 0 ]
-  const buttons = FUNNY_STICKER_REACTIONS.map(sticker => {
-    const count = counts[sticker.id] !== undefined ? counts[sticker.id] : 0;
-    return {
-      text: `${sticker.emoji} ${count}`,
-      callback_data: `react:${sticker.id}:${postId}`
-    };
-  });
-
-  return [buttons];
+  return null;
 }
 
 /**
