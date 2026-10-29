@@ -506,11 +506,11 @@ Value [5+ lines insight]
 
 @true_feed`;
 
-const DEFAULT_USER_STRUCTURE = `<b>[Title in Amharic]</b>
+const DEFAULT_USER_STRUCTURE = `[Bold Headline]
 
-• [Key point 1]
-• [Key point 2]
-• [Key point 3]`;
+[Summary text]
+
+[Source Link]`;
 
 /**
  * Free Google Translate fallback when OpenRouter has no credits or fails
@@ -755,8 +755,11 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
       console.log('ℹ️ No user found for userId:', userId);
     }
 
-    // If no custom structure, use owner structure for owner or default format for user
-    if (!structure) {
+    // If user is guest or has no custom structure
+    const isGuest = user?.user_type === 'guest';
+    if (isGuest) {
+      structure = DEFAULT_USER_STRUCTURE;
+    } else if (!structure) {
       if (isOwner) {
         structure = OWNER_STRUCTURE;
         console.log('👑 Using OWNER structure for news translation');
