@@ -3228,6 +3228,8 @@ async function handleGenerateContent(callbackQuery, userId) {
     return;
   }
 
+  const customSources = await getCustomSources(user.id);
+
   const keyboard = [];
   for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
@@ -3243,6 +3245,19 @@ async function handleGenerateContent(callbackQuery, userId) {
     }
     keyboard.push(row);
   }
+
+  // Display My Sources button and Add Source button
+  if (customSources.length > 0) {
+    keyboard.push([
+      { text: `My Sources (${customSources.length})`, callback_data: 'news_cat_custom' },
+      { text: 'Add Source', callback_data: 'add_custom_source' }
+    ]);
+  } else {
+    keyboard.push([
+      { text: 'Add Source', callback_data: 'add_custom_source' }
+    ]);
+  }
+
   keyboard.push([
     { text: 'All Sources', callback_data: 'news_cat_all' },
     { text: 'Main Menu', callback_data: 'back' }
