@@ -581,16 +581,17 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   const hasPlaceholders = /\[.*?\]/.test(clean);
 
   if (hasPlaceholders) {
-    // 3. Title handling (check for English, Bold, and Italic directives)
-    const isEnglishTitle = /\[.*?(?:headline|title|name).*?english.*?\]/i.test(clean);
-    const isBoldTitle = /\[.*?bold.*?(?:headline|title|name).*?\]/i.test(clean);
-    const isItalicTitle = /\[.*?italic.*?(?:headline|title|name).*?\]/i.test(clean);
+    // 3. Title handling (check for Amharic, Bold, and Italic directives)
+    // Default to original language as-is unless Amharic is explicitly requested
+    const isAmharicTitle = /\[.*?(?:headline|title|name).*?(?:amharic|አማርኛ).*?\]/i.test(clean) || /\[.*?ርዕስ.*?\]/i.test(clean);
+    const isBoldTitle = /\[.*?bold.*?(?:headline|title|name|ርዕስ).*?\]/i.test(clean);
+    const isItalicTitle = /\[.*?italic.*?(?:headline|title|name|ርዕስ).*?\]/i.test(clean);
 
     let formattedTitle;
-    if (isEnglishTitle) {
-      formattedTitle = rawTitle;
-    } else {
+    if (isAmharicTitle) {
       formattedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
+    } else {
+      formattedTitle = rawTitle;
     }
 
     if (isBoldTitle && isItalicTitle) {
@@ -603,33 +604,34 @@ async function generateFallbackContent(article, structure, userChannelLink, show
 
     clean = clean.replace(/\[.*?(?:headline|title|name|topic|ርዕስ|ዜና).*?\]/gi, formattedTitle);
 
-    // 4. Description/Summary handling (check for English directives)
-    const isEnglishDesc = /\[.*?(?:summary|insight|content|text|details|facts?).*?english.*?\]/i.test(clean);
+    // 4. Description/Summary handling (check for Amharic directives)
+    // Default to original language as-is unless Amharic is explicitly requested
+    const isAmharicDesc = /\[.*?(?:summary|insight|content|text|details|facts?).*?(?:amharic|አማርኛ).*?\]/i.test(clean) || /\[.*?(?:መረጃ|ዝርዝር).*?\]/i.test(clean);
     let formattedDesc;
-    if (isEnglishDesc) {
-      formattedDesc = rawDesc;
-    } else {
+    if (isAmharicDesc) {
       formattedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots);
+    } else {
+      formattedDesc = rawDesc;
     }
 
     // Split description into sentences/points for bullet points
     const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
-    const translatedPoints = [];
+    const points = [];
     for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
-      const t = isEnglishDesc
-        ? rawSentences[i]
-        : cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots);
-      translatedPoints.push(t);
+      const t = isAmharicDesc
+        ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots)
+        : rawSentences[i];
+      points.push(t);
     }
-    if (translatedPoints.length === 0 && formattedDesc) {
-      translatedPoints.push(formattedDesc);
+    if (points.length === 0 && formattedDesc) {
+      points.push(formattedDesc);
     }
 
     // Replace 5+ lines insight for Owner structure
     if (/\[5\+\s*lines\s*insight\]/i.test(clean)) {
-      const insightLines = translatedPoints.length > 1
-        ? translatedPoints.join('\n')
-        : (formattedDesc + (isEnglishDesc ? '\nThis update provides key value.' : '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው'));
+      const insightLines = points.length > 1
+        ? points.join('\n')
+        : (formattedDesc + (isAmharicDesc ? '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው' : '\nThis update provides key value.'));
       clean = clean.replace(/\[5\+\s*lines\s*insight\]/gi, insightLines);
     }
 
@@ -640,7 +642,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     let pointIndex = 0;
     clean = clean.replace(/\[(?:Fact|Point|ነጥብ)\s*(\d*)\]/gi, (match, num) => {
       const idx = num ? parseInt(num) - 1 : pointIndex++;
-      return translatedPoints[idx] || translatedPoints[0] || formattedDesc;
+      return points[idx] || points[0] || formattedDesc;
     });
 
     // Clean any remaining unreplaced bracket placeholders
@@ -650,6 +652,22 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   }
 
   // 6. If structure is a sample post (no brackets)
+  const isAmharicStructure = /(?:አማርኛ|ዜና|መረጃ)/.test(clean);
+  const sampleTitle = isAmharicStructure
+    ? cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots)
+    : rawTitle;
+  const sampleDesc = isAmharicStructure
+    ? cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots)
+    : rawDesc;
+  const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+  const samplePoints = [];
+  for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
+    const t = isAmharicStructure
+      ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots)
+      : rawSentences[i];
+    samplePoints.push(t);
+  }
+
   const lines = clean.split('\n');
   const resultLines = [];
   let titlePlaced = false;
@@ -671,7 +689,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     const bulletMatch = trimmed.match(/^([•\-\*🔹▪️▫️🔸♦️])\s*(.*)$/);
     if (bulletMatch) {
       const bulletChar = bulletMatch[1];
-      const pointText = translatedPoints[pIdx] || translatedPoints[0] || translatedDesc;
+      const pointText = samplePoints[pIdx] || samplePoints[0] || sampleDesc;
       pIdx++;
       resultLines.push(`${bulletChar} ${pointText}`);
       continue;
@@ -681,16 +699,16 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     if (!titlePlaced) {
       const emojiMatch = trimmed.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])\s*(.*)$/);
       if (emojiMatch) {
-        resultLines.push(`${emojiMatch[1]} ${translatedTitle}`);
+        resultLines.push(`${emojiMatch[1]} ${sampleTitle}`);
       } else {
-        resultLines.push(translatedTitle);
+        resultLines.push(sampleTitle);
       }
       titlePlaced = true;
       continue;
     }
 
     // Body / summary line
-    resultLines.push(translatedDesc);
+    resultLines.push(sampleDesc);
   }
 
   return resultLines.join('\n');
@@ -763,15 +781,15 @@ The user wants you to format the news content into their exact structure templat
 
 CRITICAL INSTRUCTIONS ON USER'S TEMPLATE:
 1. Replicate the user's template layout, emojis, spacing, line breaks, and formatting EXACTLY.
-2. Replace headline/title placeholders (such as [Headline], [Title], [Bold Headline in English], [Bold Italic Headline in English], [ርዕስ], etc.):
-   - If the placeholder specifies English (e.g. 'in English', 'in english only'), output the headline in ENGLISH.
+2. Replace headline/title placeholders (such as [Headline], [Title], [Bold Headline], [Bold Italic Headline], [Title in Amharic], [ርዕስ], etc.):
+   - If the placeholder explicitly specifies Amharic (e.g. 'in Amharic', 'in amharic', [ርዕስ]), translate the headline to Amharic.
    - If the placeholder specifies 'Bold', wrap it in HTML <b>Headline</b>.
    - If the placeholder specifies 'Italic', wrap it in HTML <i>Headline</i>. If both Bold and Italic: <b><i>Headline</i></b>.
-   - If no language is specified, translate the headline to Amharic.
-3. Replace summary/body/insight placeholders (such as [Long Summary in English only], [Summary in english only], [Summary], [Content], [Insight], [መረጃ], etc.):
-   - If the placeholder specifies English (e.g. 'in english', 'in english only'), output the summary in ENGLISH.
+   - By default (if no specific language is requested), keep the headline in the original language as it is (do NOT translate to Amharic).
+3. Replace summary/body/insight placeholders (such as [Summary], [Summary text], [Long Summary], [Content], [Insight], [መረጃ], etc.):
+   - If the placeholder explicitly specifies Amharic (e.g. 'in Amharic', 'in amharic', [መረጃ]), provide the summary in Amharic.
    - If the placeholder specifies 'Long Summary', provide a detailed 3-5 sentence comprehensive summary.
-   - If no language is specified, provide the summary in Amharic.
+   - By default (if no specific language is requested), keep the summary/body in the original language as it is (do NOT translate to Amharic).
 4. Replace source link placeholders (such as [Source link], [Source Link], [Source], [Link], [ምንጭ]) with <a href="${article.link}">${article.platform || 'Source'}</a>.
 5. Channel handles & attribution placeholders (such as [@true_feed in Bold style ], [Channel], [@channel], etc.):
    - If the placeholder specifies Bold style (e.g. 'in Bold style', 'in bold'), wrap the handle in <b>@channel</b>.
