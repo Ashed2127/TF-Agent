@@ -1,7 +1,7 @@
 /**
  * Normalizes user input or links into a valid Telegram chat identifier.
  * Valid outputs:
- * - '@username' for public channels/groups
+ * - '@username' for public channels/groups (spaces removed, formatted as @username)
  * - '-100xxxxxxxxxx' or '-xxxxxxxxxx' for numeric chat IDs
  */
 export function normalizeChannelId(input) {
@@ -31,18 +31,49 @@ export function normalizeChannelId(input) {
     }
   }
 
-  // If it starts with @
+  // If it starts with @ or has spaces/multiple words
   if (str.startsWith('@')) {
-    const username = str.substring(1).split(/[/?#\s]/)[0];
+    // Strip '@', remove any spaces between words, strip trailing punctuation/queries
+    const username = str.substring(1).split(/[/?#]/)[0].replace(/\s+/g, '');
     return `@${username}`;
   }
 
-  // Bare username like 'identityBox' (contains only alphanumeric and underscores)
-  if (/^[a-zA-Z0-9_]{3,}$/.test(str)) {
-    return `@${str}`;
+  // Bare username or title with two/more words (e.g., 'True Feed' -> '@TrueFeed', 'my channel' -> '@mychannel')
+  const noSpaces = str.replace(/\s+/g, '');
+  if (/^[a-zA-Z0-9_]{3,}$/.test(noSpaces)) {
+    return `@${noSpaces}`;
   }
 
   return str;
+}
+
+/**
+ * Normalizes any channel name / username / link into @username format.
+ * Never uses t.me/ and does not separate two words with spaces.
+ */
+export function formatChannelHandle(channel) {
+  if (!channel) return null;
+  let str = String(channel).trim();
+  if (!str) return null;
+
+  // If it's purely a numeric chat ID, return it as-is
+  if (/^-?\d+$/.test(str)) {
+    return str;
+  }
+
+  // Strip t.me/ or telegram.me/ URL prefix if present
+  str = str.replace(/^(?:https?:\/\/)?(?:www\.)?(?:t\.me|telegram\.me)\//i, '');
+
+  // Strip leading @
+  str = str.replace(/^@+/, '');
+
+  // Strip path/query parameters
+  str = str.split(/[/?#]/)[0];
+
+  // Remove any spaces if username has two or more words (e.g. 'true feed' -> 'truefeed')
+  str = str.replace(/\s+/g, '');
+
+  return str ? `@${str}` : null;
 }
 
 /**

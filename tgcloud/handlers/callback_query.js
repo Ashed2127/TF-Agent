@@ -6,7 +6,7 @@ import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit,
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
-import { normalizeChannelId, extractChannelFromMessage } from '../lib/channel.js';
+import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
 const OWNER_CHAT_ID = 685669468;
@@ -184,15 +184,8 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       if (userChannels.length > 0) {
         // Use the first channel or the main channel if available
         const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
-        const channelName = mainChannel.channel_name || mainChannel.channel_id;
-        if (channelName) {
-          // Format as @channelname if it starts with @, otherwise as t.me/channelname
-          if (channelName.startsWith('@')) {
-            userChannelLink = channelName;
-          } else {
-            userChannelLink = `t.me/${channelName}`;
-          }
-        }
+        const rawName = mainChannel.channel_name || mainChannel.channel_id;
+        userChannelLink = formatChannelHandle(rawName);
       }
     }
 
@@ -957,14 +950,8 @@ export default async function (callbackQuery, ctx) {
         const userChannels = await getUserChannels(user.id);
         if (userChannels.length > 0) {
           const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
-          const channelName = mainChannel.channel_name || mainChannel.channel_id;
-          if (channelName) {
-            if (channelName.startsWith('@')) {
-              userChannelLink = channelName;
-            } else {
-              userChannelLink = `t.me/${channelName}`;
-            }
-          }
+          const rawName = mainChannel.channel_name || mainChannel.channel_id;
+          userChannelLink = formatChannelHandle(rawName);
         }
       }
 
@@ -3497,19 +3484,11 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
     // Use the selected channel name for attribution
     let userChannelLink = null;
     if (channelName) {
-      if (channelName.startsWith('@')) {
-        userChannelLink = channelName;
-      } else {
-        userChannelLink = `t.me/${channelName}`;
-      }
+      userChannelLink = formatChannelHandle(channelName);
     } else if (user && user.channel_name) {
-      if (user.channel_name.startsWith('@')) {
-        userChannelLink = user.channel_name;
-      } else {
-        userChannelLink = `t.me/${user.channel_name}`;
-      }
+      userChannelLink = formatChannelHandle(user.channel_name);
     } else if (user && user.channel_id) {
-      userChannelLink = user.channel_id;
+      userChannelLink = formatChannelHandle(user.channel_id);
     }
 
     const showSourceLink = user?.show_source_link === 1;
@@ -3645,15 +3624,9 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
     // Get user channel link for content creator attribution
     let userChannelLink = null;
     if (user && user.channel_name) {
-      // Format as @channelname if it starts with @, otherwise as t.me/channelname
-      if (user.channel_name.startsWith('@')) {
-        userChannelLink = user.channel_name;
-      } else {
-        userChannelLink = `t.me/${user.channel_name}`;
-      }
+      userChannelLink = formatChannelHandle(user.channel_name);
     } else if (user && user.channel_id) {
-      // Use channel_id if channel_name is not available
-      userChannelLink = user.channel_id;
+      userChannelLink = formatChannelHandle(user.channel_id);
     }
 
     const showSourceLink = user?.show_source_link === 1;
@@ -3942,13 +3915,9 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
     // Get user channel link for content creator attribution
     let userChannelLink = null;
     if (user && user.channel_name) {
-      if (user.channel_name.startsWith('@')) {
-        userChannelLink = user.channel_name;
-      } else {
-        userChannelLink = `t.me/${user.channel_name}`;
-      }
+      userChannelLink = formatChannelHandle(user.channel_name);
     } else if (user && user.channel_id) {
-      userChannelLink = user.channel_id;
+      userChannelLink = formatChannelHandle(user.channel_id);
     }
 
     const showSourceLink = user?.show_source_link === 1;
@@ -4150,14 +4119,8 @@ async function handleTranslate(callbackQuery, userId, data) {
       const userChannels = await getUserChannels(user.id);
       if (userChannels.length > 0) {
         const mainChannel = userChannels.find(c => c.is_main === 1) || userChannels[0];
-        const channelName = mainChannel.channel_name || mainChannel.channel_id;
-        if (channelName) {
-          if (channelName.startsWith('@')) {
-            userChannelLink = channelName;
-          } else {
-            userChannelLink = `t.me/${channelName}`;
-          }
-        }
+        const rawName = mainChannel.channel_name || mainChannel.channel_id;
+        userChannelLink = formatChannelHandle(rawName);
       }
     }
 
