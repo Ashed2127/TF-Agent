@@ -449,13 +449,14 @@ export async function fetchArticleImage(link) {
 }
 
 /**
- * Fetch news from a single RSS feed
+ * Fetch news from a single RSS feed or website link with auto-discovery
  */
 export async function fetchRSSFeed(url, platformName) {
   try {
-    const response = await fetch(url, {
+    let feedUrl = url.trim();
+    let response = await fetch(feedUrl, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     });
 
@@ -464,10 +465,86 @@ export async function fetchRSSFeed(url, platformName) {
       return [];
     }
 
-    const xmlText = await response.text();
-    const items = parseRSS(xmlText);
+    let text = await response.text();
+    let items = parseRSS(text);
 
-    // If top articles lack images (e.g. TechCrunch, Decrypt), fetch og:image on the fly for the first 5 articles
+    // If no RSS items found, the URL might be a regular webpage (like https://theonion.com or https://shega.co/news)
+    if (items.length === 0) {
+      // 1. Try to discover RSS/Atom <link> tag from HTML
+      const feedLinkMatch = text.match(/<link[^>]+(?:type=["']application\/(?:rss|atom)\+xml["'][^>]+href=["']([^"']+)["']|href=["']([^"']+)["'][^>]+type=["']application\/(?:rss|atom)\+xml["'])/i);
+      const discoveredUrl = feedLinkMatch ? (feedLinkMatch[1] || feedLinkMatch[2]) : null;
+
+      if (discoveredUrl) {
+        let resolvedFeedUrl = discoveredUrl;
+        if (resolvedFeedUrl.startsWith('/')) {
+          const originMatch = feedUrl.match(/^(https?:\/\/[^\/]+)/i);
+          const origin = originMatch ? originMatch[1] : '';
+          resolvedFeedUrl = origin + resolvedFeedUrl;
+        }
+        console.log(`Discovered RSS feed for ${platformName}: ${resolvedFeedUrl}`);
+        try {
+          const feedRes = await fetch(resolvedFeedUrl);
+          if (feedRes.ok) {
+            const feedText = await feedRes.text();
+            items = parseRSS(feedText);
+          }
+        } catch (_) {}
+      }
+
+      // 2. If still empty, try common feed suffixes (feed, rss, rss.xml, atom.xml)
+      if (items.length === 0 && !feedUrl.endsWith('/feed') && !feedUrl.endsWith('/rss')) {
+        const cleanBase = feedUrl.replace(/\/+$/, '');
+        const candidateUrls = [`${cleanBase}/feed/`, `${cleanBase}/feed`, `${cleanBase}/rss`, `${cleanBase}/rss.xml`];
+        for (const candidate of candidateUrls) {
+          try {
+            const candRes = await fetch(candidate);
+            if (candRes.ok) {
+              const candText = await candRes.text();
+              const candItems = parseRSS(candText);
+              if (candItems.length > 0) {
+                items = candItems;
+                console.log(`Found feed for ${platformName} via candidate: ${candidate}`);
+                break;
+              }
+            }
+          } catch (_) {}
+        }
+      }
+
+      // 3. If still empty, scrape news article headlines & links directly from the webpage HTML
+      if (items.length === 0) {
+        console.log(`Attempting HTML fallback extraction for ${platformName} (${feedUrl})`);
+        const originMatch = feedUrl.match(/^(https?:\/\/[^\/]+)/i);
+        const baseUrl = originMatch ? originMatch[1] : '';
+        const linkRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+        let m;
+        const seen = new Set();
+        while ((m = linkRegex.exec(text)) !== null) {
+          let href = m[1].trim();
+          let rawTitle = m[2].replace(/<[^>]*>/g, '').trim()
+            .replace(/&#x27;/g, "'")
+            .replace(/&#8217;/g, "'")
+            .replace(/&amp;/g, '&')
+            .replace(/&quot;/g, '"');
+
+          // Check if link looks like an article or news post
+          const isArticleLink = /\/(?:news|article|story|post|p|202[4-9])\/[a-zA-Z0-9_-]+/i.test(href);
+          if (isArticleLink && rawTitle.length > 20 && !seen.has(href)) {
+            seen.add(href);
+            const fullLink = href.startsWith('http') ? href : (baseUrl + (href.startsWith('/') ? href : `/${href}`));
+            items.push({
+              title: rawTitle,
+              link: fullLink,
+              description: rawTitle,
+              time: 'Recently'
+            });
+            if (items.length >= 15) break;
+          }
+        }
+      }
+    }
+
+    // If top articles lack images (e.g. TechCrunch, Decrypt, or custom HTML articles), fetch og:image on the fly for the first 5 articles
     for (let i = 0; i < Math.min(items.length, 5); i++) {
       if (!items[i].image && !items[i].video && items[i].link) {
         try {
