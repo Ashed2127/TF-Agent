@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -768,10 +768,15 @@ export default async function (callbackQuery, ctx) {
       keyboard.push(row);
     }
 
-    // Add My Sources button if user has custom sources
+    // My Sources button if user has custom sources
     if (customSources.length > 0) {
       keyboard.push([
-        { text: `My Sources (${customSources.length})`, callback_data: 'news_cat_custom' }
+        { text: `My Sources (${customSources.length})`, callback_data: 'news_cat_custom' },
+        { text: 'Add Source', callback_data: 'add_custom_source' }
+      ]);
+    } else {
+      keyboard.push([
+        { text: 'Add Source', callback_data: 'add_custom_source' }
       ]);
     }
 
@@ -861,6 +866,11 @@ export default async function (callbackQuery, ctx) {
         });
       }
       keyboard.push(row);
+    }
+    if (catId === 'custom') {
+      keyboard.push([
+        { text: 'Add Another Source', callback_data: 'add_custom_source' }
+      ]);
     }
     keyboard.push([
       { text: 'Refresh', callback_data: `news_cat_${catId}` },
@@ -1203,6 +1213,7 @@ export default async function (callbackQuery, ctx) {
     // Build keyboard - only show channel management for non-guest users
     const keyboard = [
       [
+        { text: 'Add Custom Source', callback_data: 'add_custom_source' },
         { text: 'Toggle Source Link', callback_data: 'toggle_source_link' }
       ],
       ...(isOwner ? [[{ text: 'Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
@@ -3169,7 +3180,14 @@ async function handleAddCustomSource(callbackQuery, userId) {
   await updateUserOnboardingStep(userId, 'add_custom_source_name');
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: ' Add Custom Source\n\nSend me the name of your custom source (e.g., "My Blog"):',
+    text: 'Add Custom Source\n\nSend me the name of your custom source (e.g., "My Blog"):',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: 'Cancel', callback_data: 'get_news' }
+        ]
+      ]
+    }
   });
 }
 

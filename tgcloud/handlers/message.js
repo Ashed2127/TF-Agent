@@ -376,34 +376,76 @@ export default async function (message, ctx) {
     }
 
     if (user && user.onboarding_step === 'add_custom_source_name') {
+      if (incomingText.toLowerCase() === 'cancel') {
+        await updateUserOnboardingStep(userId, user.user_type === 'guest' ? 'guest_ready' : 'completed');
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Source addition cancelled.',
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Browse News', callback_data: 'get_news' }]]
+          }
+        });
+        return;
+      }
+
       // Store the source name temporarily and ask for URL
       await updateUserDisplayName(userId, `temp_source_name:${incomingText}`);
       await updateUserOnboardingStep(userId, 'add_custom_source_url');
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '📎 Now send me the RSS feed URL for this source:',
+        text: `Now send me the RSS feed URL for "${incomingText}":\n\n(Or send "cancel" to abort)`,
       });
       return;
     }
 
     if (user && user.onboarding_step === 'add_custom_source_url') {
-      const displayName = user.display_name;
-      const sourceName = displayName.replace('temp_source_name:', '');
-      const sourceUrl = incomingText;
+      if (incomingText.toLowerCase() === 'cancel') {
+        await updateUserDisplayName(userId, null);
+        await updateUserOnboardingStep(userId, user.user_type === 'guest' ? 'guest_ready' : 'completed');
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Source addition cancelled.',
+          reply_markup: {
+            inline_keyboard: [[{ text: 'Browse News', callback_data: 'get_news' }]]
+          }
+        });
+        return;
+      }
+
+      const displayName = user.display_name || '';
+      const sourceName = displayName.startsWith('temp_source_name:')
+        ? displayName.replace('temp_source_name:', '')
+        : 'Custom Source';
+      const sourceUrl = incomingText.trim();
+
+      // Validate URL format
+      if (!/^https?:\/\//i.test(sourceUrl)) {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Please send a valid RSS feed URL starting with http:// or https:// (or send "cancel"):',
+        });
+        return;
+      }
 
       // Add the custom source
       await addCustomSource(user.id, sourceName, sourceUrl);
 
-      // Clear the temporary display name
+      // Clear the temporary display name and restore onboarding step
       await updateUserDisplayName(userId, null);
+      await updateUserOnboardingStep(userId, user.user_type === 'guest' ? 'guest_ready' : 'completed');
 
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: `✅ Custom source "${sourceName}" added successfully!`,
+        text: `Custom source "${sourceName}" added successfully!\n\nYou can now select it under "My Sources" in the news menu.`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Browse My Sources', callback_data: 'news_cat_custom' },
+              { text: 'Browse Categories', callback_data: 'get_news' }
+            ]
+          ]
+        }
       });
-
-      // Show category selection again
-      await showCategorySelection(message.chat.id);
       return;
     }
 

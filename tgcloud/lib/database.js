@@ -423,6 +423,13 @@ export async function getCustomSources(userId) {
     .all();
 }
 
+export async function deleteCustomSource(sourceId, userId) {
+  await db.delete(customSources)
+    .where(and(eq(customSources.id, sourceId), eq(customSources.user_id, userId)))
+    .run();
+  return { success: true };
+}
+
 // Posts tracking functions
 
 export async function createPost(userId, channelId, content, category, source = null, imageUrl = null) {
