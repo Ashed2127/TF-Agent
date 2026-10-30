@@ -132,3 +132,49 @@ export function extractChannelFromMessage(message) {
     channelName: normalized
   };
 }
+
+/**
+ * Format interval in hours into human-readable text
+ * (e.g. 0.5 -> "30 minutes", 1 -> "1 hour", 2 -> "2 hours", 0.004 -> "14 seconds")
+ */
+export function formatIntervalDisplay(intervalHours) {
+  if (intervalHours === undefined || intervalHours === null) return '';
+  const num = Number(intervalHours);
+  if (num < 1 / 60) {
+    const secs = Math.round(num * 3600);
+    return `${secs} second${secs === 1 ? '' : 's'}`;
+  }
+  if (num < 1) {
+    const mins = Math.round(num * 60);
+    return `${mins} min${mins === 1 ? '' : 's'}`;
+  }
+  const rounded = Math.round(num * 100) / 100;
+  return `${rounded} hour${rounded === 1 ? '' : 's'}`;
+}
+
+/**
+ * Parse user-entered interval text into hours (float)
+ * Examples supported:
+ * - "30m", "30 min", "30 minutes", "45mins" -> minutes converted to hours
+ * - "1h", "1 hr", "2 hours", "3.5 hrs" -> hours
+ * - "15s", "30 sec", "45 seconds" -> seconds converted to hours
+ * - "2", "1.5" -> default to hours
+ */
+export function parseIntervalInput(input) {
+  if (!input || typeof input !== 'string') return null;
+  const trimmed = input.trim().toLowerCase();
+  const match = trimmed.match(/^(\d+(?:\.\d+)?)\s*(m|min|mins|minute|minutes|h|hr|hrs|hour|hours|s|sec|secs|second|seconds)?$/i);
+  if (!match) return null;
+  const val = parseFloat(match[1]);
+  if (isNaN(val) || val <= 0) return null;
+
+  const unit = (match[2] || '').toLowerCase();
+  if (unit.startsWith('s')) {
+    return val / 3600;
+  }
+  if (unit.startsWith('m')) {
+    return val / 60;
+  }
+  return val; // default hours
+}
+

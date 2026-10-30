@@ -6,7 +6,7 @@ import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit,
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
-import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle } from '../lib/channel.js';
+import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 
 const OWNER_CHAT_ID = 685669468;
@@ -1434,16 +1434,14 @@ export default async function (callbackQuery, ctx) {
     const isOwner = userId === OWNER_CHAT_ID;
 
     if (autoPostSchedule) {
-      const intervalText = autoPostSchedule.interval_hours < 1
-        ? `${autoPostSchedule.interval_hours * 60} seconds`
-        : `${autoPostSchedule.interval_hours} hour(s)`;
+      const intervalText = formatIntervalDisplay(autoPostSchedule.interval_hours);
       const statusText = autoPostSchedule.is_active === 1 ? 'Active' : 'Paused';
       const channel = userChannels.find(c => c.channel_id === autoPostSchedule.channel_id);
       const channelName = channel ? channel.channel_name || channel.channel_id : autoPostSchedule.channel_id;
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Auto Post Settings\n\nStatus: ${statusText}\nChannel: ${channelName}\nInterval: ${intervalText}\n\nWhat would you like to do?`,
+        text: `Auto Post Settings\n\nStatus: ${statusText}\nChannel: ${channelName}\nInterval: Every ${intervalText}\n\nWhat would you like to do?`,
         reply_markup: {
           inline_keyboard: [
             [
@@ -1483,36 +1481,90 @@ export default async function (callbackQuery, ctx) {
       } else {
         let keyboard = [];
 
-        // Add test interval (visible to all for testing)
-        keyboard.push(
-          ...userChannels.map(channel => [
-            { text: `TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `setup_auto_post_${channel.channel_id}_0.004` }
-          ])
-        );
+        for (const channel of userChannels) {
+          const cName = channel.channel_name || channel.channel_id;
+          keyboard.push(
+            [
+              { text: `${cName} - 30 min`, callback_data: `setup_auto_post_${channel.channel_id}_0.5` },
+              { text: `${cName} - 1 hr`, callback_data: `setup_auto_post_${channel.channel_id}_1` }
+            ],
+            [
+              { text: `${cName} - 2 hr`, callback_data: `setup_auto_post_${channel.channel_id}_2` },
+              { text: `${cName} - 3 hr`, callback_data: `setup_auto_post_${channel.channel_id}_3` }
+            ],
+            [
+              { text: `⏱️ ${cName} - Custom`, callback_data: `custom_auto_post_setup_${channel.channel_id}` }
+            ]
+          );
+        }
 
-        keyboard.push(
-          ...userChannels.map(channel => [
-            { text: `${channel.channel_name || channel.channel_id} - 1 hour`, callback_data: `setup_auto_post_${channel.channel_id}_1` },
-            { text: `${channel.channel_name || channel.channel_id} - 3 hours`, callback_data: `setup_auto_post_${channel.channel_id}_3` }
-          ]),
-          ...userChannels.map(channel => [
-            { text: `${channel.channel_name || channel.channel_id} - 6 hours`, callback_data: `setup_auto_post_${channel.channel_id}_6` },
-            { text: `${channel.channel_name || channel.channel_id} - 12 hours`, callback_data: `setup_auto_post_${channel.channel_id}_12` }
-          ]),
-          [
-            { text: 'Back', callback_data: 'settings' }
-          ]
-        );
+        keyboard.push([
+          { text: 'Back', callback_data: 'settings' }
+        ]);
 
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: `Auto Post\n\nSet up automatic posting to your channel.\n\nChoose a channel and posting interval.\n\n🧪 TEST MODE: 15 seconds for quick testing`,
+          text: `Auto Post\n\nSet up automatic posting to your channel.\n\nChoose a channel and posting interval (30min, 1hr, 2hr, 3hr or Custom):`,
           reply_markup: {
             inline_keyboard: keyboard
           }
         });
       }
     }
+    return;
+  }
+
+  // Handle custom auto post interval setup prompt
+  if (data.startsWith('custom_auto_post_setup_')) {
+    const channelId = data.replace('custom_auto_post_setup_', '');
+    await setPendingChannelAdd(userId, `waiting_custom_autopost_setup_${channelId}`);
+
+    const guideText = `⏱️ <b>Custom Auto Post Interval</b>\n\n` +
+      `Channel: <code>${channelId}</code>\n\n` +
+      `Please reply with your desired posting interval.\n\n` +
+      `<b>How to format your time:</b>\n` +
+      `• <b>Minutes:</b> <code>30m</code>, <code>45 min</code>, or <code>90 minutes</code>\n` +
+      `• <b>Hours:</b> <code>1h</code>, <code>2hr</code>, <code>4 hours</code>, or <code>1.5h</code>\n` +
+      `• <b>Plain numbers:</b> treated as hours (e.g. <code>2</code> = 2 hours)\n\n` +
+      `<i>Type 'cancel' anytime to abort.</i>`;
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: guideText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: 'auto_post' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle custom auto post interval update prompt
+  if (data.startsWith('custom_auto_post_update_')) {
+    const channelId = data.replace('custom_auto_post_update_', '');
+    await setPendingChannelAdd(userId, `waiting_custom_autopost_update_${channelId}`);
+
+    const guideText = `⏱️ <b>Custom Auto Post Interval</b>\n\n` +
+      `Channel: <code>${channelId}</code>\n\n` +
+      `Please reply with your desired posting interval.\n\n` +
+      `<b>How to format your time:</b>\n` +
+      `• <b>Minutes:</b> <code>30m</code>, <code>45 min</code>, or <code>90 minutes</code>\n` +
+      `• <b>Hours:</b> <code>1h</code>, <code>2hr</code>, <code>4 hours</code>, or <code>1.5h</code>\n` +
+      `• <b>Plain numbers:</b> treated as hours (e.g. <code>2</code> = 2 hours)\n\n` +
+      `<i>Type 'cancel' anytime to abort.</i>`;
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: guideText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: 'auto_post' }]
+        ]
+      }
+    });
     return;
   }
 
@@ -1525,13 +1577,11 @@ export default async function (callbackQuery, ctx) {
     const user = await getUserByTelegramId(userId);
     await createAutoPostSchedule(user.id, channelId, intervalHours);
 
-    const intervalText = intervalHours < 1
-      ? `${intervalHours * 60} seconds`
-      : `Every ${intervalHours} hour(s)`;
+    const intervalText = formatIntervalDisplay(intervalHours);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Auto post enabled!\n\nChannel: ${channelId}\nInterval: ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
+      text: `Auto post enabled!\n\nChannel: ${channelId}\nInterval: Every ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
       reply_markup: {
         inline_keyboard: [
           [
@@ -1574,30 +1624,30 @@ export default async function (callbackQuery, ctx) {
     if (schedule && userChannels.length > 0) {
       let keyboard = [];
 
-      // Add test interval (visible to all for testing)
-      keyboard.push(
-        ...userChannels.map(channel => [
-          { text: `TEST: ${channel.channel_name || channel.channel_id} - 15 sec`, callback_data: `update_auto_post_${channel.channel_id}_0.004` }
-        ])
-      );
+      for (const channel of userChannels) {
+        const cName = channel.channel_name || channel.channel_id;
+        keyboard.push(
+          [
+            { text: `${cName} - 30 min`, callback_data: `update_auto_post_${channel.channel_id}_0.5` },
+            { text: `${cName} - 1 hr`, callback_data: `update_auto_post_${channel.channel_id}_1` }
+          ],
+          [
+            { text: `${cName} - 2 hr`, callback_data: `update_auto_post_${channel.channel_id}_2` },
+            { text: `${cName} - 3 hr`, callback_data: `update_auto_post_${channel.channel_id}_3` }
+          ],
+          [
+            { text: `⏱️ ${cName} - Custom`, callback_data: `custom_auto_post_update_${channel.channel_id}` }
+          ]
+        );
+      }
 
-      keyboard.push(
-        ...userChannels.map(channel => [
-          { text: `${channel.channel_name || channel.channel_id} - 1 hour`, callback_data: `update_auto_post_${channel.channel_id}_1` },
-          { text: `${channel.channel_name || channel.channel_id} - 3 hours`, callback_data: `update_auto_post_${channel.channel_id}_3` }
-        ]),
-        ...userChannels.map(channel => [
-          { text: `${channel.channel_name || channel.channel_id} - 6 hours`, callback_data: `update_auto_post_${channel.channel_id}_6` },
-          { text: `${channel.channel_name || channel.channel_id} - 12 hours`, callback_data: `update_auto_post_${channel.channel_id}_12` }
-        ]),
-        [
-          { text: 'Back', callback_data: 'auto_post' }
-        ]
-      );
+      keyboard.push([
+        { text: 'Back', callback_data: 'auto_post' }
+      ]);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Edit Auto Post Schedule\n\nChoose a new interval:\n\n🧪 TEST MODE: 15 seconds for quick testing`,
+        text: `Edit Auto Post Schedule\n\nChoose a new interval (30min, 1hr, 2hr, 3hr or Custom):`,
         reply_markup: {
           inline_keyboard: keyboard
         }
@@ -1617,13 +1667,11 @@ export default async function (callbackQuery, ctx) {
     if (schedule) {
       await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true);
 
-      const intervalText = intervalHours < 1
-        ? `${intervalHours * 60} seconds`
-        : `Every ${intervalHours} hour(s)`;
+      const intervalText = formatIntervalDisplay(intervalHours);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Auto post schedule updated!\n\nChannel: ${channelId}\nInterval: ${intervalText}`,
+        text: `Auto post schedule updated!\n\nChannel: ${channelId}\nInterval: Every ${intervalText}`,
         reply_markup: {
           inline_keyboard: [
             [

@@ -5,9 +5,9 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, updateAutoPostSchedule } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
-import { extractChannelFromMessage, normalizeChannelId } from '../lib/channel.js';
+import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay } from '../lib/channel.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
 
@@ -587,6 +587,77 @@ export default async function (message, ctx) {
           ]
         }
       });
+      return;
+    }
+
+    // Handle custom auto post interval setup or update input
+    if (pendingChannel && (pendingChannel.channelId.startsWith('waiting_custom_autopost_setup_') || pendingChannel.channelId.startsWith('waiting_custom_autopost_update_'))) {
+      const isSetup = pendingChannel.channelId.startsWith('waiting_custom_autopost_setup_');
+      const channelId = isSetup
+        ? pendingChannel.channelId.replace('waiting_custom_autopost_setup_', '')
+        : pendingChannel.channelId.replace('waiting_custom_autopost_update_', '');
+      const text = incomingText.trim();
+
+      if (['cancel', 'abort', 'stop', 'back'].includes(text.toLowerCase())) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Auto post configuration cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      const parsedHours = parseIntervalInput(text);
+      if (!parsedHours || parsedHours <= 0) {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `⚠️ <b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>30m</code> (30 minutes)\n• <code>1h</code> or <code>1.5h</code> (hours)\n• <code>2 hours</code>\n• <code>3</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Cancel', callback_data: 'auto_post' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      await clearPendingChannelAdd(userId);
+      const intervalText = formatIntervalDisplay(parsedHours);
+
+      if (isSetup) {
+        await createAutoPostSchedule(user.id, channelId, parsedHours);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `✅ <b>Auto post enabled!</b>\n\nChannel: <code>${channelId}</code>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Settings', callback_data: 'settings' }]
+            ]
+          }
+        });
+      } else {
+        const schedule = await getAutoPostSchedule(user.id);
+        if (schedule) {
+          await updateAutoPostSchedule(schedule.id, channelId, parsedHours, true);
+        }
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `✅ <b>Auto post schedule updated!</b>\n\nChannel: <code>${channelId}</code>\nInterval: Every ${intervalText}`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+            ]
+          }
+        });
+      }
       return;
     }
 
