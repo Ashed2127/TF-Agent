@@ -1485,6 +1485,9 @@ export default async function (callbackQuery, ctx) {
           const cName = channel.channel_name || channel.channel_id;
           keyboard.push(
             [
+              { text: `🧪 ${cName} - 5 sec (Test)`, callback_data: `setup_auto_post_${channel.channel_id}_0.00138889` }
+            ],
+            [
               { text: `${cName} - 30 min`, callback_data: `setup_auto_post_${channel.channel_id}_0.5` },
               { text: `${cName} - 1 hr`, callback_data: `setup_auto_post_${channel.channel_id}_1` }
             ],
@@ -1504,7 +1507,7 @@ export default async function (callbackQuery, ctx) {
 
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: `Auto Post\n\nSet up automatic posting to your channel.\n\nChoose a channel and posting interval (30min, 1hr, 2hr, 3hr or Custom):`,
+          text: `Auto Post\n\nSet up automatic posting to your channel.\n\nChoose a posting interval (5 sec test, 30min, 1hr, 2hr, 3hr or Custom):`,
           reply_markup: {
             inline_keyboard: keyboard
           }
@@ -1523,6 +1526,7 @@ export default async function (callbackQuery, ctx) {
       `Channel: <code>${channelId}</code>\n\n` +
       `Please reply with your desired posting interval.\n\n` +
       `<b>How to format your time:</b>\n` +
+      `• <b>Seconds (Testing):</b> <code>5s</code>, <code>5 sec</code>, or <code>10 seconds</code>\n` +
       `• <b>Minutes:</b> <code>30m</code>, <code>45 min</code>, or <code>90 minutes</code>\n` +
       `• <b>Hours:</b> <code>1h</code>, <code>2hr</code>, <code>4 hours</code>, or <code>1.5h</code>\n` +
       `• <b>Plain numbers:</b> treated as hours (e.g. <code>2</code> = 2 hours)\n\n` +
@@ -1550,6 +1554,7 @@ export default async function (callbackQuery, ctx) {
       `Channel: <code>${channelId}</code>\n\n` +
       `Please reply with your desired posting interval.\n\n` +
       `<b>How to format your time:</b>\n` +
+      `• <b>Seconds (Testing):</b> <code>5s</code>, <code>5 sec</code>, or <code>10 seconds</code>\n` +
       `• <b>Minutes:</b> <code>30m</code>, <code>45 min</code>, or <code>90 minutes</code>\n` +
       `• <b>Hours:</b> <code>1h</code>, <code>2hr</code>, <code>4 hours</code>, or <code>1.5h</code>\n` +
       `• <b>Plain numbers:</b> treated as hours (e.g. <code>2</code> = 2 hours)\n\n` +
@@ -1628,6 +1633,9 @@ export default async function (callbackQuery, ctx) {
         const cName = channel.channel_name || channel.channel_id;
         keyboard.push(
           [
+            { text: `🧪 ${cName} - 5 sec (Test)`, callback_data: `update_auto_post_${channel.channel_id}_0.00138889` }
+          ],
+          [
             { text: `${cName} - 30 min`, callback_data: `update_auto_post_${channel.channel_id}_0.5` },
             { text: `${cName} - 1 hr`, callback_data: `update_auto_post_${channel.channel_id}_1` }
           ],
@@ -1647,7 +1655,7 @@ export default async function (callbackQuery, ctx) {
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Edit Auto Post Schedule\n\nChoose a new interval (30min, 1hr, 2hr, 3hr or Custom):`,
+        text: `Edit Auto Post Schedule\n\nChoose a new interval (5 sec test, 30min, 1hr, 2hr, 3hr or Custom):`,
         reply_markup: {
           inline_keyboard: keyboard
         }
