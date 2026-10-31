@@ -9,7 +9,7 @@ import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatN
 import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 import { processSingleAutoPost, checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
-import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker } from '../lib/autopost_ui.js';
+import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker, showAutoPostLanguagePicker } from '../lib/autopost_ui.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -1459,9 +1459,14 @@ export default async function (callbackQuery, ctx) {
         }
       }
 
+      let langName = 'Amharic';
+      if (autoPostSchedule.target_lang === 'ti') langName = 'Tigrinya';
+      else if (autoPostSchedule.target_lang === 'om') langName = 'Afaan Oromo';
+      else if (autoPostSchedule.target_lang === 'en') langName = 'English (Original)';
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Platform Source:</b> <b>${platformName}</b>\n<b>Interval:</b> Every ${intervalText}\n\n<i>Auto Post runs automatically in the background on your schedule. Use the buttons below to change settings or pause.</i>`,
+        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Platform Source:</b> <b>${platformName}</b>\n<b>Language:</b> <b>${langName}</b>\n<b>Interval:</b> Every ${intervalText}\n\n<i>Auto Post runs automatically in the background on your schedule. Use the buttons below to change settings or pause.</i>`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
@@ -1473,7 +1478,8 @@ export default async function (callbackQuery, ctx) {
               { text: '⏱️ Change Interval', callback_data: 'edit_auto_post' }
             ],
             [
-              { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
+              { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
+              { text: '🌐 Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
             ],
             [
               { text: '🗑️ Delete Schedule', callback_data: 'delete_auto_post' }
@@ -1676,6 +1682,16 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  // Direct change of language from Auto Post settings
+  if (data.startsWith('edit_auto_post_lang_')) {
+    const parts = data.replace('edit_auto_post_lang_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    const platformId = parts.slice(2).join('_');
+    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, true);
+    return;
+  }
+
   // Handle setup auto post -> forward to platform category picker
   if (data.startsWith('setup_auto_post_')) {
     const parts = data.replace('setup_auto_post_', '').split('_');
@@ -1716,23 +1732,48 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Platform selected for setup
+  // Platform selected for setup -> forward to Language picker
   if (data.startsWith('ap_st_plat_')) {
     const parts = data.replace('ap_st_plat_', '').split('_');
     const channelId = parts[0];
     const intervalHours = parseFloat(parts[1]);
     const platformId = parts.slice(2).join('_');
+    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, false);
+    return;
+  }
+
+  // Platform selected for update -> forward to Language picker
+  if (data.startsWith('ap_up_plat_')) {
+    const parts = data.replace('ap_up_plat_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    const platformId = parts.slice(2).join('_');
+    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, true);
+    return;
+  }
+
+  // Language selected for setup -> save schedule
+  if (data.startsWith('ap_st_lang_')) {
+    const parts = data.replace('ap_st_lang_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    const targetLang = parts[parts.length - 1];
+    const platformId = parts.slice(2, -1).join('_');
 
     const user = await getUserByTelegramId(userId);
-    await createAutoPostSchedule(user.id, channelId, intervalHours, platformId);
+    await createAutoPostSchedule(user.id, channelId, intervalHours, platformId, targetLang);
 
     const intervalText = formatIntervalDisplay(intervalHours);
     const platformObj = getPlatformById(platformId);
     const platformName = platformObj ? platformObj.name : platformId;
+    let langName = 'Amharic';
+    if (targetLang === 'ti') langName = 'Tigrinya';
+    else if (targetLang === 'om') langName = 'Afaan Oromo';
+    else if (targetLang === 'en') langName = 'English (Original)';
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `✅ <b>Auto post enabled!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
+      text: `✅ <b>Auto post enabled!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate, translate, and post content based on your schedule.`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -1743,25 +1784,30 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Platform selected for update
-  if (data.startsWith('ap_up_plat_')) {
-    const parts = data.replace('ap_up_plat_', '').split('_');
+  // Language selected for update -> update schedule
+  if (data.startsWith('ap_up_lang_')) {
+    const parts = data.replace('ap_up_lang_', '').split('_');
     const channelId = parts[0];
     const intervalHours = parseFloat(parts[1]);
-    const platformId = parts.slice(2).join('_');
+    const targetLang = parts[parts.length - 1];
+    const platformId = parts.slice(2, -1).join('_');
 
     const user = await getUserByTelegramId(userId);
     const schedule = await getAutoPostSchedule(user.id);
     if (schedule) {
-      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true, platformId);
+      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true, platformId, targetLang);
 
       const intervalText = formatIntervalDisplay(intervalHours);
       const platformObj = getPlatformById(platformId);
       const platformName = platformObj ? platformObj.name : platformId;
+      let langName = 'Amharic';
+      if (targetLang === 'ti') langName = 'Tigrinya';
+      else if (targetLang === 'om') langName = 'Afaan Oromo';
+      else if (targetLang === 'en') langName = 'English (Original)';
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `✅ <b>Auto post schedule updated!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nInterval: Every ${intervalText}`,
+        text: `✅ <b>Auto post schedule updated!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [

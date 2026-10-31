@@ -625,7 +625,7 @@ function cleanAmharicPunctuation(text, useDots = false) {
 /**
  * Generate news content respecting the user structure template
  */
-async function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false, useDots = false) {
+async function generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner = false, useDots = false, targetLang = null) {
   let clean = (structure || DEFAULT_USER_STRUCTURE)
     .replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '')
     .trim();
@@ -658,15 +658,17 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   const hasPlaceholders = /\[.*?\]/.test(clean);
 
   if (hasPlaceholders) {
-    // 3. Title handling (check for Amharic, Bold, and Italic directives)
-    // Default to original language as-is unless Amharic is explicitly requested
+    // 3. Title handling (check for translation language, Bold, and Italic directives)
     const isAmharicTitle = /\[.*?(?:headline|title|name).*?(?:amharic|አማርኛ).*?\]/i.test(clean) || /\[.*?ርዕስ.*?\]/i.test(clean);
     const isBoldTitle = /\[.*?bold.*?(?:headline|title|name|ርዕስ).*?\]/i.test(clean);
     const isItalicTitle = /\[.*?italic.*?(?:headline|title|name|ርዕስ).*?\]/i.test(clean);
 
     let formattedTitle;
-    if (isAmharicTitle) {
-      formattedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots);
+    const shouldTranslate = (targetLang && targetLang !== 'en') || isAmharicTitle;
+    const langToUse = (targetLang && targetLang !== 'en') ? targetLang : 'am';
+
+    if (shouldTranslate) {
+      formattedTitle = cleanAmharicPunctuation(await translateWithGoogle(rawTitle, langToUse), useDots);
     } else {
       formattedTitle = rawTitle;
     }
@@ -681,12 +683,11 @@ async function generateFallbackContent(article, structure, userChannelLink, show
 
     clean = clean.replace(/\[.*?(?:headline|title|name|topic|ርዕስ|ዜና).*?\]/gi, formattedTitle);
 
-    // 4. Description/Summary handling (check for Amharic directives)
-    // Default to original language as-is unless Amharic is explicitly requested
+    // 4. Description/Summary handling
     const isAmharicDesc = /\[.*?(?:summary|insight|content|text|details|facts?).*?(?:amharic|አማርኛ).*?\]/i.test(clean) || /\[.*?(?:መረጃ|ዝርዝር).*?\]/i.test(clean);
     let formattedDesc;
-    if (isAmharicDesc) {
-      formattedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots);
+    if (shouldTranslate || isAmharicDesc) {
+      formattedDesc = cleanAmharicPunctuation(await translateWithGoogle(rawDesc, langToUse), useDots);
     } else {
       formattedDesc = rawDesc;
     }
@@ -695,8 +696,8 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
     const points = [];
     for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
-      const t = isAmharicDesc
-        ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots)
+      const t = (shouldTranslate || isAmharicDesc)
+        ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i], langToUse), useDots)
         : rawSentences[i];
       points.push(t);
     }
@@ -708,7 +709,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     if (/\[5\+\s*lines\s*insight\]/i.test(clean)) {
       const insightLines = points.length > 1
         ? points.join('\n')
-        : (formattedDesc + (isAmharicDesc ? '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው' : '\nThis update provides key value.'));
+        : (formattedDesc + (shouldTranslate || isAmharicDesc ? '\nይህ አዲስ መረጃ ለተጠቃሚዎች ትልቅ ፋይዳ አለው' : '\nThis update provides key value.'));
       clean = clean.replace(/\[5\+\s*lines\s*insight\]/gi, insightLines);
     }
 
@@ -730,17 +731,20 @@ async function generateFallbackContent(article, structure, userChannelLink, show
 
   // 6. If structure is a sample post (no brackets)
   const isAmharicStructure = /(?:አማርኛ|ዜና|መረጃ)/.test(clean);
-  const sampleTitle = isAmharicStructure
-    ? cleanAmharicPunctuation(await translateWithGoogle(rawTitle), useDots)
+  const shouldTranslateSample = (targetLang && targetLang !== 'en') || isAmharicStructure;
+  const sampleLang = (targetLang && targetLang !== 'en') ? targetLang : 'am';
+
+  const sampleTitle = shouldTranslateSample
+    ? cleanAmharicPunctuation(await translateWithGoogle(rawTitle, sampleLang), useDots)
     : rawTitle;
-  const sampleDesc = isAmharicStructure
-    ? cleanAmharicPunctuation(await translateWithGoogle(rawDesc), useDots)
+  const sampleDesc = shouldTranslateSample
+    ? cleanAmharicPunctuation(await translateWithGoogle(rawDesc, sampleLang), useDots)
     : rawDesc;
   const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
   const samplePoints = [];
   for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
-    const t = isAmharicStructure
-      ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i]), useDots)
+    const t = shouldTranslateSample
+      ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i], sampleLang), useDots)
       : rawSentences[i];
     samplePoints.push(t);
   }
@@ -794,7 +798,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
 /**
  * Generate Amharic news content using AI
  */
-async function generateAmharicNews(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null) {
+async function generateAmharicNews(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null, targetLang = null) {
   let structure = null;
   let isOwner = false;
   try {
@@ -856,20 +860,21 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
 
     const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
 
+    const langName = targetLang === 'ti' ? 'Tigrinya' : (targetLang === 'om' ? 'Afaan Oromo' : (targetLang === 'en' ? 'English' : 'Amharic'));
+
     const systemPrompt = `You are an expert translator and content generator.
 The user wants you to format the news content into their exact structure template.
+Target Language: ${langName}.
 
 CRITICAL INSTRUCTIONS ON USER'S TEMPLATE:
 1. Replicate the user's template layout, emojis, spacing, line breaks, and formatting EXACTLY.
 2. Replace headline/title placeholders (such as [Headline], [Title], [Bold Headline], [Bold Italic Headline], [Title in Amharic], [ርዕስ], etc.):
-   - If the placeholder explicitly specifies Amharic (e.g. 'in Amharic', 'in amharic', [ርዕስ]), translate the headline to Amharic.
+   - If target language is specified (${langName}), translate/output the headline in ${langName}.
    - If the placeholder specifies 'Bold', wrap it in HTML <b>Headline</b>.
    - If the placeholder specifies 'Italic', wrap it in HTML <i>Headline</i>. If both Bold and Italic: <b><i>Headline</i></b>.
-   - By default (if no specific language is requested), keep the headline in the original language as it is (do NOT translate to Amharic).
 3. Replace summary/body/insight placeholders (such as [Summary], [Summary text], [Long Summary], [Content], [Insight], [መረጃ], etc.):
-   - If the placeholder explicitly specifies Amharic (e.g. 'in Amharic', 'in amharic', [መረጃ]), provide the summary in Amharic.
+   - If target language is specified (${langName}), provide the summary in ${langName}.
    - If the placeholder specifies 'Long Summary', provide a detailed 3-5 sentence comprehensive summary.
-   - By default (if no specific language is requested), keep the summary/body in the original language as it is (do NOT translate to Amharic).
 4. Replace source link placeholders (such as [Source link], [Source Link], [Source], [Link], [ምንጭ]) with <a href="${article.link}">${article.platform || 'Source'}</a>.
 5. Channel handles & attribution placeholders (such as [@true_feed in Bold style ], [Channel], [@channel], etc.):
    - If the placeholder specifies Bold style (e.g. 'in Bold style', 'in bold'), wrap the handle in <b>@channel</b>.
@@ -908,14 +913,14 @@ Output the final post now:`;
 
     if (!response.ok) {
       console.error('AI generation failed with status:', response.status);
-      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation);
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, targetLang);
     }
 
     const data = await response.json();
 
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
       console.error('Invalid AI response structure');
-      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation);
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, targetLang);
     }
 
     const content = data.choices[0].message.content.trim();
@@ -936,17 +941,17 @@ Output the final post now:`;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);
-    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner, useDotPunctuation);
+    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, targetLang);
   }
 }
 
 /**
  * Format single news article for Telegram
  */
-export async function formatNewsArticle(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null) {
-  // Generate Amharic content with AI
-  const amharicContent = await generateAmharicNews(article, userChannelLink, showSourceLink, useDotPunctuation, userId);
-  return amharicContent;
+export async function formatNewsArticle(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null, targetLang = null) {
+  // Generate content with AI or fallback
+  const formattedContent = await generateAmharicNews(article, userChannelLink, showSourceLink, useDotPunctuation, userId, targetLang);
+  return formattedContent;
 }
 
 /**

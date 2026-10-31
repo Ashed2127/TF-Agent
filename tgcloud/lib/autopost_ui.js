@@ -135,3 +135,29 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
     }
   });
 }
+
+export async function showAutoPostLanguagePicker(chatId, channelId, intervalHours, platformId, isUpdate = false) {
+  const prefix = isUpdate ? 'ap_up_lang' : 'ap_st_lang';
+  const keyboard = [
+    [
+      { text: '🇪🇹 አማርኛ (Amharic)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_am` },
+      { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_ti` }
+    ],
+    [
+      { text: '🇪🇹 Afaan Oromoo', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_om` },
+      { text: '🇬🇧 English (Original)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_en` }
+    ],
+    [
+      { text: '« Back to Auto Post', callback_data: 'auto_post' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `🌐 <b>Select Translation Language:</b>\n\nChoose the target language for auto-posted articles:`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}

@@ -141,7 +141,8 @@ export async function processSingleAutoPost(schedule) {
       userChannelLink, 
       showSourceLink, 
       useDotPunctuation, 
-      user.telegram_id
+      user.telegram_id,
+      schedule.target_lang || 'am'
     );
     postTitle = articleToPost.title || 'News Article';
 

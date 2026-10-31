@@ -779,7 +779,7 @@ export async function deleteContentStructure(userId) {
 
 // Auto post schedule management functions
 
-export async function createAutoPostSchedule(userId, channelId, intervalHours, sourcePlatform = null) {
+export async function createAutoPostSchedule(userId, channelId, intervalHours, sourcePlatform = null, targetLang = null) {
   // Support interval in fractional hours or hours accurately
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const nextPostAt = Math.round(nowInSeconds + (intervalHours * 3600));
@@ -790,6 +790,7 @@ export async function createAutoPostSchedule(userId, channelId, intervalHours, s
       channel_id: channelId,
       interval_hours: intervalHours,
       source_platform: sourcePlatform || null,
+      target_lang: targetLang || null,
       next_post_at: nextPostAt
     })
     .returning()
@@ -819,10 +820,11 @@ export async function getAutoPostSchedule(userId) {
   return result[0] || null;
 }
 
-export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive, sourcePlatform = undefined) {
+export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive, sourcePlatform = undefined, targetLang = undefined) {
   const updateData = {};
   if (channelId !== undefined) updateData.channel_id = channelId;
   if (sourcePlatform !== undefined) updateData.source_platform = sourcePlatform;
+  if (targetLang !== undefined) updateData.target_lang = targetLang;
   if (intervalHours !== undefined) {
     updateData.interval_hours = intervalHours;
     const now = Math.floor(Date.now() / 1000);
