@@ -58,22 +58,73 @@ export async function processSingleAutoPost(schedule) {
     platformObj = getPlatformById('techcrunch') || NEWS_PLATFORMS[0];
   }
 
-  // Fetch feed and find fresh article
+  // Helper to normalize strings for robust duplicate matching
+  function normalizeKey(str) {
+    if (!str) return '';
+    return str
+      .replace(/<[^>]*>/g, '')
+      .replace(/&[a-z0-9#]+;/gi, '')
+      .replace(/https?:\/\/(?:www\.)?/gi, '')
+      .replace(/\/+$/, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '');
+  }
+
+  // Fetch feed and find a strictly fresh, unposted article
   if (platformObj && platformObj.url) {
     try {
       const articles = await fetchRSSFeed(platformObj.url, platformObj.name);
       if (articles && articles.length > 0) {
         const userRecentPosts = await getUserPosts(user.id);
-        const postedUrls = new Set(
-          userRecentPosts
-            .map(p => {
-              const m = (p.content || '').match(/href=["']([^"']+)["']/i);
-              return m ? m[1] : null;
-            })
-            .filter(Boolean)
-        );
+        const postedUrlKeys = new Set();
+        const postedTitleKeys = new Set();
 
-        articleToPost = articles.find(a => a.link && !postedUrls.has(a.link)) || articles[0];
+        for (const p of userRecentPosts) {
+          // Track posted URL links
+          const linkMatch = (p.content || '').match(/href=["']([^"']+)["']/i);
+          if (linkMatch && linkMatch[1]) {
+            postedUrlKeys.add(normalizeKey(linkMatch[1]));
+          }
+
+          // Track posted article titles (headline is first line in post content)
+          const firstLine = (p.content || '').split('\n').find(l => l.trim().length > 0) || '';
+          if (firstLine) {
+            postedTitleKeys.add(normalizeKey(firstLine));
+          }
+        }
+
+        // Find the first article that hasn't been posted yet (by URL and by title)
+        articleToPost = articles.find(a => {
+          const urlKey = normalizeKey(a.link);
+          const titleKey = normalizeKey(a.title);
+
+          const isUrlPosted = urlKey && postedUrlKeys.has(urlKey);
+          const isTitlePosted = titleKey && postedTitleKeys.has(titleKey);
+
+          return !isUrlPosted && !isTitlePosted;
+        });
+
+        if (!articleToPost) {
+          console.log(`All ${articles.length} articles from ${platformObj.name} have already been posted. Trying adjacent platforms...`);
+          // Try other platforms in same category or top platforms to find fresh content
+          for (const altPlat of NEWS_PLATFORMS) {
+            if (altPlat.id === platformObj.id || !altPlat.url) continue;
+            try {
+              const altArticles = await fetchRSSFeed(altPlat.url, altPlat.name);
+              const freshAlt = altArticles.find(a => {
+                const urlKey = normalizeKey(a.link);
+                const titleKey = normalizeKey(a.title);
+                return !postedUrlKeys.has(urlKey) && !postedTitleKeys.has(titleKey);
+              });
+              if (freshAlt) {
+                articleToPost = freshAlt;
+                platformObj = altPlat;
+                console.log(`Found fresh alternative article from ${altPlat.name}: ${freshAlt.title}`);
+                break;
+              }
+            } catch (_) {}
+          }
+        }
       }
     } catch (e) {
       console.error(`Error fetching platform articles for ${platformObj.name}:`, e.message);
