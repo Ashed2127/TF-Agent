@@ -1,7 +1,6 @@
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
 
 export default async function (input, ctx) {
-  console.log('Auto post endpoint called');
   try {
     const processed = await checkAndTriggerDueAutoPosts();
     return {

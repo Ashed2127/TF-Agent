@@ -10,7 +10,10 @@ const { exec } = require('child_process');
 const path = require('path');
 
 const PROJECT_DIR = path.resolve(__dirname, '..');
-const POLL_INTERVAL_MS = 5000; // Check every 5 seconds for test mode & rapid posting
+const TGCLOUD_BIN = path.resolve(PROJECT_DIR, 'node_modules/.bin/tgcloud');
+const NODE_BIN_DIR = path.dirname(process.execPath);
+const FULL_PATH = `${NODE_BIN_DIR}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`;
+const POLL_INTERVAL_MS = 5000; // Check every 5 seconds for rapid testing & scheduled posting
 
 let isRunning = false;
 
@@ -18,17 +21,21 @@ function triggerAutoPost() {
   if (isRunning) return;
   isRunning = true;
 
-  exec('npx tgcloud run endpoints/autoPost "{}"', { cwd: PROJECT_DIR }, (error, stdout, stderr) => {
+  const cmd = `"${process.execPath}" "${TGCLOUD_BIN}" run endpoints/autoPost "{}"`;
+
+  exec(cmd, { 
+    cwd: PROJECT_DIR,
+    env: { ...process.env, PATH: FULL_PATH }
+  }, (error, stdout, stderr) => {
     isRunning = false;
     if (error) {
-      // Ignore routine noise
+      console.error(`[AutoPost Error ${new Date().toISOString()}]:`, error.message);
       return;
     }
-    try {
-      if (stdout && stdout.includes('"processed":') && !stdout.includes('"processed":0')) {
-        console.log(`[AutoPost Runner ${new Date().toISOString()}] Post processed:`, stdout.trim());
-      }
-    } catch (_) {}
+    const combined = `${stdout}\n${stderr}`;
+    if (combined.includes('processed: 1') || combined.includes('processed:1') || (combined.includes('processed') && !combined.includes('processed: 0') && !combined.includes('processed:0'))) {
+      console.log(`[AutoPost Runner ${new Date().toISOString()}] Successfully published auto post! Output:`, stdout.trim());
+    }
   });
 }
 
