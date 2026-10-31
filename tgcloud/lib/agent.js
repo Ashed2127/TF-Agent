@@ -141,13 +141,24 @@ export async function generateIdea(userId = null) {
     // Remove HTML tags to avoid Telegram parsing issues
     let cleanContent = content.replace(/<[^>]*>/g, '').trim();
 
-    // If user explicitly enabled dot punctuation in settings, apply it
+    // If user explicitly enabled dot punctuation in settings, apply it; otherwise clean traditional Ethiopic punctuation (፤, etc.)
     if (user?.use_dot_punctuation === 1) {
       cleanContent = cleanContent
         .replace(/[።፤]/g, ' . . . ')
         .replace(/[፣፡]/g, ' . . ')
         .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
         .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+        .replace(/[ ]{2,}/g, ' ')
+        .trim();
+    } else {
+      cleanContent = cleanContent
+        .replace(/፤/g, ',')
+        .replace(/።/g, '.')
+        .replace(/፣/g, ',')
+        .replace(/፡/g, ' ')
+        .replace(/፦/g, ':-')
+        .replace(/፧/g, '?')
+        .replace(/[፠፟]/g, '')
         .replace(/[ ]{2,}/g, ' ')
         .trim();
     }

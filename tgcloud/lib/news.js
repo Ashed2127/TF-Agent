@@ -58,11 +58,13 @@ export async function directTranslateToLanguage(text, targetLang = 'am') {
     }
 
     const translatedText = data.choices[0].message.content.trim();
-    return translatedText || await translateWithGoogle(text, targetLang);
+    const finalResult = translatedText || await translateWithGoogle(text, targetLang);
+    return cleanEthiopicPunctuation(finalResult).trim();
 
   } catch (error) {
     console.error(`Error in directTranslateToLanguage (${targetLang}):`, error.message);
-    return await translateWithGoogle(text, targetLang);
+    const fallback = await translateWithGoogle(text, targetLang);
+    return cleanEthiopicPunctuation(fallback).trim();
   }
 }
 
@@ -610,16 +612,32 @@ export async function translateWithGoogle(text, targetLang = 'am') {
   }
 }
 
+export function cleanEthiopicPunctuation(text) {
+  if (!text) return '';
+  return text
+    .replace(/፤/g, ',')
+    .replace(/።/g, '.')
+    .replace(/፣/g, ',')
+    .replace(/፡/g, ' ')
+    .replace(/፦/g, ':-')
+    .replace(/፧/g, '?')
+    .replace(/[፠፟]/g, '')
+    .replace(/[ ]{2,}/g, ' ');
+}
+
 function cleanAmharicPunctuation(text, useDots = false) {
   if (!text) return '';
-  if (!useDots) return text.trim();
-  return text
-    .replace(/[።፤]/g, ' . . . ')
-    .replace(/[፣፡]/g, ' . . ')
-    .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
-    .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
-    .replace(/[ ]{2,}/g, ' ')
-    .trim();
+  if (useDots) {
+    return text
+      .replace(/[።፤]/g, ' . . . ')
+      .replace(/[፣፡]/g, ' . . ')
+      .replace(/\s*\.\s*\.\s*\.\s*/g, ' . . . ')
+      .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
+      .replace(/[ ]{2,}/g, ' ')
+      .trim();
+  }
+  // Standard Amharic: remove traditional ፤, ።, ፣, ፡ and use modern clean punctuation
+  return cleanEthiopicPunctuation(text).trim();
 }
 
 /**
@@ -925,7 +943,7 @@ Output the final post now:`;
 
     const content = data.choices[0].message.content.trim();
 
-    // Replace Amharic punctuation with . . and . . . pauses only if user prefers it
+    // Clean traditional Amharic punctuation (፤, ።, etc.)
     let cleaned = content;
     if (useDotPunctuation) {
       cleaned = content
@@ -935,6 +953,8 @@ Output the final post now:`;
         .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
         .replace(/[ ]{2,}/g, ' ')
         .trim();
+    } else {
+      cleaned = cleanEthiopicPunctuation(content).trim();
     }
 
     return cleaned;
@@ -1071,7 +1091,7 @@ export function formatEditedNewsText(rawText, entities = [], useDotPunctuation =
     }
   }
 
-  // 5. Replace Amharic punctuation with . . and . . . pauses (only if user prefers it)
+  // 5. Clean punctuation (replace ፤ and Ethiopic punctuation or use dot pauses if user prefers)
   if (useDotPunctuation) {
     formatted = formatted
       .replace(/[።፤]/g, ' . . . ')
@@ -1080,6 +1100,8 @@ export function formatEditedNewsText(rawText, entities = [], useDotPunctuation =
       .replace(/([^\.])\s*\.\s*\.\s*([^\.])/g, '$1 . . $2')
       .replace(/[ ]{2,}/g, ' ')
       .trim();
+  } else {
+    formatted = cleanEthiopicPunctuation(formatted).trim();
   }
 
   return formatted;
