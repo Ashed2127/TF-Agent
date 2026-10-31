@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, updateAutoPostSchedule } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
@@ -26,6 +26,14 @@ export default async function (message, ctx) {
 
   const userId = message.from.id;
   const username = message.from.username;
+  const firstName = message.from.first_name || '';
+
+  // Track user activity detection
+  try {
+    const actType = message.text?.startsWith('/') ? 'command' : 'message';
+    const detail = message.text ? message.text.slice(0, 100) : (message.photo ? '[Photo]' : '[Media]');
+    recordUserActivity(userId, username, firstName, actType, detail).catch(e => console.error('Activity track error:', e.message));
+  } catch (_) {}
 
   // Handle /start command
   if (message.text === '/start') {

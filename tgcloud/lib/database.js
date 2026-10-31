@@ -1,6 +1,6 @@
 import { db } from 'sdk';
 import { eq, desc, sql, and } from 'sdk/db';
-import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules, postInteractions } from '../schema.js';
+import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules, postInteractions, userActivities } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -506,6 +506,12 @@ export async function getDashboardStats() {
     .limit(100)
     .all();
 
+  const allActivities = await db.select()
+    .from(userActivities)
+    .orderBy(desc(userActivities.created_at))
+    .limit(150)
+    .all();
+
   const activeUsers = allUsers.filter(u => u.onboarding_step === 'completed');
   const totalPostsCount = allUsers.reduce((sum, u) => sum + (u.posts_count || 0), 0);
   const registeredPostsCount = allPosts.length;
@@ -564,6 +570,11 @@ export async function getDashboardStats() {
     created_at: inter.created_at ? Number(inter.created_at) : null
   }));
 
+  const serializedActivities = allActivities.map(act => ({
+    ...act,
+    created_at: act.created_at ? Number(act.created_at) : null
+  }));
+
   return {
     users: {
       total_users: allUsers.length,
@@ -572,13 +583,15 @@ export async function getDashboardStats() {
       total_channels: allChannels.length,
       active_schedules: activeSchedulesCount,
       custom_sources: allCustomSources.length,
-      total_interactions: allInteractions.length
+      total_interactions: allInteractions.length,
+      total_activities: allActivities.length
     },
     recentPosts: serializedPosts,
     recentUsers: serializedUsers,
     channels: serializedChannels,
     schedules: serializedSchedules,
     interactions: serializedInteractions,
+    activities: serializedActivities,
     customSourcesCount: allCustomSources.length
   };
 }
@@ -955,3 +968,45 @@ export async function getAllInteractions() {
     .orderBy(desc(postInteractions.created_at))
     .all();
 }
+
+/**
+ * Record a user activity detection event
+ * @param {number} telegramId
+ * @param {string} username
+ * @param {string} firstName
+ * @param {string} activityType e.g., 'message', 'command', 'button_click', 'direct_translate', 'auto_post'
+ * @param {string} details
+ */
+export async function recordUserActivity(telegramId, username = null, firstName = null, activityType = 'interaction', details = null) {
+  try {
+    if (!telegramId) return null;
+    const [act] = await db.insert(userActivities)
+      .values({
+        telegram_id: telegramId,
+        username: username || null,
+        first_name: firstName || null,
+        activity_type: activityType,
+        details: typeof details === 'string' ? details.slice(0, 500) : (details ? JSON.stringify(details).slice(0, 500) : null)
+      })
+      .returning()
+      .run();
+    return act;
+  } catch (err) {
+    console.error('Failed to record user activity:', err.message);
+    return null;
+  }
+}
+
+export async function getRecentUserActivities(limit = 100) {
+  const result = await db.select()
+    .from(userActivities)
+    .orderBy(desc(userActivities.created_at))
+    .limit(limit)
+    .all();
+
+  return result.map(a => ({
+    ...a,
+    created_at: a.created_at ? Number(a.created_at) : null
+  }));
+}
+

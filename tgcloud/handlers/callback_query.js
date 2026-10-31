@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -376,9 +376,16 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
 
 export default async function (callbackQuery, ctx) {
   const userId = callbackQuery.from.id;
+  const username = callbackQuery.from.username;
+  const firstName = callbackQuery.from.first_name || '';
 
   const data = callbackQuery.data;
   console.log('Callback received:', data, 'from user:', userId);
+
+  // Track button / callback query user activity
+  try {
+    recordUserActivity(userId, username, firstName, 'button_click', data).catch(e => console.error('Activity track error:', e.message));
+  } catch (_) {}
 
   // Proactively check and execute any due scheduled auto posts in background
   try {

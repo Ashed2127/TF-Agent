@@ -1,7 +1,7 @@
 // handlers/message_reaction.js — runs whenever a user sets or changes a native Telegram emoji reaction
 // Payload is MessageReactionUpdated: { chat, message_id, user, actor_chat, date, old_reaction, new_reaction }
 
-import { recordPostInteraction } from '../lib/database.js';
+import { recordPostInteraction, recordUserActivity } from '../lib/database.js';
 
 export default async function (reactionUpdated, ctx) {
   try {
@@ -34,6 +34,9 @@ export default async function (reactionUpdated, ctx) {
 
       console.log(`Recording reaction: ${emojiStr} from user: ${firstName} (${username || userTelegramId}) in ${channelIdentifier}`);
       await recordPostInteraction(messageId, channelIdentifier, userTelegramId, username, firstName, emojiStr);
+      try {
+        recordUserActivity(userTelegramId, username, firstName, 'reaction', `${emojiStr} in ${channelIdentifier}`).catch(() => {});
+      } catch (_) {}
     }
 
   } catch (error) {

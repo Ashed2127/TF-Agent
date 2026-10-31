@@ -99,3 +99,14 @@ export const postInteractions = table('post_interactions', {
   reaction_type: text('reaction_type').notNull().default('like'),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });
+
+export const userActivities = table('user_activities', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  telegram_id: integer('telegram_id').notNull(),
+  username: text('username'),
+  first_name: text('first_name'),
+  activity_type: text('activity_type').notNull(), // 'message', 'command', 'button_click', 'direct_translate', 'auto_post', etc.
+  details: text('details'),
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+

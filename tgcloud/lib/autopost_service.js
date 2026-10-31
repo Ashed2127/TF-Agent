@@ -6,7 +6,8 @@ import {
   getUserByTelegramId, 
   createPost, 
   getUserPosts, 
-  getCustomSources 
+  getCustomSources,
+  recordUserActivity 
 } from './database.js';
 import { 
   NEWS_PLATFORMS, 
@@ -236,6 +237,11 @@ export async function processSingleAutoPost(schedule) {
 
   // Update schedule next_post_at and last_posted_at
   await updateAutoPostLastPosted(schedule.id);
+
+  // Track auto-post activity
+  try {
+    recordUserActivity(user.telegram_id, user.username, user.display_name, 'auto_post', `Posted to ${schedule.channel_id}: ${postTitle || 'Article'}`).catch(() => {});
+  } catch (_) {}
 
   return {
     scheduleId: schedule.id,

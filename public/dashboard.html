@@ -732,9 +732,9 @@
         <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
         <span>Overview</span>
       </button>
-      <button class="nav-btn" data-tab="creators" onclick="switchTab('creators')">
+      <button class="nav-btn" data-tab="users" onclick="switchTab('users')">
         <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-        <span>Users / Manage</span>
+        <span>Users</span>
       </button>
       <button class="nav-btn" data-tab="engage" onclick="switchTab('engage')">
         <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
@@ -763,13 +763,22 @@
       <section id="tab-overview" class="tab-panel active">
         <!-- KPI Grid -->
         <div class="kpi-grid">
-          <div class="kpi-card" style="cursor: pointer;" onclick="switchTab('creators')">
+          <div class="kpi-card" style="cursor: pointer;" onclick="switchTab('users')">
             <div class="kpi-header">
-              <span class="kpi-label">Active Creators</span>
+              <span class="kpi-label">Active Users</span>
               <span class="kpi-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
             </div>
             <div class="kpi-value" id="kpiActiveUsers">0</div>
-            <div class="kpi-trend"><span>●</span> <span id="kpiTotalUsers">0</span> total users &nbsp;<span style="color: var(--green-neon); text-decoration: underline;">Manage &rarr;</span></div>
+            <div class="kpi-trend"><span>●</span> <span id="kpiTotalUsers">0</span> registered &nbsp;<span style="color: var(--green-neon); text-decoration: underline;">Manage &rarr;</span></div>
+          </div>
+
+          <div class="kpi-card" style="cursor: pointer;" onclick="switchTab('users')">
+            <div class="kpi-header">
+              <span class="kpi-label">User Activities</span>
+              <span class="kpi-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></span>
+            </div>
+            <div class="kpi-value" id="kpiTotalActivities">0</div>
+            <div class="kpi-trend"><span style="color: var(--green-neon);">●</span> Detected events &nbsp;<span style="color: var(--green-neon); text-decoration: underline;">Stream &rarr;</span></div>
           </div>
 
           <div class="kpi-card">
@@ -778,7 +787,7 @@
               <span class="kpi-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
             </div>
             <div class="kpi-value" id="kpiInteractions">0</div>
-            <div class="kpi-trend"><span>•</span> Aggregate reactions</div>
+            <div class="kpi-trend"><span>•</span> Reactions & Emojis</div>
           </div>
 
           <div class="kpi-card">
@@ -789,15 +798,6 @@
             <div class="kpi-value" id="kpiTotalPosts">0</div>
             <div class="kpi-trend"><span>•</span> Live telemetry</div>
           </div>
-
-          <div class="kpi-card">
-            <div class="kpi-header">
-              <span class="kpi-label">Active Channels</span>
-              <span class="kpi-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
-            </div>
-            <div class="kpi-value" id="kpiTotalChannels">0</div>
-            <div class="kpi-trend"><span>•</span> Linked channels</div>
-          </div>
         </div>
 
         <!-- Quick Activity Summary -->
@@ -807,7 +807,7 @@
               <div class="panel-title">User Directory</div>
               <div class="panel-subtitle">Registered creators & direct actions (Reset data, Clear posts, Delete)</div>
             </div>
-            <button class="btn-action" onclick="switchTab('creators')">View All Users &rarr;</button>
+            <button class="btn-action" onclick="switchTab('users')">View All Users &rarr;</button>
           </div>
           <div id="overviewCreatorsQuickList" class="item-list"></div>
         </div>
@@ -886,19 +886,48 @@
         </div>
       </section>
 
-      <!-- 4. CREATORS TAB -->
-      <section id="tab-creators" class="tab-panel">
+      <!-- 4. USERS TAB (Activity Detection & Directory) -->
+      <section id="tab-users" class="tab-panel">
+        <!-- Section A: Real-Time User Activity Detection Stream -->
         <div class="panel-card">
           <div class="panel-header">
             <div>
-              <div class="panel-title">Registered Users & Channels</div>
-              <div class="panel-subtitle">Manage creator profiles, clear channels & data, or delete accounts</div>
+              <div class="panel-title">Real-Time User Activity Detection</div>
+              <div class="panel-subtitle">Live detection of user interactions, commands, messages, button taps & channel reactions</div>
+            </div>
+            <span class="badge badge-green" id="activityCountBadge">0 Detected</span>
+          </div>
+
+          <!-- Activity Type Filter Pills -->
+          <div class="reaction-filter-bar" id="activityFilterBar">
+            <button class="filter-btn active" onclick="filterActivities('all', this)">All (<span id="actCountAll">0</span>)</button>
+            <button class="filter-btn" onclick="filterActivities('command', this)">Commands (<span id="actCountCommand">0</span>)</button>
+            <button class="filter-btn" onclick="filterActivities('button_click', this)">Buttons (<span id="actCountButton">0</span>)</button>
+            <button class="filter-btn" onclick="filterActivities('message', this)">Messages (<span id="actCountMessage">0</span>)</button>
+            <button class="filter-btn" onclick="filterActivities('reaction', this)">Reactions (<span id="actCountReaction">0</span>)</button>
+            <button class="filter-btn" onclick="filterActivities('auto_post', this)">Auto Posts (<span id="actCountAutopost">0</span>)</button>
+          </div>
+
+          <div class="search-input-wrap">
+            <input type="text" id="activitySearchInput" class="search-input" placeholder="Search activity logs by username, telegram ID, or action..." oninput="handleActivitySearch(this.value)">
+          </div>
+
+          <!-- Stream of Detected Activities -->
+          <div id="activitiesList" class="item-list"></div>
+        </div>
+
+        <!-- Section B: Registered Users & Channels Management -->
+        <div class="panel-card" style="margin-top: 20px;">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title">Registered Users & Channel Directory</div>
+              <div class="panel-subtitle">Manage user accounts, reset channel configurations, clear posts, or delete accounts</div>
             </div>
             <span class="badge badge-blue" id="creatorsCountBadge">0 Users</span>
           </div>
 
           <div class="search-input-wrap">
-            <input type="text" id="userSearchInput" class="search-input" placeholder="Search creators by username, channel, or ID..." oninput="handleUserSearch(this.value)">
+            <input type="text" id="userSearchInput" class="search-input" placeholder="Search users by username, channel, or ID..." oninput="handleUserSearch(this.value)">
           </div>
 
           <div id="creatorsList" class="item-list"></div>
@@ -936,9 +965,9 @@
         <span class="tab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg></span>
         <span>Overview</span>
       </button>
-      <button class="bottom-tab" data-tab="creators" onclick="switchTab('creators')">
+      <button class="bottom-tab" data-tab="users" onclick="switchTab('users')">
         <span class="tab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
-        <span>Manage</span>
+        <span>Users</span>
       </button>
       <button class="bottom-tab" data-tab="engage" onclick="switchTab('engage')">
         <span class="tab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
@@ -970,6 +999,8 @@
 
     let globalData = null;
     let currentReactionFilter = 'all';
+    let currentActivityFilter = 'all';
+    let activitySearchTerm = '';
     let postsChartInstance = null;
     let categoriesChartInstance = null;
     let reactionsChartInstance = null;
@@ -1062,11 +1093,12 @@
       // 1. KPI Stats
       const users = data.users || {};
       const interactions = data.interactions || [];
+      const activities = data.activities || [];
 
       animateNumber('kpiActiveUsers', users.active_users || 0);
       animateNumber('kpiTotalUsers', users.total_users || 0);
       animateNumber('kpiTotalPosts', users.total_posts || 0);
-      animateNumber('kpiTotalChannels', users.total_channels || (data.channels ? data.channels.length : 0));
+      animateNumber('kpiTotalActivities', users.total_activities || activities.length);
       animateNumber('kpiInteractions', interactions.length);
 
       // 2. Overview Recent Stream
@@ -1077,17 +1109,128 @@
         overviewList.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><p>No publications registered yet.</p></div>`;
       }
 
-      // 3. Interactions Counts & Filter Pills (Engage Tab)
+      // 3. User Activity Detection Stream (Users Tab)
+      renderUserActivities();
+
+      // 4. Interactions Counts & Filter Pills (Engage Tab)
       renderReactionFilters(interactions);
       document.getElementById('engageCountBadge').textContent = `${interactions.length} Total`;
       renderInteractionsList();
 
-      // 4. Creators List
+      // 5. Creators List
       renderCreatorsList();
 
-      // 5. Live Posts List & Authors Filter Options
+      // 6. Live Posts List & Authors Filter Options
       renderPostsFilterDropdown(data.recentUsers || []);
       renderPostsList();
+    }
+
+    // User Activity Detection Handler
+    function filterActivities(type, btnEl) {
+      currentActivityFilter = type;
+      document.querySelectorAll('#activityFilterBar .filter-btn').forEach(b => b.classList.remove('active'));
+      if (btnEl) btnEl.classList.add('active');
+      renderUserActivities();
+    }
+
+    function handleActivitySearch(term) {
+      activitySearchTerm = (term || '').toLowerCase().trim();
+      renderUserActivities();
+    }
+
+    function renderUserActivities() {
+      const container = document.getElementById('activitiesList');
+      if (!container || !globalData) return;
+
+      const activities = globalData.activities || [];
+
+      // Update Filter counts
+      const counts = { all: activities.length, command: 0, button_click: 0, message: 0, reaction: 0, auto_post: 0 };
+      activities.forEach(a => {
+        if (counts[a.activity_type] !== undefined) {
+          counts[a.activity_type]++;
+        }
+      });
+
+      const setBadge = (id, count) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = count;
+      };
+      setBadge('actCountAll', counts.all);
+      setBadge('actCountCommand', counts.command);
+      setBadge('actCountButton', counts.button_click);
+      setBadge('actCountMessage', counts.message);
+      setBadge('actCountReaction', counts.reaction);
+      setBadge('actCountAutopost', counts.auto_post);
+
+      let filtered = activities;
+      if (currentActivityFilter !== 'all') {
+        filtered = filtered.filter(a => a.activity_type === currentActivityFilter);
+      }
+
+      if (activitySearchTerm) {
+        filtered = filtered.filter(a => {
+          const u = (a.username || '').toLowerCase();
+          const fn = (a.first_name || '').toLowerCase();
+          const d = (a.details || '').toLowerCase();
+          const tgId = String(a.telegram_id || '');
+          const actType = (a.activity_type || '').toLowerCase();
+          return u.includes(activitySearchTerm) ||
+                 fn.includes(activitySearchTerm) ||
+                 d.includes(activitySearchTerm) ||
+                 tgId.includes(activitySearchTerm) ||
+                 actType.includes(activitySearchTerm);
+        });
+      }
+
+      const countBadge = document.getElementById('activityCountBadge');
+      if (countBadge) countBadge.textContent = `${filtered.length} Detected`;
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
+            <p>No user activities detected ${currentActivityFilter !== 'all' ? `for type "${currentActivityFilter}"` : 'yet'}.</p>
+            <p style="font-size: 0.75rem; color: var(--text-dim); margin-top: 4px;">
+              Whenever users send commands, messages, tap inline buttons, or react to posts, actions appear here instantly in real-time.
+            </p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = filtered.map(act => renderActivityItem(act)).join('');
+    }
+
+    function renderActivityItem(act) {
+      const typeBadges = {
+        command: { badge: 'badge-purple', label: 'Command' },
+        button_click: { badge: 'badge-blue', label: 'Button Click' },
+        message: { badge: 'badge-green', label: 'Message' },
+        reaction: { badge: 'badge-amber', label: 'Reaction' },
+        auto_post: { badge: 'badge-green', label: 'Auto Post' }
+      };
+
+      const meta = typeBadges[act.activity_type] || { badge: 'badge-blue', label: act.activity_type || 'Activity' };
+      const timeStr = formatTimeAgo(act.created_at);
+      const userDisplay = act.username ? `@${escapeHtml(act.username)}` : escapeHtml(act.first_name || `User ${act.telegram_id}`);
+      const tgIdDisplay = act.telegram_id ? `ID: ${act.telegram_id}` : '';
+
+      return `
+        <div class="list-item">
+          <div class="item-top">
+            <div class="item-title">
+              <span class="badge ${meta.badge}">${meta.label}</span>
+              <span style="margin-left: 6px;">${userDisplay}</span>
+              <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal; margin-left: 4px;">(${tgIdDisplay})</span>
+            </div>
+            <span style="font-size: 0.72rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace;">${timeStr}</span>
+          </div>
+          <div class="post-text-snippet" style="background: rgba(0, 0, 0, 0.3); border-left-color: ${act.activity_type === 'command' ? 'var(--purple-accent)' : act.activity_type === 'button_click' ? 'var(--blue-accent)' : 'var(--green-neon)'};">
+            ${escapeHtml(act.details || 'Action detected')}
+          </div>
+        </div>
+      `;
     }
 
     // Filter Posts by User / Content
