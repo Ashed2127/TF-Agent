@@ -152,9 +152,7 @@ export async function generateIdea(userId = null) {
         .trim();
     } else {
       cleanContent = cleanContent
-        .replace(/፤/g, ',')
-        .replace(/።/g, '.')
-        .replace(/፣/g, ',')
+        .replace(/፤/g, '፣')
         .replace(/፡/g, ' ')
         .replace(/፦/g, ':-')
         .replace(/፧/g, '?')

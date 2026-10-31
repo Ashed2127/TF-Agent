@@ -615,9 +615,7 @@ export async function translateWithGoogle(text, targetLang = 'am') {
 export function cleanEthiopicPunctuation(text) {
   if (!text) return '';
   return text
-    .replace(/፤/g, ',')
-    .replace(/።/g, '.')
-    .replace(/፣/g, ',')
+    .replace(/፤/g, '፣')
     .replace(/፡/g, ' ')
     .replace(/፦/g, ':-')
     .replace(/፧/g, '?')
@@ -636,7 +634,7 @@ function cleanAmharicPunctuation(text, useDots = false) {
       .replace(/[ ]{2,}/g, ' ')
       .trim();
   }
-  // Standard Amharic: remove traditional ፤, ።, ፣, ፡ and use modern clean punctuation
+  // Standard Amharic: keep ። (full stop), remove unwanted ፤ and replace with ፣ or standard punctuation
   return cleanEthiopicPunctuation(text).trim();
 }
 
