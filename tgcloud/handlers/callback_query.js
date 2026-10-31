@@ -8,6 +8,8 @@ import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
+import { processSingleAutoPost, checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
+import { showAutoPostCategoryPicker, showAutoPostPlatformPicker } from '../lib/autopost_ui.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -377,6 +379,11 @@ export default async function (callbackQuery, ctx) {
 
   const data = callbackQuery.data;
   console.log('Callback received:', data, 'from user:', userId);
+
+  // Proactively check and execute any due scheduled auto posts in background
+  try {
+    checkAndTriggerDueAutoPosts().catch(e => console.error('AutoPost check error:', e.message));
+  } catch (_) {}
 
   // Handle reaction on posted channel content (e.g., react:like:123 or react:fire:123)
   if (data && data.startsWith('react:')) {
@@ -1439,9 +1446,23 @@ export default async function (callbackQuery, ctx) {
       const channel = userChannels.find(c => c.channel_id === autoPostSchedule.channel_id);
       const channelName = channel ? channel.channel_name || channel.channel_id : autoPostSchedule.channel_id;
 
+      let platformName = 'General News (TechCrunch)';
+      if (autoPostSchedule.source_platform) {
+        if (autoPostSchedule.source_platform.startsWith('custom_')) {
+          const customId = parseInt(autoPostSchedule.source_platform.replace('custom_', ''), 10);
+          const customs = await getCustomSources(user.id);
+          const match = customs.find(c => c.id === customId);
+          platformName = match ? `⭐ ${match.source_name}` : autoPostSchedule.source_platform;
+        } else {
+          const match = getPlatformById(autoPostSchedule.source_platform);
+          platformName = match ? match.name : autoPostSchedule.source_platform;
+        }
+      }
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Auto Post Settings\n\nStatus: ${statusText}\nChannel: ${channelName}\nInterval: Every ${intervalText}\n\nWhat would you like to do?`,
+        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Platform Source:</b> <b>${platformName}</b>\n<b>Interval:</b> Every ${intervalText}\n\nWhat would you like to do?`,
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
@@ -1451,7 +1472,8 @@ export default async function (callbackQuery, ctx) {
               { text: autoPostSchedule.is_active === 1 ? 'Pause' : 'Resume', callback_data: 'toggle_auto_post' }
             ],
             [
-              { text: 'Edit Schedule', callback_data: 'edit_auto_post' }
+              { text: 'Change Interval', callback_data: 'edit_auto_post' },
+              { text: 'Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
             ],
             [
               { text: 'Delete Schedule', callback_data: 'delete_auto_post' }
@@ -1573,28 +1595,109 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle setup auto post
+  // Direct change of platform from Auto Post settings
+  if (data.startsWith('edit_auto_post_platform_')) {
+    const parts = data.replace('edit_auto_post_platform_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, true);
+    return;
+  }
+
+  // Handle setup auto post -> forward to platform category picker
   if (data.startsWith('setup_auto_post_')) {
     const parts = data.replace('setup_auto_post_', '').split('_');
     const channelId = parts[0];
     const intervalHours = parseFloat(parts[1]);
+    await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, false);
+    return;
+  }
+
+  // Handle update auto post -> forward to platform category picker
+  if (data.startsWith('update_auto_post_')) {
+    const parts = data.replace('update_auto_post_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, true);
+    return;
+  }
+
+  // Back button from platform picker to category picker
+  if (data.startsWith('ap_st_back_') || data.startsWith('ap_up_back_')) {
+    const isUpdate = data.startsWith('ap_up_back_');
+    const parts = data.replace(isUpdate ? 'ap_up_back_' : 'ap_st_back_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, isUpdate);
+    return;
+  }
+
+  // Category selected during setup or update -> show platforms
+  if (data.startsWith('ap_st_cat_') || data.startsWith('ap_up_cat_')) {
+    const isUpdate = data.startsWith('ap_up_cat_');
+    const prefix = isUpdate ? 'ap_up_cat_' : 'ap_st_cat_';
+    const parts = data.replace(prefix, '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    const catId = parts[2];
+    await showAutoPostPlatformPicker(callbackQuery.message.chat.id, userId, channelId, intervalHours, catId, isUpdate);
+    return;
+  }
+
+  // Platform selected for setup
+  if (data.startsWith('ap_st_plat_')) {
+    const parts = data.replace('ap_st_plat_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    const platformId = parts.slice(2).join('_');
 
     const user = await getUserByTelegramId(userId);
-    await createAutoPostSchedule(user.id, channelId, intervalHours);
+    await createAutoPostSchedule(user.id, channelId, intervalHours, platformId);
 
     const intervalText = formatIntervalDisplay(intervalHours);
+    const platformObj = getPlatformById(platformId);
+    const platformName = platformObj ? platformObj.name : platformId;
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Auto post enabled!\n\nChannel: ${channelId}\nInterval: Every ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
+      text: `✅ <b>Auto post enabled!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate and post content based on your schedule.`,
+      parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
-          [
-            { text: 'Back', callback_data: 'settings' }
-          ]
+          [{ text: 'Back to Settings', callback_data: 'settings' }]
         ]
       }
     });
+    return;
+  }
+
+  // Platform selected for update
+  if (data.startsWith('ap_up_plat_')) {
+    const parts = data.replace('ap_up_plat_', '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+    const platformId = parts.slice(2).join('_');
+
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    if (schedule) {
+      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true, platformId);
+
+      const intervalText = formatIntervalDisplay(intervalHours);
+      const platformObj = getPlatformById(platformId);
+      const platformName = platformObj ? platformObj.name : platformId;
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ <b>Auto post schedule updated!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nInterval: Every ${intervalText}`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+          ]
+        }
+      });
+    }
     return;
   }
 
@@ -1664,34 +1767,6 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle update auto post
-  if (data.startsWith('update_auto_post_')) {
-    const parts = data.replace('update_auto_post_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-
-    const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
-    if (schedule) {
-      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true);
-
-      const intervalText = formatIntervalDisplay(intervalHours);
-
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `Auto post schedule updated!\n\nChannel: ${channelId}\nInterval: Every ${intervalText}`,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Back', callback_data: 'auto_post' }
-            ]
-          ]
-        }
-      });
-    }
-    return;
-  }
-
   // Handle delete auto post
   if (data === 'delete_auto_post') {
     const user = await getUserByTelegramId(userId);
@@ -1751,32 +1826,17 @@ export default async function (callbackQuery, ctx) {
     try {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `🔄 Running auto post...\n\nGenerating content...`,
+        text: `🔄 Running auto post...\n\nFetching and generating content...`,
       });
 
       console.log('Starting auto post for user:', user.id, 'to channel:', schedule.channel_id);
 
-      // Generate content using user's content structure
-      const idea = await generateIdea(user.telegram_id);
-      console.log(`Generated idea: ${idea.topic}`);
-
-      // Post to channel
-      await api.sendMessage({
-        chat_id: schedule.channel_id,
-        text: idea.content,
-        parse_mode: 'Markdown',
-      });
-      console.log('Posted to channel:', schedule.channel_id);
-
-      // Create post record
-      await createPost(user.id, schedule.channel_id, idea.content, idea.category, null, null);
-
-      // Update schedule with last posted time
-      await updateAutoPostLastPosted(schedule.id);
+      const result = await processSingleAutoPost(schedule);
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `✅ Auto post successful!\n\nPosted to: ${schedule.channel_id}\nTopic: ${idea.topic}\n\nClick button to run again or go back to settings.`,
+        text: `✅ <b>Auto post successful!</b>\n\nChannel: <code>${result.channelId}</code>\nSource: <b>${result.platform}</b>\nTopic: ${result.title}\n\nClick button to run again or go back to settings.`,
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [

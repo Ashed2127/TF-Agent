@@ -81,6 +81,7 @@ export const autoPostSchedules = table('auto_post_schedules', {
   user_id: integer('user_id').notNull(),
   channel_id: text('channel_id').notNull(),
   interval_hours: integer('interval_hours').notNull(),
+  source_platform: text('source_platform'),
   is_active: integer('is_active').default(1),
   last_posted_at: integer('last_posted_at', { mode: 'timestamp' }),
   next_post_at: integer('next_post_at', { mode: 'timestamp' }),
