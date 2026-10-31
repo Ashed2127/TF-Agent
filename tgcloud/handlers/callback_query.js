@@ -1461,15 +1461,12 @@ export default async function (callbackQuery, ctx) {
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Platform Source:</b> <b>${platformName}</b>\n<b>Interval:</b> Every ${intervalText}\n\nWhat would you like to do?`,
+        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Platform Source:</b> <b>${platformName}</b>\n<b>Interval:</b> Every ${intervalText}\n\n<i>Auto Post runs automatically in the background on your schedule. Use the buttons below to change settings or pause.</i>`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Run Auto Post Now', callback_data: 'run_auto_post_now' }
-            ],
-            [
-              { text: autoPostSchedule.is_active === 1 ? 'Pause' : 'Resume', callback_data: 'toggle_auto_post' }
+              { text: autoPostSchedule.is_active === 1 ? '⏸️ Pause Auto Post' : '▶️ Resume Auto Post', callback_data: 'toggle_auto_post' }
             ],
             [
               { text: '📢 Change Channel', callback_data: 'ap_sel_chn_edit' },
@@ -1479,10 +1476,10 @@ export default async function (callbackQuery, ctx) {
               { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
             ],
             [
-              { text: 'Delete Schedule', callback_data: 'delete_auto_post' }
+              { text: '🗑️ Delete Schedule', callback_data: 'delete_auto_post' }
             ],
             [
-              { text: 'Back', callback_data: 'settings' }
+              { text: '« Back to Settings', callback_data: 'settings' }
             ]
           ]
         }
@@ -1830,89 +1827,7 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle run auto post now
-  if (data === 'run_auto_post_now') {
-    const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
 
-    if (!schedule) {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `No auto post schedule found.`,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Back', callback_data: 'auto_post' }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
-    if (schedule.is_active !== 1) {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `Auto post is paused. Please resume it first.`,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Back', callback_data: 'auto_post' }
-            ]
-          ]
-        }
-      });
-      return;
-    }
-
-    try {
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `🔄 Running auto post...\n\nFetching and generating content...`,
-      });
-
-      console.log('Starting auto post for user:', user.id, 'to channel:', schedule.channel_id);
-
-      const result = await processSingleAutoPost(schedule);
-
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `✅ <b>Auto post successful!</b>\n\nChannel: <code>${result.channelId}</code>\nSource: <b>${result.platform}</b>\nTopic: ${result.title}\n\nClick button to run again or go back to settings.`,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Run Again', callback_data: 'run_auto_post_now' }
-            ],
-            [
-              { text: 'Back', callback_data: 'auto_post' }
-            ]
-          ]
-        }
-      });
-
-    } catch (error) {
-      console.error('Error running auto post:', error);
-      const errorMessage = error.message || 'Unknown error';
-      const errorDetails = error.toString ? error.toString() : String(error);
-
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `❌ Auto post failed\n\nError: ${errorMessage}\n\nDetails: ${errorDetails.substring(0, 200)}${errorDetails.length > 200 ? '...' : ''}\n\nPlease try again or check your content structure settings.`,
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: 'Try Again', callback_data: 'run_auto_post_now' }
-            ],
-            [
-              { text: 'Back', callback_data: 'auto_post' }
-            ]
-          ]
-        }
-      });
-    }
-    return;
-  }
 
   // Handle delete channel
   if (data.startsWith('delete_channel_')) {
