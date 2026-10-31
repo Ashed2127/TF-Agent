@@ -9,7 +9,7 @@ import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatN
 import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 import { processSingleAutoPost, checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
-import { showAutoPostCategoryPicker, showAutoPostPlatformPicker } from '../lib/autopost_ui.js';
+import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker } from '../lib/autopost_ui.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -1472,8 +1472,11 @@ export default async function (callbackQuery, ctx) {
               { text: autoPostSchedule.is_active === 1 ? 'Pause' : 'Resume', callback_data: 'toggle_auto_post' }
             ],
             [
-              { text: 'Change Interval', callback_data: 'edit_auto_post' },
-              { text: 'Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
+              { text: '📢 Change Channel', callback_data: 'ap_sel_chn_edit' },
+              { text: '⏱️ Change Interval', callback_data: 'edit_auto_post' }
+            ],
+            [
+              { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
             ],
             [
               { text: 'Delete Schedule', callback_data: 'delete_auto_post' }
@@ -1501,40 +1504,112 @@ export default async function (callbackQuery, ctx) {
           }
         });
       } else {
+        // Show list of channels for user to select which channel to auto-post to
         let keyboard = [];
-
         for (const channel of userChannels) {
           const cName = channel.channel_name || channel.channel_id;
-          keyboard.push(
-            [
-              { text: `🧪 ${cName} - 5 sec (Test)`, callback_data: `setup_auto_post_${channel.channel_id}_0.00138889` }
-            ],
-            [
-              { text: `${cName} - 30 min`, callback_data: `setup_auto_post_${channel.channel_id}_0.5` },
-              { text: `${cName} - 1 hr`, callback_data: `setup_auto_post_${channel.channel_id}_1` }
-            ],
-            [
-              { text: `${cName} - 2 hr`, callback_data: `setup_auto_post_${channel.channel_id}_2` },
-              { text: `${cName} - 3 hr`, callback_data: `setup_auto_post_${channel.channel_id}_3` }
-            ],
-            [
-              { text: `⏱️ ${cName} - Custom`, callback_data: `custom_auto_post_setup_${channel.channel_id}` }
-            ]
-          );
+          keyboard.push([
+            { text: `📢 ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
+          ]);
         }
 
+        keyboard.push([
+          { text: '➕ Add Channel', callback_data: 'add_channel' }
+        ]);
         keyboard.push([
           { text: 'Back', callback_data: 'settings' }
         ]);
 
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: `Auto Post\n\nSet up automatic posting to your channel.\n\nChoose a posting interval (5 sec test, 30min, 1hr, 2hr, 3hr or Custom):`,
+          text: `📢 <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
+          parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
           }
         });
       }
+    }
+    return;
+  }
+
+  // User chose to select channel for new auto post setup
+  if (data === 'ap_sel_chn') {
+    const user = await getUserByTelegramId(userId);
+    const userChannels = await getUserChannels(user.id);
+    let keyboard = [];
+    for (const channel of userChannels) {
+      const cName = channel.channel_name || channel.channel_id;
+      keyboard.push([
+        { text: `📢 ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
+      ]);
+    }
+    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+    keyboard.push([{ text: 'Back', callback_data: 'settings' }]);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📢 <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+
+  // User chose a channel for new auto post setup -> show intervals for this channel
+  if (data.startsWith('ap_pick_chn_')) {
+    const channelId = data.replace('ap_pick_chn_', '');
+    await showAutoPostIntervalPicker(callbackQuery.message.chat.id, channelId, false);
+    return;
+  }
+
+  // User wants to change channel on existing schedule
+  if (data === 'ap_sel_chn_edit') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    const userChannels = await getUserChannels(user.id);
+
+    let keyboard = [];
+    for (const channel of userChannels) {
+      const cName = channel.channel_name || channel.channel_id;
+      const isCurrent = schedule && schedule.channel_id === channel.channel_id;
+      keyboard.push([
+        { text: `${isCurrent ? '✅ ' : '📢 '}${cName}`, callback_data: `ap_set_chn_${channel.channel_id}` }
+      ]);
+    }
+    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+    keyboard.push([{ text: '« Back', callback_data: 'auto_post' }]);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📢 <b>Change Auto Post Channel</b>\n\nSelect which channel this auto-post schedule should post to:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+
+  // Set new channel on existing auto post schedule
+  if (data.startsWith('ap_set_chn_')) {
+    const channelId = data.replace('ap_set_chn_', '');
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id);
+    if (schedule) {
+      await updateAutoPostSchedule(schedule.id, channelId, undefined, true);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Channel updated to <code>${channelId}</code>!`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+          ]
+        }
+      });
     }
     return;
   }
@@ -1723,46 +1798,13 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle edit auto post
+  // Handle edit auto post interval
   if (data === 'edit_auto_post') {
     const user = await getUserByTelegramId(userId);
     const schedule = await getAutoPostSchedule(user.id);
-    const userChannels = await getUserChannels(user.id);
 
-    if (schedule && userChannels.length > 0) {
-      let keyboard = [];
-
-      for (const channel of userChannels) {
-        const cName = channel.channel_name || channel.channel_id;
-        keyboard.push(
-          [
-            { text: `🧪 ${cName} - 5 sec (Test)`, callback_data: `update_auto_post_${channel.channel_id}_0.00138889` }
-          ],
-          [
-            { text: `${cName} - 30 min`, callback_data: `update_auto_post_${channel.channel_id}_0.5` },
-            { text: `${cName} - 1 hr`, callback_data: `update_auto_post_${channel.channel_id}_1` }
-          ],
-          [
-            { text: `${cName} - 2 hr`, callback_data: `update_auto_post_${channel.channel_id}_2` },
-            { text: `${cName} - 3 hr`, callback_data: `update_auto_post_${channel.channel_id}_3` }
-          ],
-          [
-            { text: `⏱️ ${cName} - Custom`, callback_data: `custom_auto_post_update_${channel.channel_id}` }
-          ]
-        );
-      }
-
-      keyboard.push([
-        { text: 'Back', callback_data: 'auto_post' }
-      ]);
-
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `Edit Auto Post Schedule\n\nChoose a new interval (5 sec test, 30min, 1hr, 2hr, 3hr or Custom):`,
-        reply_markup: {
-          inline_keyboard: keyboard
-        }
-      });
+    if (schedule) {
+      await showAutoPostIntervalPicker(callbackQuery.message.chat.id, schedule.channel_id, true);
     }
     return;
   }

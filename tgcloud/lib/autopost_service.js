@@ -147,17 +147,39 @@ export async function processSingleAutoPost(schedule) {
 
   } else {
     // Fallback if no article could be fetched
-    const idea = await generateIdea(user.telegram_id);
-    postedContent = idea.content;
-    postTitle = idea.topic;
+    try {
+      const idea = await generateIdea(user.telegram_id);
+      postedContent = idea.content;
+      postTitle = idea.topic;
 
-    await api.sendMessage({
-      chat_id: schedule.channel_id,
-      text: postedContent,
-      parse_mode: 'Markdown'
-    });
+      await api.sendMessage({
+        chat_id: schedule.channel_id,
+        text: postedContent,
+        parse_mode: 'Markdown'
+      });
 
-    await createPost(user.id, schedule.channel_id, postedContent, idea.category, null, null);
+      await createPost(user.id, schedule.channel_id, postedContent, idea.category, null, null);
+    } catch (e) {
+      console.warn('generateIdea fallback failed, attempting emergency news synthesis:', e.message);
+      // Emergency article synthesis from techcrunch
+      const emergencyArticles = await fetchRSSFeed('https://techcrunch.com/feed/', 'TechCrunch');
+      if (emergencyArticles && emergencyArticles.length > 0) {
+        postedContent = await formatNewsArticle(
+          emergencyArticles[0],
+          userChannelLink,
+          showSourceLink,
+          useDotPunctuation,
+          user.telegram_id
+        );
+        postTitle = emergencyArticles[0].title || 'Tech News';
+        await api.sendMessage({
+          chat_id: schedule.channel_id,
+          text: postedContent,
+          parse_mode: 'HTML'
+        });
+        await createPost(user.id, schedule.channel_id, postedContent, 'technology', 'TechCrunch', null);
+      }
+    }
   }
 
   // Update schedule next_post_at and last_posted_at

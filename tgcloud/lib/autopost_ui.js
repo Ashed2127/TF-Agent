@@ -2,6 +2,40 @@ import { api } from 'sdk';
 import { NEWS_CATEGORIES, NEWS_PLATFORMS } from './news.js';
 import { getCustomSources, getAutoPostSchedule } from './database.js';
 
+export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = false) {
+  const prefix = isUpdate ? 'update_auto_post' : 'setup_auto_post';
+  const customPrefix = isUpdate ? 'custom_auto_post_update' : 'custom_auto_post_setup';
+
+  const keyboard = [
+    [
+      { text: '🧪 5 sec (Test)', callback_data: `${prefix}_${channelId}_0.00138889` }
+    ],
+    [
+      { text: '30 min', callback_data: `${prefix}_${channelId}_0.5` },
+      { text: '1 hr', callback_data: `${prefix}_${channelId}_1` }
+    ],
+    [
+      { text: '2 hr', callback_data: `${prefix}_${channelId}_2` },
+      { text: '3 hr', callback_data: `${prefix}_${channelId}_3` }
+    ],
+    [
+      { text: '⏱️ Custom Interval', callback_data: `${customPrefix}_${channelId}` }
+    ],
+    [
+      { text: '« Back', callback_data: isUpdate ? 'auto_post' : 'ap_sel_chn' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `⏱️ <b>Auto Post Interval</b>\n\nChannel: <code>${channelId}</code>\n\nChoose how often you want new content to be automatically posted:`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}
+
 export async function showAutoPostCategoryPicker(chatId, channelId, intervalHours, isUpdate = false) {
   const userSchedule = await getAutoPostSchedule(chatId);
   const actionPrefix = isUpdate ? 'ap_up_cat' : 'ap_st_cat';
