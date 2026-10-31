@@ -8,16 +8,12 @@ export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = f
 
   const keyboard = [
     [
-      { text: '🧪 5 sec (Test)', callback_data: `${prefix}_${channelId}_0.00138889` },
-      { text: '⏱️ 1 min (Test)', callback_data: `${prefix}_${channelId}_0.01666667` }
+      { text: '⏱️ 1 min', callback_data: `${prefix}_${channelId}_0.01666667` },
+      { text: '2 hr', callback_data: `${prefix}_${channelId}_2` }
     ],
     [
-      { text: '30 min', callback_data: `${prefix}_${channelId}_0.5` },
-      { text: '1 hr', callback_data: `${prefix}_${channelId}_1` }
-    ],
-    [
-      { text: '2 hr', callback_data: `${prefix}_${channelId}_2` },
-      { text: '3 hr', callback_data: `${prefix}_${channelId}_3` }
+      { text: '4 hr', callback_data: `${prefix}_${channelId}_4` },
+      { text: '7 hr', callback_data: `${prefix}_${channelId}_7` }
     ],
     [
       { text: '⚙️ Custom Interval', callback_data: `${customPrefix}_${channelId}` }

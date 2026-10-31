@@ -623,7 +623,7 @@ export default async function (message, ctx) {
       if (!parsedHours || parsedHours <= 0) {
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: `⚠️ <b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>5s</code> (5 seconds)\n• <code>1m</code> (1 minute)\n• <code>30m</code> (30 minutes)\n• <code>1h</code> or <code>1.5h</code> (hours)\n• <code>2 hours</code>\n• <code>3</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
+          text: `⚠️ <b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>1m</code> (1 minute)\n• <code>30m</code> (30 minutes)\n• <code>2h</code> or <code>4hr</code> (hours)\n• <code>7 hours</code>\n• <code>2</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
