@@ -7,7 +7,7 @@ import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
-import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay } from '../lib/channel.js';
+import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
 import { showAutoPostCategoryPicker } from '../lib/autopost_ui.js';
 
@@ -236,9 +236,10 @@ export default async function (message, ctx) {
   if (user && (user.onboarding_step === 'provide_channel_id' || user.onboarding_step === 'add_bot_admin')) {
     const channelInfo = extractChannelFromMessage(message);
     if (channelInfo && channelInfo.channelId) {
-      await updateUserChannelId(userId, channelInfo.channelId, channelInfo.channelName);
+      const resolved = await resolveChannelMetadata(api, channelInfo.channelId, channelInfo.channelName);
+      await updateUserChannelId(userId, resolved.channelId, resolved.channelName);
       await updateUserOnboardingStep(userId, 'add_bot_admin');
-      await showAddBotAdminInstructions(message.chat.id, channelInfo.channelId);
+      await showAddBotAdminInstructions(message.chat.id, resolved.channelId);
       return;
     }
   }
@@ -473,17 +474,19 @@ export default async function (message, ctx) {
     if (pendingChannel && pendingChannel.channelId === 'waiting') {
       const channelInfo = extractChannelFromMessage(message);
       if (channelInfo && channelInfo.channelId) {
+        const enriched = await resolveChannelMetadata(api, channelInfo.channelId, channelInfo.channelName);
         // Store the channel info and ask for bot admin verification
-        await setPendingChannelAdd(userId, channelInfo.channelId, channelInfo.channelName);
-        await showAddChannelBotAdminInstructions(message.chat.id, channelInfo.channelId);
+        await setPendingChannelAdd(userId, enriched.channelId, enriched.channelName);
+        await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId);
         return;
       }
 
       // Try text input
       const normalized = normalizeChannelId(incomingText);
       if (normalized) {
-        await setPendingChannelAdd(userId, normalized, normalized);
-        await showAddChannelBotAdminInstructions(message.chat.id, normalized);
+        const enriched = await resolveChannelMetadata(api, normalized, normalized);
+        await setPendingChannelAdd(userId, enriched.channelId, enriched.channelName);
+        await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId);
         return;
       }
     }
@@ -495,19 +498,21 @@ export default async function (message, ctx) {
       let newChannelName = null;
 
       if (channelInfo && channelInfo.channelId) {
-        newChannelId = channelInfo.channelId;
-        newChannelName = channelInfo.channelName;
+        const enriched = await resolveChannelMetadata(api, channelInfo.channelId, channelInfo.channelName);
+        newChannelId = enriched.channelId;
+        newChannelName = enriched.channelName;
       } else {
         // Try text input
         const normalized = normalizeChannelId(incomingText);
         if (normalized) {
-          newChannelId = normalized;
-          newChannelName = normalized;
+          const enriched = await resolveChannelMetadata(api, normalized, normalized);
+          newChannelId = enriched.channelId;
+          newChannelName = enriched.channelName;
         }
       }
 
       if (newChannelId) {
-        await updateUserChannelId(userId, newChannelId);
+        await updateUserChannelId(userId, newChannelId, newChannelName);
         await clearPendingChannelAdd(userId);
         await api.sendMessage({
           chat_id: message.chat.id,
@@ -945,7 +950,6 @@ async function showChannelIdInstructions(chatId) {
             request_chat: {
               request_id: 1,
               chat_is_channel: true,
-              chat_is_created: true,
               request_title: true,
               request_username: true
             }
@@ -955,7 +959,6 @@ async function showChannelIdInstructions(chatId) {
             request_chat: {
               request_id: 2,
               chat_is_channel: false,
-              chat_is_created: true,
               request_title: true,
               request_username: true
             }
@@ -1029,6 +1032,15 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
       });
       return;
     }
+
+    // Bot is verified as admin! Enrich channel info (username & title) now that bot has admin access
+    try {
+      const enriched = await resolveChannelMetadata(api, channelId, user.channel_name);
+      if (enriched.channelId !== user.channel_id || enriched.channelName !== user.channel_name) {
+        channelId = enriched.channelId;
+        await updateUserChannelId(user.telegram_id, enriched.channelId, enriched.channelName);
+      }
+    } catch (_) {}
 
     await updateUserOnboardingStep(user.telegram_id, 'provide_display_name');
     await api.sendMessage({
@@ -1148,6 +1160,13 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
       });
       return;
     }
+
+    // Bot is verified as admin! Enrich channel info (username & title) now that bot has admin access
+    try {
+      const enriched = await resolveChannelMetadata(api, channelId, channelName);
+      channelId = enriched.channelId;
+      channelName = enriched.channelName;
+    } catch (_) {}
 
     // Add the channel
     await addUserChannel(user.id, channelId, channelName, 0, 0);

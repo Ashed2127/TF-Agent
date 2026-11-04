@@ -1332,7 +1332,6 @@ export default async function (callbackQuery, ctx) {
               request_chat: {
                 request_id: 5,
                 chat_is_channel: true,
-                chat_is_created: true,
                 request_title: true,
                 request_username: true
               }
@@ -1342,7 +1341,6 @@ export default async function (callbackQuery, ctx) {
               request_chat: {
                 request_id: 6,
                 chat_is_channel: false,
-                chat_is_created: true,
                 request_title: true,
                 request_username: true
               }
@@ -3164,7 +3162,6 @@ async function handleCheckJoin(callbackQuery, userId) {
               request_chat: {
                 request_id: 1,
                 chat_is_channel: true,
-                chat_is_created: true,
                 request_title: true,
                 request_username: true
               }
@@ -3174,7 +3171,6 @@ async function handleCheckJoin(callbackQuery, userId) {
               request_chat: {
                 request_id: 2,
                 chat_is_channel: false,
-                chat_is_created: true,
                 request_title: true,
                 request_username: true
               }
@@ -3208,7 +3204,6 @@ async function handleChangeChannel(callbackQuery, userId) {
             request_chat: {
               request_id: 1,
               chat_is_channel: true,
-              chat_is_created: true,
               request_title: true,
               request_username: true
             }
@@ -3218,7 +3213,6 @@ async function handleChangeChannel(callbackQuery, userId) {
             request_chat: {
               request_id: 2,
               chat_is_channel: false,
-              chat_is_created: true,
               request_title: true,
               request_username: true
             }
@@ -4058,7 +4052,6 @@ async function handleAddChannelStart(callbackQuery, userId) {
             request_chat: {
               request_id: 3,
               chat_is_channel: true,
-              chat_is_created: true,
               request_title: true,
               request_username: true
             }
@@ -4068,7 +4061,6 @@ async function handleAddChannelStart(callbackQuery, userId) {
             request_chat: {
               request_id: 4,
               chat_is_channel: false,
-              chat_is_created: true,
               request_title: true,
               request_username: true
             }

@@ -94,9 +94,13 @@ export function extractChannelFromMessage(message) {
         channelId = `-100${channelId}`;
       }
     }
+    const channelName = message.chat_shared.title || (message.chat_shared.username ? `@${message.chat_shared.username.replace(/^@/, '')}` : channelId);
     return {
       channelId,
-      channelName: message.chat_shared.title || (message.chat_shared.username ? `@${message.chat_shared.username.replace(/^@/, '')}` : channelId)
+      channelName,
+      isChatShared: true,
+      rawUsername: message.chat_shared.username ? `@${message.chat_shared.username.replace(/^@/, '')}` : null,
+      rawTitle: message.chat_shared.title || null
     };
   }
 
@@ -131,6 +135,37 @@ export function extractChannelFromMessage(message) {
     channelId: normalized,
     channelName: normalized
   };
+}
+
+/**
+ * Tries to fetch latest channel username & title via Telegram Bot API getChat
+ * if only a numeric ID was available or to enrich name/handle.
+ */
+export async function resolveChannelMetadata(api, channelId, currentName = null) {
+  if (!channelId || !api) {
+    return { channelId, channelName: currentName || channelId };
+  }
+
+  let finalId = channelId;
+  let finalName = currentName || channelId;
+
+  try {
+    const chat = await api.getChat({ chat_id: channelId });
+    if (chat) {
+      if (chat.username) {
+        finalId = `@${chat.username.replace(/^@/, '')}`;
+      }
+      if (chat.title) {
+        finalName = chat.title;
+      } else if (chat.username) {
+        finalName = `@${chat.username.replace(/^@/, '')}`;
+      }
+    }
+  } catch (_) {
+    // If bot is not an admin yet, keep the provided channelId and currentName
+  }
+
+  return { channelId: finalId, channelName: finalName };
 }
 
 /**
