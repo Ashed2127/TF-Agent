@@ -41,7 +41,7 @@ export default async function (message, ctx) {
     await deletePendingEdit(userId);
 
     // Get or create user
-    const user = await getOrCreateUser(userId, username);
+    const user = await getOrCreateUser(userId, username, firstName);
 
     // Enable dot punctuation for owner by default
     if (userId === OWNER_CHAT_ID) {

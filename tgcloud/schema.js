@@ -22,6 +22,7 @@ export const users = table('users', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   telegram_id: integer('telegram_id').notNull().unique(),
   username: text('username'),
+  first_name: text('first_name'),
   user_type: text('user_type').default('guest'),
   onboarding_step: text('onboarding_step').default('join_channel'),
   channel_id: text('channel_id'),

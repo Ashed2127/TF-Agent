@@ -142,7 +142,7 @@ export async function deletePendingEdit(userId) {
 
 // User management functions
 
-export async function getOrCreateUser(telegramId, username = null) {
+export async function getOrCreateUser(telegramId, username = null, firstName = null) {
   const existing = await db.select()
     .from(users)
     .where(eq(users.telegram_id, telegramId))
@@ -150,6 +150,17 @@ export async function getOrCreateUser(telegramId, username = null) {
     .all();
 
   if (existing.length > 0) {
+    // If first_name or username updated, save it
+    if ((firstName && existing[0].first_name !== firstName) || (username && existing[0].username !== username)) {
+      const updatePayload = {};
+      if (firstName) updatePayload.first_name = firstName;
+      if (username) updatePayload.username = username;
+      await db.update(users)
+        .set(updatePayload)
+        .where(eq(users.telegram_id, telegramId))
+        .run();
+      return { ...existing[0], ...updatePayload };
+    }
     return existing[0];
   }
 
@@ -157,6 +168,7 @@ export async function getOrCreateUser(telegramId, username = null) {
     .values({
       telegram_id: telegramId,
       username: username,
+      first_name: firstName,
       user_type: 'guest',
       onboarding_step: 'join_channel'
     })
@@ -1033,6 +1045,7 @@ export async function getCreatorsRanking() {
       id: u.id,
       telegram_id: u.telegram_id,
       username: u.username,
+      first_name: u.first_name,
       display_name: u.display_name,
       channel_id: u.channel_id,
       channel_name: u.channel_name,
@@ -1047,23 +1060,20 @@ export async function getCreatorsRanking() {
     });
   });
 
-  // Count actual posts in posts table
-  allPosts.forEach(p => {
-    const stat = userStats.get(p.user_id);
-    if (stat) {
-      stat.verified_posts++;
-      if (p.created_at) {
-        const t = Number(p.created_at);
-        if (!stat.last_active_at || t > stat.last_active_at) {
-          stat.last_active_at = t;
-        }
-      }
-    }
-  });
-
   // Count activities
   const tgUserMap = new Map();
   allUsers.forEach(u => tgUserMap.set(u.telegram_id, u.id));
+
+  // Supplement missing first_name from userActivities if any exist
+  allActivities.forEach(a => {
+    if (a.first_name && a.telegram_id) {
+      const uId = tgUserMap.get(a.telegram_id);
+      if (uId && userStats.has(uId)) {
+        const s = userStats.get(uId);
+        if (!s.first_name) s.first_name = a.first_name;
+      }
+    }
+  });
 
   allActivities.forEach(a => {
     const uId = tgUserMap.get(a.telegram_id);

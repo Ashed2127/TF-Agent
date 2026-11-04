@@ -528,9 +528,9 @@
 
       card.style.display = 'flex';
       document.getElementById('myRankCircle').textContent = `#${myItem.rank}`;
-      const myChannelTitle = myItem.channel_name || myItem.channel_id || 'Your Channel';
-      document.getElementById('myRankName').textContent = myChannelTitle;
-      document.getElementById('myRankChannel').textContent = myItem.channel_id ? `Channel: ${myItem.channel_id}` : '';
+      const myName = myItem.first_name || (myItem.display_name && !myItem.display_name.startsWith('pending_channel:') ? myItem.display_name : null) || myItem.channel_name || 'You';
+      document.getElementById('myRankName').textContent = myName;
+      document.getElementById('myRankChannel').textContent = `Channel: ${myItem.channel_name || myItem.channel_id || 'None'}`;
       document.getElementById('myRankScore').textContent = myItem.score || 0;
       document.getElementById('myRankPosts').textContent = myItem.total_posts || 0;
       document.getElementById('myRankActions').textContent = myItem.activities_count || 0;
@@ -575,13 +575,13 @@
         else if (rankNum === 2) medalHtml = `🥈`;
         else if (rankNum === 3) medalHtml = `🥉`;
 
-        const channelTitle = escapeHtml(c.channel_name || c.channel_id || 'Creator Channel');
-        const ch = c.channel_id || c.channel_name;
+        const displayName = escapeHtml(c.first_name || (c.display_name && !c.display_name.startsWith('pending_channel:') ? c.display_name : null) || c.channel_name || `Creator #${c.id}`);
+        const ch = c.channel_name || c.channel_id;
         const channelHtml = ch
           ? (ch.startsWith('@')
               ? `<a href="https://t.me/${ch.substring(1)}" target="_blank" class="channel-link">${escapeHtml(ch)}</a>`
               : `<span class="channel-link">${escapeHtml(ch)}</span>`)
-          : '<span style="color: var(--text-dim);">No channel handle</span>';
+          : '<span style="color: var(--text-dim);">No channel</span>';
 
         const subBadge = (c.subscribers !== null && c.subscribers !== undefined)
           ? `<span class="sub-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> ${c.subscribers.toLocaleString()} subs</span>`
@@ -594,7 +594,7 @@
                 <div class="rank-num-wrap">${medalHtml}</div>
                 <div>
                   <div class="creator-name">
-                    ${channelTitle}
+                    ${displayName}
                     ${isYou ? '<span class="you-pill">You</span>' : ''}
                   </div>
                   <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
