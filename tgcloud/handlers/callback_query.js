@@ -2052,12 +2052,12 @@ export default async function (callbackQuery, ctx) {
     topList.forEach((creator, idx) => {
       const medals = ['🥇', '🥈', '🥉'];
       const medal = medals[idx] || `<b>#${idx + 1}</b>`;
-      const name = creator.username ? `@${creator.username}` : (creator.display_name || `Creator #${creator.id}`);
       const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
-      const channel = creator.channel_name || creator.channel_id || 'No channel';
+      const channelTitle = creator.channel_name || creator.channel_id || 'Creator Channel';
+      const channelHandle = creator.channel_id ? ` (<code>${creator.channel_id}</code>)` : '';
 
-      rankText += `${medal} <b>${name}</b>${isYou}\n`;
-      rankText += `   Channel: <code>${channel}</code> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
+      rankText += `${medal} <b>${channelTitle}</b>${isYou}\n`;
+      rankText += `   Channel: <code>${creator.channel_id || channelTitle}</code> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
     });
 
     const myRankItem = rankings.find(r => r.telegram_id === callerId);
