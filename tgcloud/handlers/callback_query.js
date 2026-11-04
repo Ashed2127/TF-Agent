@@ -1485,15 +1485,21 @@ export default async function (callbackQuery, ctx) {
         snippet = `\n\n<b>Current Repetitive Text:</b>\n<i>${cleanRep}${autoPostSchedule.repetitive_content.length > 150 ? '...' : ''}</i>`;
       }
 
-      const editRow = isRepetitive
+      const editRows = isRepetitive
         ? [
-            { text: '✏️ Edit Repetitive Text', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
-            { text: '📡 Switch to News Mode', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
+            [
+              { text: '✏️ Edit Repetitive Text', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
+              { text: '📡 News Mode', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
+            ]
           ]
         : [
-            { text: '🔁 Setup Repetitive Task', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
-            { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
-            { text: '🌐 Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
+            [
+              { text: '🔁 Setup Repetitive Task', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
+            ],
+            [
+              { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
+              { text: '🌐 Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
+            ]
           ];
 
       await api.sendMessage({
@@ -1509,7 +1515,7 @@ export default async function (callbackQuery, ctx) {
               { text: '📢 Change Channel', callback_data: 'ap_sel_chn_edit' },
               { text: '⏱️ Change Interval', callback_data: 'edit_auto_post' }
             ],
-            editRow,
+            ...editRows,
             [
               { text: '🗑️ Delete Schedule', callback_data: 'delete_auto_post' }
             ],
