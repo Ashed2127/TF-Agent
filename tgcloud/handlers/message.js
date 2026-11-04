@@ -974,20 +974,38 @@ async function showChannelIdInstructions(chatId) {
 }
 
 async function showAddBotAdminInstructions(chatId, channelId = null) {
+  let botUsername = '';
+  try {
+    const me = await api.getMe();
+    botUsername = me?.username || '';
+  } catch (_) {}
+
   const channelDisplay = channelId ? ` "${channelId}"` : '';
+  const addBotUrl = botUsername
+    ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+    : null;
+
+  const inlineKeyboard = [];
+  if (addBotUrl) {
+    inlineKeyboard.push([
+      { text: '➕ Add Bot as Admin Automatically', url: addBotUrl }
+    ]);
+  }
+  inlineKeyboard.push([
+    { text: 'Done', callback_data: 'bot_admin_added' }
+  ]);
+  inlineKeyboard.push([
+    { text: 'Change Channel', callback_data: 'change_channel' }
+  ]);
+
+  const botTag = botUsername ? `@${botUsername}` : 'this bot';
   await api.sendMessage({
     chat_id: chatId,
-    text: `🤖 Step 3: Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, click the button below:`,
+    text: `🤖 <b>Step 3: Add Bot as Admin</b>\n\nChannel selected: <b>${channelDisplay || 'Your Channel'}</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce done, click <b>"Done"</b>:`,
+    parse_mode: 'HTML',
     reply_markup: {
       remove_keyboard: true,
-      inline_keyboard: [
-        [
-          { text: 'Done', callback_data: 'bot_admin_added' }
-        ],
-        [
-          { text: 'Change Channel', callback_data: 'change_channel' }
-        ]
-      ]
+      inline_keyboard: inlineKeyboard
     }
   });
 }
@@ -1022,14 +1040,23 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
 
     const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
     if (!isAdmin) {
+      const addBotUrl = botInfo.username
+        ? `https://t.me/${botInfo.username}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+        : null;
+
+      const keyboardRows = [];
+      if (addBotUrl) {
+        keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
+      }
+      keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
+      keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
+
       await api.sendMessage({
         chat_id: chatId,
-        text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, click the button below:`,
+        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add @${botInfo.username || 'this bot'} directly to your channel with Post Messages permission, or add the bot manually.\n\nOnce added, click <b>"Done"</b>:`,
+        parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [
-            [{ text: 'Done', callback_data: 'bot_admin_added' }],
-            [{ text: 'Change Channel', callback_data: 'change_channel' }]
-          ]
+          inline_keyboard: keyboardRows
         }
       });
       return;
@@ -1120,12 +1147,35 @@ async function showCategorySelection(chatId) {
 }
 
 async function showAddChannelBotAdminInstructions(chatId, channelId = null) {
+  let botUsername = '';
+  try {
+    const me = await api.getMe();
+    botUsername = me?.username || '';
+  } catch (_) {}
+
   const channelDisplay = channelId ? ` "${channelId}"` : '';
+  const addBotUrl = botUsername
+    ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+    : null;
+
+  const inlineKeyboard = [];
+  if (addBotUrl) {
+    inlineKeyboard.push([
+      { text: '➕ Add Bot as Admin Automatically', url: addBotUrl }
+    ]);
+  }
+  inlineKeyboard.push([
+    { text: 'Done', callback_data: 'bot_admin_added' }
+  ]);
+
+  const botTag = botUsername ? `@${botUsername}` : 'this bot';
   await api.sendMessage({
     chat_id: chatId,
-    text: `🤖 Add Bot as Admin\n\nPlease add this bot as an administrator to your channel${channelDisplay} with the following permissions:\n\n• Post Messages\n• Edit Messages\n\nOnce done, send "done" to continue:`,
+    text: `🤖 <b>Add Bot as Admin</b>\n\nChannel selected: <b>${channelDisplay || 'Your Channel'}</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce added, send "done" or click below to continue:`,
+    parse_mode: 'HTML',
     reply_markup: {
-      remove_keyboard: true
+      remove_keyboard: true,
+      inline_keyboard: inlineKeyboard
     }
   });
 }
@@ -1156,9 +1206,23 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
     const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
 
     if (!isAdmin) {
+      const addBotUrl = botInfo.username
+        ? `https://t.me/${botInfo.username}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+        : null;
+
+      const keyboardRows = [];
+      if (addBotUrl) {
+        keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
+      }
+      keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
+
       await api.sendMessage({
         chat_id: chatId,
-        text: `❌ The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, send "done" to continue:`,
+        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add @${botInfo.username || 'this bot'} directly to your channel with Post Messages permission, or add the bot manually.\n\nOnce added, send "done" to continue:`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: keyboardRows
+        }
       });
       return;
     }

@@ -3271,18 +3271,23 @@ async function handleBotAdminAdded(callbackQuery, userId) {
     const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
 
     if (!isAdmin) {
+      const addBotUrl = botInfo.username
+        ? `https://t.me/${botInfo.username}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+        : null;
+
+      const keyboardRows = [];
+      if (addBotUrl) {
+        keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
+      }
+      keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
+      keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` The bot is not yet an administrator in ${channelId}.\n\nPlease add @${botInfo.username || 'this bot'} as an administrator to your channel with permission to Post Messages.\n\nOnce added, click the button below:`,
+        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add @${botInfo.username || 'this bot'} directly to your channel with Post Messages permission, or add the bot manually.\n\nOnce added, click <b>"Done"</b>:`,
+        parse_mode: 'HTML',
         reply_markup: {
-          inline_keyboard: [
-            [
-              { text: ' Done', callback_data: 'bot_admin_added' }
-            ],
-            [
-              { text: ' Change Channel', callback_data: 'change_channel' }
-            ]
-          ]
+          inline_keyboard: keyboardRows
         }
       });
       return;
