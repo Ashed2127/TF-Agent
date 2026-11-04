@@ -2053,11 +2053,11 @@ export default async function (callbackQuery, ctx) {
       const medals = ['🥇', '🥈', '🥉'];
       const medal = medals[idx] || `<b>#${idx + 1}</b>`;
       const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
-      const creatorName = creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || creator.channel_name || `Creator #${creator.id}`;
-      const channel = creator.channel_name || creator.channel_id || 'No channel';
+      const creatorName = creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || 'Creator';
+      const channelDisplay = creator.channel_id || creator.channel_name || 'No channel';
 
       rankText += `${medal} <b>${creatorName}</b>${isYou}\n`;
-      rankText += `   Channel: <code>${channel}</code> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
+      rankText += `   Channel: <code>${channelDisplay}</code> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
     });
 
     const myRankItem = rankings.find(r => r.telegram_id === callerId);

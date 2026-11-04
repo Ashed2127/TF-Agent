@@ -575,8 +575,8 @@
         else if (rankNum === 2) medalHtml = `🥈`;
         else if (rankNum === 3) medalHtml = `🥉`;
 
-        const displayName = escapeHtml(c.first_name || (c.display_name && !c.display_name.startsWith('pending_channel:') ? c.display_name : null) || c.channel_name || `Creator #${c.id}`);
-        const ch = c.channel_name || c.channel_id;
+        const displayName = escapeHtml(c.first_name || (c.display_name && !c.display_name.startsWith('pending_channel:') ? c.display_name : null) || 'Creator');
+        const ch = c.channel_id || c.channel_name;
         const channelHtml = ch
           ? (ch.startsWith('@')
               ? `<a href="https://t.me/${ch.substring(1)}" target="_blank" class="channel-link">${escapeHtml(ch)}</a>`
