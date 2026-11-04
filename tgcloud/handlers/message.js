@@ -66,6 +66,10 @@ export default async function (message, ctx) {
             [
               { text: 'Manage Users', callback_data: 'owner_manage_users' },
               { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+            ],
+            [
+              { text: '🏆 Creator Rankings', callback_data: 'view_rankings' },
+              { text: '🌟 Open Rank Leaderboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
             ]
           ]
         }
@@ -648,6 +652,72 @@ export default async function (message, ctx) {
       return;
     }
 
+    // Handle repetitive content input
+    if (pendingChannel && (pendingChannel.channelId.startsWith('waiting_rep_content_setup_') || pendingChannel.channelId.startsWith('waiting_rep_content_update_'))) {
+      const isSetup = pendingChannel.channelId.startsWith('waiting_rep_content_setup_');
+      const prefix = isSetup ? 'waiting_rep_content_setup_' : 'waiting_rep_content_update_';
+      const parts = pendingChannel.channelId.replace(prefix, '').split('_');
+      const channelId = parts[0];
+      const intervalHours = parseFloat(parts[1]);
+      const text = incomingText.trim();
+
+      if (['cancel', 'abort', 'stop', 'back'].includes(text.toLowerCase())) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Repetitive content setup cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      await clearPendingChannelAdd(userId);
+
+      const user = await getUserByTelegramId(userId);
+      const existingSchedule = await getAutoPostSchedule(user.id);
+
+      if (isSetup || !existingSchedule) {
+        await createAutoPostSchedule(
+          user.id,
+          channelId,
+          intervalHours,
+          'repetitive',
+          'custom',
+          'repetitive',
+          text
+        );
+      } else {
+        await updateAutoPostSchedule(
+          existingSchedule.id,
+          channelId,
+          intervalHours,
+          1,
+          'repetitive',
+          'custom',
+          'repetitive',
+          text
+        );
+      }
+
+      const intervalText = formatIntervalDisplay(intervalHours);
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: `✅ <b>Repetitive Auto Post Configured!</b>\n\n📢 <b>Channel:</b> <code>${channelId}</code>\n⏱️ <b>Interval:</b> Every ${intervalText}\n🔁 <b>Mode:</b> Repetitive Task\n\n<b>Scheduled Content:</b>\n<i>${text.substring(0, 200)}</i>\n\nYour repetitive task will automatically run and post to your channel every ${intervalText}!`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'View Auto Post Settings', callback_data: 'auto_post' }],
+            [{ text: 'Back to Settings', callback_data: 'settings' }]
+          ]
+        }
+      });
+      return;
+    }
+
     // Handle owner confirmation to delete user (typing "Delete")
     if (userId === OWNER_CHAT_ID && pendingChannel && pendingChannel.channelId.startsWith('waiting_confirm_delete_user_')) {
       const targetUserId = parseInt(pendingChannel.channelId.replace('waiting_confirm_delete_user_', ''), 10);
@@ -791,6 +861,10 @@ async function showMainMenu(chatId, isOwner = false) {
     [
       { text: 'Direct Translation', callback_data: 'direct_translate_menu' },
       { text: 'My Stats', callback_data: 'my_stats' }
+    ],
+    [
+      { text: '🏆 Creator Rankings', callback_data: 'view_rankings' },
+      { text: '🌟 Open Rank Leaderboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
     ],
     [
       { text: 'Refresh', callback_data: 'refresh_menu' }

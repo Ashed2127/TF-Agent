@@ -65,6 +65,10 @@ export async function showAutoPostCategoryPicker(chatId, channelId, intervalHour
   }
 
   keyboard.push([
+    { text: '🔁 Repetitive Custom Content', callback_data: `${isUpdate ? 'ap_up_rep' : 'ap_st_rep'}_${channelId}_${intervalHours}` }
+  ]);
+
+  keyboard.push([
     { text: '🌐 All News Platforms', callback_data: `${actionPrefix}_${channelId}_${intervalHours}_all` }
   ]);
 

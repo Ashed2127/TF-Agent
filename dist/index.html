@@ -141,7 +141,7 @@
     /* ─── Navigation Bar (Segmented Switcher) ─── */
     .nav-tabs {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(6, 1fr);
       gap: 6px;
       padding: 6px;
       background: var(--bg-surface);
@@ -900,6 +900,10 @@
         <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
         <span>Users</span>
       </button>
+      <button class="nav-btn" data-tab="rank" onclick="switchTab('rank')">
+        <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+        <span>Rank</span>
+      </button>
       <button class="nav-btn" data-tab="engage" onclick="switchTab('engage')">
         <span class="nav-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
         <span>Engage</span>
@@ -1013,6 +1017,21 @@
             <div class="kpi-value" id="kpiTotalPosts">0</div>
             <div class="kpi-trend"><span>•</span> Live telemetry</div>
           </div>
+        </div>
+
+        <!-- Content Creators Rank Leaderboard (Overview Preview) -->
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber-accent)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Top Content Creators Activity Rank
+              </div>
+              <div class="panel-subtitle">Real-time creator activity score based on publications, updates, and channel reach</div>
+            </div>
+            <button class="btn-action" onclick="switchTab('rank')">Full Leaderboard &rarr;</button>
+          </div>
+          <div id="overviewRankPreviewList" class="item-list"></div>
         </div>
 
         <!-- Quick Activity Summary -->
@@ -1149,6 +1168,29 @@
         </div>
       </section>
 
+      <!-- 6. CREATOR RANK & LEADERBOARD TAB -->
+      <section id="tab-rank" class="tab-panel">
+        <div class="panel-card">
+          <div class="panel-header">
+            <div>
+              <div class="panel-title" style="display: flex; align-items: center; gap: 8px;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber-accent)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                Content Creators Activity Rank & Leaderboard
+              </div>
+              <div class="panel-subtitle">Comprehensive ranking of creators by publishing activity, event velocity, and channel reach</div>
+            </div>
+            <span class="badge badge-amber" id="rankTotalCreatorsBadge">0 Ranked</span>
+          </div>
+
+          <!-- Rank Search -->
+          <div class="search-input-wrap">
+            <input type="text" id="rankSearchInput" class="search-input" placeholder="Search creators by username, channel, or ID..." oninput="handleRankSearch(this.value)">
+          </div>
+
+          <div id="creatorsRankList" class="item-list"></div>
+        </div>
+      </section>
+
       <!-- 5. LIVE POSTS TAB -->
       <section id="tab-posts" class="tab-panel">
         <div class="panel-card">
@@ -1183,6 +1225,10 @@
       <button class="bottom-tab" data-tab="users" onclick="switchTab('users')">
         <span class="tab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
         <span>Users</span>
+      </button>
+      <button class="bottom-tab" data-tab="rank" onclick="switchTab('rank')">
+        <span class="tab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+        <span>Rank</span>
       </button>
       <button class="bottom-tab" data-tab="engage" onclick="switchTab('engage')">
         <span class="tab-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg></span>
@@ -1356,8 +1402,9 @@
       document.getElementById('engageCountBadge').textContent = `${interactions.length} Total`;
       renderInteractionsList();
 
-      // 5. Creators List
+      // 5. Creators List & Rankings Leaderboard
       renderCreatorsList();
+      renderCreatorsRankList();
 
       // 6. Live Posts List & Authors Filter Options
       renderPostsFilterDropdown(data.recentUsers || []);
@@ -1655,6 +1702,118 @@
       }
 
       creatorsList.innerHTML = users.map(user => renderUserItem(user)).join('');
+    }
+
+    // Creator Rank & Leaderboard rendering
+    let rankSearchTerm = '';
+
+    function handleRankSearch(term) {
+      rankSearchTerm = (term || '').toLowerCase().trim();
+      renderCreatorsRankList();
+    }
+
+    function renderRankItem(creator, isPreview = false) {
+      const rankNum = creator.rank || 1;
+      let medalHtml = `<span style="font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); font-size: 0.95rem;">#${rankNum}</span>`;
+      if (rankNum === 1) medalHtml = `<span style="font-size: 1.25rem;">🥇</span>`;
+      else if (rankNum === 2) medalHtml = `<span style="font-size: 1.25rem;">🥈</span>`;
+      else if (rankNum === 3) medalHtml = `<span style="font-size: 1.25rem;">🥉</span>`;
+
+      const userLabel = escapeHtml(creator.username ? '@' + creator.username : creator.display_name || 'Creator #' + creator.id);
+      const chName = creator.channel_name || creator.channel_id;
+      const channelDisplay = chName
+        ? (chName.startsWith('@')
+            ? `<a href="https://t.me/${chName.substring(1)}" target="_blank" class="channel-link">${chName}</a>`
+            : `<span class="channel-link">${chName}</span>`)
+        : '<span style="color: var(--text-dim);">No channel</span>';
+
+      // Subscriber count from telemetry if available
+      const subCount = (globalData?.subscriberCounts && chName) ? globalData.subscriberCounts[chName] : null;
+      const subBadge = (subCount !== null && subCount !== undefined)
+        ? `<span class="sub-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> ${subCount.toLocaleString()} subs</span>`
+        : '';
+
+      const tierBadge = creator.tier === 'Elite'
+        ? `<span class="badge badge-purple" style="font-weight:700;">⭐ Elite</span>`
+        : (creator.tier === 'Active'
+            ? `<span class="badge badge-green">⚡ Active</span>`
+            : `<span class="badge badge-blue">🌱 ${creator.tier || 'Creator'}</span>`);
+
+      const lastActiveStr = creator.last_active_at ? formatTimeAgo(creator.last_active_at) : 'Inactive';
+
+      return `
+        <div class="list-item" style="display: flex; flex-direction: column; gap: 8px;">
+          <div class="item-top">
+            <div class="item-title" style="gap: 10px;">
+              <div style="min-width: 32px; display: flex; align-items: center; justify-content: center;">${medalHtml}</div>
+              <div>
+                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-white);">
+                  ${userLabel}
+                  <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal; margin-left: 4px;">(TG: ${creator.telegram_id})</span>
+                </div>
+                <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
+                  Channel: ${channelDisplay} ${subBadge}
+                </div>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+              <div style="font-size: 1.15rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--green-neon);">
+                ${creator.score || 0} <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: 500;">pts</span>
+              </div>
+              ${tierBadge}
+            </div>
+          </div>
+          <div class="item-badges" style="margin-top: 2px;">
+            <span class="badge badge-blue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> ${creator.total_posts || 0} posts</span>
+            <span class="badge badge-purple"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ${creator.activities_count || 0} actions</span>
+            ${creator.has_active_schedule ? '<span class="badge badge-green">⏱️ AutoPost Active</span>' : ''}
+            <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">Last active: ${lastActiveStr}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCreatorsRankList() {
+      const rankListEl = document.getElementById('creatorsRankList');
+      const overviewPreviewEl = document.getElementById('overviewRankPreviewList');
+      if (!globalData) return;
+
+      const rankings = globalData.rankings || [];
+
+      // Render Overview preview (top 3)
+      if (overviewPreviewEl) {
+        if (rankings.length > 0) {
+          overviewPreviewEl.innerHTML = rankings.slice(0, 3).map(r => renderRankItem(r, true)).join('');
+        } else {
+          overviewPreviewEl.innerHTML = `<div class="empty-state"><p>No creators ranked yet.</p></div>`;
+        }
+      }
+
+      if (!rankListEl) return;
+
+      let list = rankings;
+      const badge = document.getElementById('rankTotalCreatorsBadge');
+      if (badge) badge.textContent = `${list.length} Creators Ranked`;
+
+      if (rankSearchTerm) {
+        list = list.filter(c => {
+          const name = (c.display_name || '').toLowerCase();
+          const uname = (c.username || '').toLowerCase();
+          const ch = (c.channel_name || c.channel_id || '').toLowerCase();
+          const tgId = String(c.telegram_id);
+          return name.includes(rankSearchTerm) ||
+                 uname.includes(rankSearchTerm) ||
+                 ch.includes(rankSearchTerm) ||
+                 tgId.includes(rankSearchTerm);
+        });
+      }
+
+      if (list.length === 0) {
+        rankListEl.innerHTML = `<div class="empty-state"><p>No creator rankings found matching search.</p></div>`;
+        return;
+      }
+
+      rankListEl.innerHTML = list.map(r => renderRankItem(r, false)).join('');
     }
 
     // Call serverless manageUser endpoint

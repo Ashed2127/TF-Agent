@@ -35,6 +35,59 @@ export async function processSingleAutoPost(schedule) {
   let articleToPost = null;
   let platformObj = null;
 
+  // Handle Repetitive Content mode
+  if (schedule.post_mode === 'repetitive' && schedule.repetitive_content) {
+    let repContent = schedule.repetitive_content;
+    if (userChannelLink && !repContent.includes(userChannelLink)) {
+      repContent += '\n\n📢 ' + userChannelLink;
+    }
+    const lines = repContent.split('\n');
+    let titleSnippet = 'Repetitive Post';
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().length > 0) {
+        titleSnippet = lines[i].trim().substring(0, 50);
+        break;
+      }
+    }
+
+    try {
+      await api.sendMessage({
+        chat_id: schedule.channel_id,
+        text: repContent,
+        parse_mode: 'HTML'
+      });
+    } catch (sendErr) {
+      console.warn('HTML sendMessage failed for repetitive post, using plain text fallback');
+      await api.sendMessage({
+        chat_id: schedule.channel_id,
+        text: repContent
+      });
+    }
+
+    await createPost(
+      user.id,
+      schedule.channel_id,
+      repContent,
+      'repetitive',
+      'Repetitive Post',
+      null
+    );
+
+    await updateAutoPostLastPosted(schedule.id);
+
+    try {
+      recordUserActivity(user.telegram_id, user.username, user.display_name, 'auto_post', `Repetitive post: ${titleSnippet}`).catch(() => {});
+    } catch (_) {}
+
+    return {
+      scheduleId: schedule.id,
+      channelId: schedule.channel_id,
+      title: titleSnippet,
+      content: repContent,
+      platform: 'Repetitive'
+    };
+  }
+
   // If a source platform is chosen, fetch its news
   if (platformId) {
     if (platformId.startsWith('custom_')) {

@@ -83,6 +83,8 @@ export const autoPostSchedules = table('auto_post_schedules', {
   interval_hours: integer('interval_hours').notNull(),
   source_platform: text('source_platform'),
   target_lang: text('target_lang'),
+  post_mode: text('post_mode').default('news'), // 'news' or 'repetitive'
+  repetitive_content: text('repetitive_content'),
   is_active: integer('is_active').default(1),
   last_posted_at: integer('last_posted_at', { mode: 'timestamp' }),
   next_post_at: integer('next_post_at', { mode: 'timestamp' }),

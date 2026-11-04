@@ -1,5 +1,5 @@
 import { api } from 'sdk';
-import { getDashboardStats } from '../lib/database.js';
+import { getDashboardStats, getCreatorsRanking } from '../lib/database.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -17,6 +17,8 @@ export default async function (input, ctx) {
 
   try {
     const stats = await getDashboardStats();
+    const rankings = await getCreatorsRanking();
+    stats.rankings = rankings;
 
     // Query Telegram Bot API for real subscriber counts of unique channels
     const channelIds = new Set();

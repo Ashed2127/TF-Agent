@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -47,7 +47,11 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Rates', callback_data: 'get_rates' }
     ],
     [
-      { text: 'My Stats', callback_data: 'my_stats' }
+      { text: 'My Stats', callback_data: 'my_stats' },
+      { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
+    ],
+    [
+      { text: '🌟 Open Rank Leaderboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
     ],
     [
       { text: 'Refresh', callback_data: 'refresh_menu' }
@@ -1454,7 +1458,9 @@ export default async function (callbackQuery, ctx) {
       const channelName = channel ? channel.channel_name || channel.channel_id : autoPostSchedule.channel_id;
 
       let platformName = 'General News (TechCrunch)';
-      if (autoPostSchedule.source_platform) {
+      if (autoPostSchedule.post_mode === 'repetitive') {
+        platformName = '🔁 Repetitive Custom Content';
+      } else if (autoPostSchedule.source_platform) {
         if (autoPostSchedule.source_platform.startsWith('custom_')) {
           const customId = parseInt(autoPostSchedule.source_platform.replace('custom_', ''), 10);
           const customs = await getCustomSources(user.id);
@@ -1467,13 +1473,32 @@ export default async function (callbackQuery, ctx) {
       }
 
       let langName = 'Amharic';
-      if (autoPostSchedule.target_lang === 'ti') langName = 'Tigrinya';
+      if (autoPostSchedule.post_mode === 'repetitive') {
+        langName = 'Original / Custom';
+      } else if (autoPostSchedule.target_lang === 'ti') langName = 'Tigrinya';
       else if (autoPostSchedule.target_lang === 'om') langName = 'Afaan Oromo';
       else if (autoPostSchedule.target_lang === 'en') langName = 'English (Original)';
 
+      const isRepetitive = autoPostSchedule.post_mode === 'repetitive';
+      let snippet = '';
+      if (isRepetitive && autoPostSchedule.repetitive_content) {
+        const cleanRep = autoPostSchedule.repetitive_content.substring(0, 150);
+        snippet = `\n\n<b>Current Repetitive Text:</b>\n<i>${cleanRep}${autoPostSchedule.repetitive_content.length > 150 ? '...' : ''}</i>`;
+      }
+
+      const editRow = isRepetitive
+        ? [
+            { text: '✏️ Edit Repetitive Text', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
+            { text: '📡 Switch to News Mode', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
+          ]
+        : [
+            { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
+            { text: '🌐 Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
+          ];
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Platform Source:</b> <b>${platformName}</b>\n<b>Language:</b> <b>${langName}</b>\n<b>Interval:</b> Every ${intervalText}\n\n<i>Auto Post runs automatically in the background on your schedule. Use the buttons below to change settings or pause.</i>`,
+        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Mode:</b> <b>${isRepetitive ? '🔁 Repetitive Task' : '📰 News Auto Post'}</b>\n<b>Source:</b> <b>${platformName}</b>\n<b>Language:</b> <b>${langName}</b>\n<b>Interval:</b> Every ${intervalText}${snippet}\n\n<i>Auto Post runs automatically in the background on your schedule. Use the buttons below to change settings or pause.</i>`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
@@ -1484,10 +1509,7 @@ export default async function (callbackQuery, ctx) {
               { text: '📢 Change Channel', callback_data: 'ap_sel_chn_edit' },
               { text: '⏱️ Change Interval', callback_data: 'edit_auto_post' }
             ],
-            [
-              { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
-              { text: '🌐 Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
-            ],
+            editRow,
             [
               { text: '🗑️ Delete Schedule', callback_data: 'delete_auto_post' }
             ],
@@ -1739,6 +1761,40 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  // Handle Repetitive Content selection (setup or update)
+  if (data.startsWith('ap_st_rep_') || data.startsWith('ap_up_rep_') || data.startsWith('edit_rep_content_')) {
+    const isUpdate = data.startsWith('ap_up_rep_') || data.startsWith('edit_rep_content_');
+    let cleanPrefix = 'ap_st_rep_';
+    if (data.startsWith('edit_rep_content_')) {
+      cleanPrefix = 'edit_rep_content_';
+    } else if (data.startsWith('ap_up_rep_')) {
+      cleanPrefix = 'ap_up_rep_';
+    }
+    const parts = data.replace(cleanPrefix, '').split('_');
+    const channelId = parts[0];
+    const intervalHours = parseFloat(parts[1]);
+
+    const stateKey = isUpdate
+      ? `waiting_rep_content_update_${channelId}_${intervalHours}`
+      : `waiting_rep_content_setup_${channelId}_${intervalHours}`;
+
+    await setPendingChannelAdd(userId, stateKey);
+
+    const intervalText = formatIntervalDisplay(intervalHours);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `🔁 <b>Setup Repetitive Auto Post Content</b>\n\nChannel: <code>${channelId}</code>\nInterval: <b>Every ${intervalText}</b>\n\nPlease send the exact message or announcement text you want the bot to post repetitively based on this interval.\n\n<i>You can include emojis, custom formatting, and links. Send 'cancel' to abort.</i>`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: 'auto_post' }]
+        ]
+      }
+    });
+    return;
+  }
+
   // Platform selected for setup -> forward to Language picker
   if (data.startsWith('ap_st_plat_')) {
     const parts = data.replace('ap_st_plat_', '').split('_');
@@ -1966,7 +2022,57 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
+            { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
+          ],
+          [
             { text: 'Back', callback_data: 'back' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle view rankings button
+  if (data === 'view_rankings') {
+    const rankings = await getCreatorsRanking();
+    const callerId = userId;
+    const user = await getUserByTelegramId(callerId);
+
+    let rankText = `🏆 <b>Content Creators Activity Ranking</b>\n\n`;
+
+    const topList = rankings.slice(0, 10);
+    topList.forEach((creator, idx) => {
+      const medals = ['🥇', '🥈', '🥉'];
+      const medal = medals[idx] || `<b>#${idx + 1}</b>`;
+      const name = creator.username ? `@${creator.username}` : (creator.display_name || `Creator #${creator.id}`);
+      const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
+      const channel = creator.channel_name || creator.channel_id || 'No channel';
+
+      rankText += `${medal} <b>${name}</b>${isYou}\n`;
+      rankText += `   Channel: <code>${channel}</code> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
+    });
+
+    const myRankItem = rankings.find(r => r.telegram_id === callerId);
+    if (myRankItem) {
+      rankText += `━━━━━━━━━━━━━━━━━━━━\n`;
+      rankText += `👤 <b>Your Rank:</b> #${myRankItem.rank} of ${rankings.length}\n`;
+      rankText += `📊 <b>Your Score:</b> ${myRankItem.score} pts (Tier: <b>${myRankItem.tier}</b>)\n`;
+      rankText += `📝 <b>Total Posts:</b> ${myRankItem.total_posts}\n`;
+    }
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: rankText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: '🌟 Open Full Leaderboard Mini App', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+          ],
+          [
+            { text: '🔄 Refresh', callback_data: 'view_rankings' },
+            { text: '« Back', callback_data: 'back' }
           ]
         ]
       }

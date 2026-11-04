@@ -792,7 +792,7 @@ export async function deleteContentStructure(userId) {
 
 // Auto post schedule management functions
 
-export async function createAutoPostSchedule(userId, channelId, intervalHours, sourcePlatform = null, targetLang = null) {
+export async function createAutoPostSchedule(userId, channelId, intervalHours, sourcePlatform = null, targetLang = null, postMode = 'news', repetitiveContent = null) {
   // Support interval in fractional hours or hours accurately
   const nowInSeconds = Math.floor(Date.now() / 1000);
   const nextPostAt = Math.round(nowInSeconds + (intervalHours * 3600));
@@ -804,6 +804,8 @@ export async function createAutoPostSchedule(userId, channelId, intervalHours, s
       interval_hours: intervalHours,
       source_platform: sourcePlatform || null,
       target_lang: targetLang || null,
+      post_mode: postMode || 'news',
+      repetitive_content: repetitiveContent || null,
       next_post_at: nextPostAt
     })
     .returning()
@@ -833,11 +835,13 @@ export async function getAutoPostSchedule(userId) {
   return result[0] || null;
 }
 
-export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive, sourcePlatform = undefined, targetLang = undefined) {
+export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive, sourcePlatform = undefined, targetLang = undefined, postMode = undefined, repetitiveContent = undefined) {
   const updateData = {};
   if (channelId !== undefined) updateData.channel_id = channelId;
   if (sourcePlatform !== undefined) updateData.source_platform = sourcePlatform;
   if (targetLang !== undefined) updateData.target_lang = targetLang;
+  if (postMode !== undefined) updateData.post_mode = postMode;
+  if (repetitiveContent !== undefined) updateData.repetitive_content = repetitiveContent;
   if (intervalHours !== undefined) {
     updateData.interval_hours = intervalHours;
     const now = Math.floor(Date.now() / 1000);
@@ -1007,6 +1011,107 @@ export async function getRecentUserActivities(limit = 100) {
   return result.map(a => ({
     ...a,
     created_at: a.created_at ? Number(a.created_at) : null
+  }));
+}
+
+/**
+ * Get Creator Ranking Leaderboard Stats
+ * Computes ranked creators by activity, posts, subscriber count, and reactions
+ */
+export async function getCreatorsRanking() {
+  const allUsers = await db.select().from(users).all();
+  const allPosts = await db.select().from(posts).all();
+  const allInteractions = await db.select().from(postInteractions).all();
+  const allActivities = await db.select().from(userActivities).all();
+  const allSchedules = await db.select().from(autoPostSchedules).all();
+
+  // Aggregate stats per user
+  const userStats = new Map();
+
+  allUsers.forEach(u => {
+    userStats.set(u.id, {
+      id: u.id,
+      telegram_id: u.telegram_id,
+      username: u.username,
+      display_name: u.display_name,
+      channel_id: u.channel_id,
+      channel_name: u.channel_name,
+      user_type: u.user_type,
+      posts_count: u.posts_count || 0,
+      verified_posts: 0,
+      reactions_count: 0,
+      activities_count: 0,
+      has_active_schedule: false,
+      last_active_at: u.last_posted_at ? Number(u.last_posted_at) : (u.created_at ? Number(u.created_at) : null),
+      created_at: u.created_at ? Number(u.created_at) : null
+    });
+  });
+
+  // Count actual posts in posts table
+  allPosts.forEach(p => {
+    const stat = userStats.get(p.user_id);
+    if (stat) {
+      stat.verified_posts++;
+      if (p.created_at) {
+        const t = Number(p.created_at);
+        if (!stat.last_active_at || t > stat.last_active_at) {
+          stat.last_active_at = t;
+        }
+      }
+    }
+  });
+
+  // Count activities
+  const tgUserMap = new Map();
+  allUsers.forEach(u => tgUserMap.set(u.telegram_id, u.id));
+
+  allActivities.forEach(a => {
+    const uId = tgUserMap.get(a.telegram_id);
+    if (uId && userStats.has(uId)) {
+      const stat = userStats.get(uId);
+      stat.activities_count++;
+      if (a.created_at) {
+        const t = Number(a.created_at);
+        if (!stat.last_active_at || t > stat.last_active_at) {
+          stat.last_active_at = t;
+        }
+      }
+    }
+  });
+
+  // Check schedules
+  allSchedules.forEach(s => {
+    if (s.is_active === 1) {
+      const stat = userStats.get(s.user_id) || userStats.get(tgUserMap.get(s.user_id));
+      if (stat) stat.has_active_schedule = true;
+    }
+  });
+
+  // Calculate score and rank
+  const ranked = Array.from(userStats.values()).map(creator => {
+    const totalPosts = Math.max(creator.posts_count, creator.verified_posts);
+    // Score formula: (posts * 10) + (activities * 2) + (active schedule ? 15 : 0)
+    const score = (totalPosts * 10) + (creator.activities_count * 2) + (creator.has_active_schedule ? 15 : 0);
+
+    return {
+      ...creator,
+      total_posts: totalPosts,
+      score,
+      tier: score >= 50 ? 'Elite' : (score >= 20 ? 'Active' : (score >= 5 ? 'Rising' : 'Starter'))
+    };
+  });
+
+  // Sort descending by score, then posts, then activities
+  ranked.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (b.total_posts !== a.total_posts) return b.total_posts - a.total_posts;
+    return b.activities_count - a.activities_count;
+  });
+
+  // Assign 1-indexed rank
+  return ranked.map((creator, index) => ({
+    ...creator,
+    rank: index + 1
   }));
 }
 
