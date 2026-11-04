@@ -239,7 +239,7 @@ export default async function (message, ctx) {
       const resolved = await resolveChannelMetadata(api, channelInfo.channelId, channelInfo.channelName);
       await updateUserChannelId(userId, resolved.channelId, resolved.channelName);
       await updateUserOnboardingStep(userId, 'add_bot_admin');
-      await showAddBotAdminInstructions(message.chat.id, resolved.channelId);
+      await showAddBotAdminInstructions(message.chat.id, resolved.channelId, resolved.channelName);
       return;
     }
   }
@@ -477,7 +477,7 @@ export default async function (message, ctx) {
         const enriched = await resolveChannelMetadata(api, channelInfo.channelId, channelInfo.channelName);
         // Store the channel info and ask for bot admin verification
         await setPendingChannelAdd(userId, enriched.channelId, enriched.channelName);
-        await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId);
+        await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId, enriched.channelName);
         return;
       }
 
@@ -486,7 +486,7 @@ export default async function (message, ctx) {
       if (normalized) {
         const enriched = await resolveChannelMetadata(api, normalized, normalized);
         await setPendingChannelAdd(userId, enriched.channelId, enriched.channelName);
-        await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId);
+        await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId, enriched.channelName);
         return;
       }
     }
@@ -923,7 +923,7 @@ async function continueOnboarding(chatId, user) {
       await showChannelIdInstructions(chatId);
       break;
     case 'add_bot_admin':
-      await showAddBotAdminInstructions(chatId, user.channel_id);
+      await showAddBotAdminInstructions(chatId, user.channel_id, user.channel_name);
       break;
     case 'provide_display_name':
       await showDisplayNameInstructions(chatId);
@@ -973,14 +973,21 @@ async function showChannelIdInstructions(chatId) {
   });
 }
 
-async function showAddBotAdminInstructions(chatId, channelId = null) {
+async function showAddBotAdminInstructions(chatId, channelId = null, channelName = null) {
   let botUsername = '';
   try {
     const me = await api.getMe();
     botUsername = me?.username || '';
   } catch (_) {}
 
-  const channelDisplay = channelId ? ` "${channelId}"` : '';
+  // Format channel details clearly
+  let channelInfoText = '';
+  if (channelName && channelId && channelName !== channelId) {
+    channelInfoText = `📢 <b>Channel:</b> ${channelName} (${channelId})\n\n`;
+  } else if (channelId || channelName) {
+    channelInfoText = `📢 <b>Channel:</b> ${channelName || channelId}\n\n`;
+  }
+
   const addBotUrl = botUsername
     ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
     : null;
@@ -1001,7 +1008,7 @@ async function showAddBotAdminInstructions(chatId, channelId = null) {
   const botTag = botUsername ? `@${botUsername}` : 'this bot';
   await api.sendMessage({
     chat_id: chatId,
-    text: `🤖 <b>Step 3: Add Bot as Admin</b>\n\nChannel selected: <b>${channelDisplay || 'Your Channel'}</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce done, click <b>"Done"</b>:`,
+    text: `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Step 3: Add Bot as Admin</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce done, click <b>"Done"</b>:`,
     parse_mode: 'HTML',
     reply_markup: {
       remove_keyboard: true,
@@ -1146,14 +1153,21 @@ async function showCategorySelection(chatId) {
   });
 }
 
-async function showAddChannelBotAdminInstructions(chatId, channelId = null) {
+async function showAddChannelBotAdminInstructions(chatId, channelId = null, channelName = null) {
   let botUsername = '';
   try {
     const me = await api.getMe();
     botUsername = me?.username || '';
   } catch (_) {}
 
-  const channelDisplay = channelId ? ` "${channelId}"` : '';
+  // Format channel details clearly
+  let channelInfoText = '';
+  if (channelName && channelId && channelName !== channelId) {
+    channelInfoText = `📢 <b>Channel:</b> ${channelName} (${channelId})\n\n`;
+  } else if (channelId || channelName) {
+    channelInfoText = `📢 <b>Channel:</b> ${channelName || channelId}\n\n`;
+  }
+
   const addBotUrl = botUsername
     ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
     : null;
@@ -1171,7 +1185,7 @@ async function showAddChannelBotAdminInstructions(chatId, channelId = null) {
   const botTag = botUsername ? `@${botUsername}` : 'this bot';
   await api.sendMessage({
     chat_id: chatId,
-    text: `🤖 <b>Add Bot as Admin</b>\n\nChannel selected: <b>${channelDisplay || 'Your Channel'}</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce added, send "done" or click below to continue:`,
+    text: `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Add Bot as Admin</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce added, send "done" or click below to continue:`,
     parse_mode: 'HTML',
     reply_markup: {
       remove_keyboard: true,
