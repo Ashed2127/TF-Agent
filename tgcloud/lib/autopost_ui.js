@@ -8,6 +8,9 @@ export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = f
 
   const keyboard = [
     [
+      { text: '🔁 Setup Repetitive Content', callback_data: `${isUpdate ? 'ap_up_rep' : 'ap_st_rep'}_${channelId}_0.01666667` }
+    ],
+    [
       { text: '⏱️ 1 min', callback_data: `${prefix}_${channelId}_0.01666667` },
       { text: '2 hr', callback_data: `${prefix}_${channelId}_2` }
     ],

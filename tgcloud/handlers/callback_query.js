@@ -1491,6 +1491,7 @@ export default async function (callbackQuery, ctx) {
             { text: '📡 Switch to News Mode', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
           ]
         : [
+            { text: '🔁 Setup Repetitive Task', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
             { text: '📡 Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
             { text: '🌐 Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
           ];
