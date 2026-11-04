@@ -90,6 +90,7 @@ export function extractChannelFromMessage(message) {
       channelId = `@${message.chat_shared.username.replace(/^@/, '')}`;
     } else {
       channelId = String(rawChatId);
+      // Only prefix with -100 if it's a positive number (raw id without sign)
       if (!channelId.startsWith('-')) {
         channelId = `-100${channelId}`;
       }
