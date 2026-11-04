@@ -1719,7 +1719,7 @@
       else if (rankNum === 2) medalHtml = `<span style="font-size: 1.25rem;">🥈</span>`;
       else if (rankNum === 3) medalHtml = `<span style="font-size: 1.25rem;">🥉</span>`;
 
-      const userName = escapeHtml(creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || 'Creator');
+      const userName = escapeHtml(creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || creator.username || creator.channel_name || `User #${creator.id}`);
       const userUname = creator.username ? `<span style="font-size: 0.76rem; color: var(--green-neon); font-weight: 600; margin-left: 4px;">@${escapeHtml(creator.username)}</span>` : '';
       const chName = creator.channel_name || creator.channel_id;
       const channelDisplay = chName

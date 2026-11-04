@@ -2053,7 +2053,7 @@ export default async function (callbackQuery, ctx) {
       const medals = ['🥇', '🥈', '🥉'];
       const medal = medals[idx] || `<b>#${idx + 1}</b>`;
       const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
-      const creatorName = creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || 'Creator';
+      const creatorName = creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || creator.username || creator.channel_name || `User #${creator.id}`;
       const channelDisplay = creator.channel_id || creator.channel_name || 'No channel';
 
       rankText += `${medal} <b>${creatorName}</b>${isYou}\n`;

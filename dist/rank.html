@@ -575,7 +575,7 @@
         else if (rankNum === 2) medalHtml = `🥈`;
         else if (rankNum === 3) medalHtml = `🥉`;
 
-        const displayName = escapeHtml(c.first_name || (c.display_name && !c.display_name.startsWith('pending_channel:') ? c.display_name : null) || 'Creator');
+        const displayName = escapeHtml(c.first_name || (c.display_name && !c.display_name.startsWith('pending_channel:') ? c.display_name : null) || c.username || c.channel_name || `User #${c.id}`);
         const ch = c.channel_id || c.channel_name;
         const channelHtml = ch
           ? (ch.startsWith('@')
