@@ -950,6 +950,7 @@ async function showChannelIdInstructions(chatId) {
             request_chat: {
               request_id: 1,
               chat_is_channel: true,
+              chat_is_created: true,
               request_title: true,
               request_username: true
             }
@@ -959,6 +960,7 @@ async function showChannelIdInstructions(chatId) {
             request_chat: {
               request_id: 2,
               chat_is_channel: false,
+              chat_is_created: true,
               request_title: true,
               request_username: true
             }
