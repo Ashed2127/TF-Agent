@@ -2057,7 +2057,7 @@ export default async function (callbackQuery, ctx) {
     if (myRankItem) {
       rankText += `━━━━━━━━━━━━━━━━━━━━\n`;
       rankText += `👤 <b>Your Rank:</b> #${myRankItem.rank} of ${rankings.length}\n`;
-      rankText += `📊 <b>Your Score:</b> ${myRankItem.score} pts (Tier: <b>${myRankItem.tier}</b>)\n`;
+      rankText += `📊 <b>Your Score:</b> ${myRankItem.score} pts\n`;
       rankText += `📝 <b>Total Posts:</b> ${myRankItem.total_posts}\n`;
     }
 

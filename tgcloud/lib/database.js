@@ -1096,8 +1096,7 @@ export async function getCreatorsRanking() {
     return {
       ...creator,
       total_posts: totalPosts,
-      score,
-      tier: score >= 50 ? 'Elite' : (score >= 20 ? 'Active' : (score >= 5 ? 'Rising' : 'Starter'))
+      score
     };
   });
 

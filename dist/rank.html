@@ -422,8 +422,8 @@
           <span class="lbl">Posts</span>
         </div>
         <div class="stat-pill">
-          <span class="val" id="myRankTier">Elite</span>
-          <span class="lbl">Tier</span>
+          <span class="val" id="myRankActions">0</span>
+          <span class="lbl">Actions</span>
         </div>
       </div>
     </div>
@@ -532,7 +532,7 @@
       document.getElementById('myRankChannel').textContent = `Channel: ${myItem.channel_name || myItem.channel_id || 'None'}`;
       document.getElementById('myRankScore').textContent = myItem.score || 0;
       document.getElementById('myRankPosts').textContent = myItem.total_posts || 0;
-      document.getElementById('myRankTier').textContent = myItem.tier || 'Creator';
+      document.getElementById('myRankActions').textContent = myItem.activities_count || 0;
     }
 
     function handleSearch(val) {
@@ -586,8 +586,6 @@
           ? `<span class="sub-badge"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> ${c.subscribers.toLocaleString()} subs</span>`
           : '';
 
-        const tierClass = c.tier === 'Elite' ? 'badge-purple' : (c.tier === 'Active' ? 'badge-green' : 'badge-blue');
-
         return `
           <div class="rank-item ${isYou ? 'is-you' : ''}">
             <div class="rank-item-top">
@@ -608,7 +606,6 @@
               </div>
             </div>
             <div class="item-badges">
-              <span class="badge ${tierClass}">${c.tier || 'Creator'}</span>
               <span class="badge badge-blue">📝 ${c.total_posts || 0} posts</span>
               <span class="badge badge-green">⚡ ${c.activities_count || 0} activities</span>
               ${c.has_active_schedule ? '<span class="badge badge-amber">⏱️ AutoPost On</span>' : ''}
