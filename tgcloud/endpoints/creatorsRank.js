@@ -1,9 +1,18 @@
 import { api } from 'sdk';
 import { getCreatorsRanking } from '../lib/database.js';
 
+const OWNER_CHAT_ID = 685669468;
+
 export default async function (input, ctx) {
   try {
     const callerId = ctx.initData?.user?.id;
+    if (!callerId || callerId !== OWNER_CHAT_ID) {
+      return {
+        success: false,
+        error: 'Unauthorized. The interactive Rank Dashboard is accessible only by the owner.'
+      };
+    }
+
     const rankings = await getCreatorsRanking();
 
     // Query subscriber counts for unique channels

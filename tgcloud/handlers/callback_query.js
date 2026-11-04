@@ -51,9 +51,6 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
     ],
     [
-      { text: '🌟 Open Rank Leaderboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
-    ],
-    [
       { text: 'Refresh', callback_data: 'refresh_menu' }
     ],
     [
@@ -64,11 +61,13 @@ async function showMainMenu(chatId, isOwner = false) {
     ]
   ];
 
-  // Add analytics button for owner
+  // Add analytics and rank dashboard button for owner only
   if (isOwner) {
     keyboard.splice(4, 0, [
       { text: 'Manage Users', callback_data: 'owner_manage_users' },
-      { text: ' Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+      { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+    ], [
+      { text: '🌟 Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
     ]);
   }
 
@@ -2033,10 +2032,11 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle view rankings button
+  // Handle view rankings button (available for all users)
   if (data === 'view_rankings') {
     const rankings = await getCreatorsRanking();
     const callerId = userId;
+    const isOwner = callerId === OWNER_CHAT_ID;
     const user = await getUserByTelegramId(callerId);
 
     let rankText = `🏆 <b>Content Creators Activity Ranking</b>\n\n`;
@@ -2061,20 +2061,23 @@ export default async function (callbackQuery, ctx) {
       rankText += `📝 <b>Total Posts:</b> ${myRankItem.total_posts}\n`;
     }
 
+    const rankKeyboard = [];
+    if (isOwner) {
+      rankKeyboard.push([
+        { text: '🌟 Open Rank Dashboard (Web App)', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+      ]);
+    }
+    rankKeyboard.push([
+      { text: '🔄 Refresh', callback_data: 'view_rankings' },
+      { text: '« Back', callback_data: 'back' }
+    ]);
+
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: rankText,
       parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [
-          [
-            { text: '🌟 Open Full Leaderboard Mini App', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
-          ],
-          [
-            { text: '🔄 Refresh', callback_data: 'view_rankings' },
-            { text: '« Back', callback_data: 'back' }
-          ]
-        ]
+        inline_keyboard: rankKeyboard
       }
     });
     return;

@@ -69,7 +69,7 @@ export default async function (message, ctx) {
             ],
             [
               { text: '🏆 Creator Rankings', callback_data: 'view_rankings' },
-              { text: '🌟 Open Rank Leaderboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+              { text: '🌟 Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
             ]
           ]
         }
@@ -863,8 +863,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'My Stats', callback_data: 'my_stats' }
     ],
     [
-      { text: '🏆 Creator Rankings', callback_data: 'view_rankings' },
-      { text: '🌟 Open Rank Leaderboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+      { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
     ],
     [
       { text: 'Refresh', callback_data: 'refresh_menu' }
@@ -874,10 +873,12 @@ async function showMainMenu(chatId, isOwner = false) {
     ]
   ];
 
-  // Add analytics button for owner
+  // Add analytics and rank dashboard buttons for owner only
   if (isOwner) {
     keyboard.splice(3, 0, [
       { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+    ], [
+      { text: '🌟 Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
     ]);
   }
 
