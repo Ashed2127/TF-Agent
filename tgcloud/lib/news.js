@@ -189,11 +189,7 @@ export const NEWS_PLATFORMS = [
   { id: 'freecredit_ai', name: 'FreeCredit.ai', category: 'credits', url: 'https://freecredit.ai/feed' },
   { id: 'aicredits_dev', name: 'AICredits.dev', category: 'credits', url: 'https://aicredits.dev/feed' },
   { id: 'findaicredits', name: 'Find AI Credits', category: 'credits', url: 'https://findaicredits.com/feed' },
-  { id: 'aicredits_startups', name: 'AI Credits & Startups', category: 'credits', url: 'https://aicreditsandstartups.com/feed' },
-  { id: 'hackernews', name: 'Hacker News', category: 'credits', url: 'https://hnrss.org/frontpage' },
-  { id: 'producthunt', name: 'Product Hunt', category: 'credits', url: 'https://www.producthunt.com/feed' },
-  { id: 'dev_to', name: 'DEV Community', category: 'credits', url: 'https://dev.to/feed' },
-  { id: 'startup_news', name: 'Startup News', category: 'credits', url: 'https://startupnews.one/feed' }
+  { id: 'aicredits_startups', name: 'AI Credits & Startups', category: 'credits', url: 'https://aicreditsandstartups.com/feed' }
 ];
 
 /**
