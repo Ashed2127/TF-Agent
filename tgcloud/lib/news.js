@@ -186,10 +186,14 @@ export const NEWS_PLATFORMS = [
   { id: 'goalcom', name: 'Goal.com', category: 'sports', url: 'https://www.goal.com/en/feeds/news' },
 
   // Credits - AI/Software Credits & Startup Resources
-  { id: 'freecredit_ai', name: 'FreeCredit.ai', category: 'credits', url: 'https://freecredit.ai/feed' },
-  { id: 'aicredits_dev', name: 'AICredits.dev', category: 'credits', url: 'https://aicredits.dev/feed' },
-  { id: 'findaicredits', name: 'Find AI Credits', category: 'credits', url: 'https://findaicredits.com/feed' },
-  { id: 'aicredits_startups', name: 'AI Credits & Startups', category: 'credits', url: 'https://aicreditsandstartups.com/feed' }
+  { id: 'techcrunch_ai', name: 'TechCrunch AI', category: 'credits', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
+  { id: 'venturebeat_ai', name: 'VentureBeat AI', category: 'credits', url: 'https://venturebeat.com/category/ai/feed/' },
+  { id: 'aws_blog', name: 'AWS Blog', category: 'credits', url: 'https://aws.amazon.com/blogs/aws/feed/' },
+  { id: 'google_cloud', name: 'Google Cloud Blog', category: 'credits', url: 'https://cloud.google.com/blog/feed/' },
+  { id: 'microsoft_azure', name: 'Microsoft Azure Blog', category: 'credits', url: 'https://azure.microsoft.com/en-us/blog/feed/' },
+  { id: 'stripe_blog', name: 'Stripe Blog', category: 'credits', url: 'https://stripe.com/blog/feed' },
+  { id: 'github_developer', name: 'GitHub Developer Blog', category: 'credits', url: 'https://github.blog/category/developer/' },
+  { id: 'indiehackers', name: 'Indie Hackers', category: 'credits', url: 'https://www.indiehackers.com/feed' }
 ];
 
 /**
