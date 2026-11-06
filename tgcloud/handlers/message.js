@@ -7,7 +7,7 @@ import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
-import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata } from '../lib/channel.js';
+import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata, checkBotAdminStatus } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
 import { showAutoPostCategoryPicker } from '../lib/autopost_ui.js';
 
@@ -19,14 +19,43 @@ export default async function (message, ctx) {
     return;
   }
 
+  const userId = message.from.id;
+  const username = message.from.username;
+  const firstName = message.from.first_name || '';
+
+  // Handle chat_shared messages (when user clicks "Choose Channel / Group" button)
+  if (message.chat_shared) {
+    const requestId = message.chat_shared.request_id;
+
+    // Check if this is for channel selection (request_id 3 or 4 for settings, 1 or 2 for onboarding)
+    if (requestId === 3 || requestId === 4 || requestId === 1 || requestId === 2) {
+      const pendingChannel = await getPendingChannelAdd(userId);
+
+      if (pendingChannel && pendingChannel.channelId === 'waiting') {
+        const channelInfo = extractChannelFromMessage(message);
+
+        if (channelInfo && channelInfo.channelId) {
+          const enriched = await resolveChannelMetadata(api, channelInfo.channelId, channelInfo.channelName);
+          // Save the channel to user's channel_id field for verification
+          await updateUserChannelId(userId, enriched.channelId, enriched.channelName);
+          await setPendingChannelAdd(userId, enriched.channelId, enriched.channelName);
+          await showAddChannelBotAdminInstructions(message.chat.id, enriched.channelId, enriched.channelName);
+          return;
+        } else {
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: '⚠️ Could not extract channel information from selection. Please try again or send your channel username (e.g., @yourchannel) or link instead.',
+          });
+          return;
+        }
+      }
+    }
+  }
+
   // Proactively check and execute any due scheduled auto posts in background
   try {
     checkAndTriggerDueAutoPosts().catch(e => console.error('AutoPost check error:', e.message));
   } catch (_) {}
-
-  const userId = message.from.id;
-  const username = message.from.username;
-  const firstName = message.from.first_name || '';
 
   // Track user activity detection
   try {
@@ -60,7 +89,7 @@ export default async function (message, ctx) {
               { text: 'news', callback_data: 'get_news' }
             ],
             [
-              { text: 'Rates', callback_data: 'get_rates' },
+              { text: 'Credits', callback_data: 'get_credits' },
               { text: 'Settings', callback_data: 'settings' }
             ],
             [
@@ -88,7 +117,7 @@ export default async function (message, ctx) {
             inline_keyboard: [
               [
                 { text: ' Browse News', callback_data: 'get_news' },
-                { text: 'Rates', callback_data: 'get_rates' }
+                { text: 'Credits', callback_data: 'get_credits' }
               ],
               [
                 { text: 'Settings', callback_data: 'settings' }
@@ -381,18 +410,6 @@ export default async function (message, ctx) {
         await showAddBotAdminInstructions(message.chat.id, normalized);
         return;
       }
-    }
-
-    if (user && user.onboarding_step === 'provide_display_name') {
-      if (incomingText.toLowerCase() === 'skip') {
-        await updateUserOnboardingStep(userId, 'select_categories');
-        await showCategorySelection(message.chat.id);
-        return;
-      }
-      await updateUserDisplayName(userId, incomingText);
-      await updateUserOnboardingStep(userId, 'select_categories');
-      await showCategorySelection(message.chat.id);
-      return;
     }
 
     if (user && user.onboarding_step === 'add_custom_source_name') {
@@ -865,9 +882,10 @@ async function showMainMenu(chatId, isOwner = false) {
     ],
     [
       { text: 'Direct Translation', callback_data: 'direct_translate_menu' },
-      { text: 'My Stats', callback_data: 'my_stats' }
+      { text: 'Credits', callback_data: 'get_credits' }
     ],
     [
+      { text: 'My Stats', callback_data: 'my_stats' },
       { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
     ],
     [
@@ -924,9 +942,6 @@ async function continueOnboarding(chatId, user) {
       break;
     case 'add_bot_admin':
       await showAddBotAdminInstructions(chatId, user.channel_id, user.channel_name);
-      break;
-    case 'provide_display_name':
-      await showDisplayNameInstructions(chatId);
       break;
     case 'select_categories':
       await showCategorySelection(chatId);
@@ -988,27 +1003,43 @@ async function showAddBotAdminInstructions(chatId, channelId = null, channelName
     channelInfoText = `📢 <b>Channel:</b> ${channelName || channelId}\n\n`;
   }
 
-  const addBotUrl = botUsername
-    ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
-    : null;
+  // Create direct link to the channel if it's public (has @username)
+  let channelUrl = null;
+  if (channelId && channelId.startsWith('@')) {
+    channelUrl = `https://t.me/${channelId.replace('@', '')}`;
+  }
 
   const inlineKeyboard = [];
-  if (addBotUrl) {
+
+  // Add direct channel link button (if public channel)
+  if (channelUrl) {
     inlineKeyboard.push([
-      { text: '➕ Add Bot as Admin Automatically', url: addBotUrl }
+      { text: '🔗 Open Channel', url: channelUrl }
     ]);
   }
+
   inlineKeyboard.push([
-    { text: 'Done', callback_data: 'bot_admin_added' }
+    { text: '✅ Done', callback_data: 'bot_admin_added' }
   ]);
   inlineKeyboard.push([
     { text: 'Change Channel', callback_data: 'change_channel' }
   ]);
 
   const botTag = botUsername ? `@${botUsername}` : 'this bot';
+  let instructions = `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Step 3: Add Bot as Admin</b>\n\n`;
+
+  if (channelUrl) {
+    instructions += `1. Tap <b>"🔗 Open Channel"</b> to go to your channel\n`;
+    instructions += `2. Add ${botTag} as admin with <b>Post Messages</b> permission\n\n`;
+  } else {
+    instructions += `Add ${botTag} as admin to your channel with <b>Post Messages</b> permission.\n\n`;
+  }
+
+  instructions += `Once done, click <b>"✅ Done"</b>:`;
+
   await api.sendMessage({
     chat_id: chatId,
-    text: `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Step 3: Add Bot as Admin</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce done, click <b>"Done"</b>:`,
+    text: instructions,
     parse_mode: 'HTML',
     reply_markup: {
       remove_keyboard: true,
@@ -1031,93 +1062,55 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
     return;
   }
 
-  let channelId = normalizeChannelId(user.channel_id);
-  if (channelId && channelId !== user.channel_id) {
-    await updateUserChannelId(user.telegram_id, channelId, user.channel_name || channelId);
-  } else if (!channelId) {
-    channelId = user.channel_id;
-  }
+  let channelId = user.channel_id;
+  console.log('Checking bot admin status for onboarding channel:', channelId);
 
-  try {
-    const botInfo = await api.getMe();
-    const botMember = await api.getChatMember({
-      chat_id: channelId,
-      user_id: botInfo.id
-    });
+  const { isAdmin, status, botUsername, activeChannelId, error } = await checkBotAdminStatus(api, channelId);
 
-    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
-    if (!isAdmin) {
-      const addBotUrl = botInfo.username
-        ? `https://t.me/${botInfo.username}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
-        : null;
+  if (!isAdmin) {
+    const botTag = botUsername ? `@${botUsername}` : 'this bot';
+    const addBotUrl = botUsername
+      ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+      : null;
 
-      const keyboardRows = [];
-      if (addBotUrl) {
-        keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
-      }
-      keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
-      keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
-
-      await api.sendMessage({
-        chat_id: chatId,
-        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add @${botInfo.username || 'this bot'} directly to your channel with Post Messages permission, or add the bot manually.\n\nOnce added, click <b>"Done"</b>:`,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: keyboardRows
-        }
-      });
-      return;
+    const keyboardRows = [];
+    if (addBotUrl) {
+      keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
     }
+    keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
+    keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
 
-    // Bot is verified as admin! Enrich channel info (username & title) now that bot has admin access
-    try {
-      const enriched = await resolveChannelMetadata(api, channelId, user.channel_name);
-      if (enriched.channelId !== user.channel_id || enriched.channelName !== user.channel_name) {
-        channelId = enriched.channelId;
-        await updateUserChannelId(user.telegram_id, enriched.channelId, enriched.channelName);
-      }
-    } catch (_) {}
-
-    await updateUserOnboardingStep(user.telegram_id, 'provide_display_name');
-    await api.sendMessage({
-      chat_id: chatId,
-      text: `✅ Great! Bot is verified as an admin in ${channelId}.\n\n✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")`,
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Skip This Step', callback_data: 'skip_display_name' }]
-        ]
-      }
-    });
-  } catch (error) {
-    console.error('Error checking bot admin status:', error);
     const errText = error?.description || error?.message || '';
     let detailMsg = '';
     if (errText.includes('chat not found')) {
       detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
     }
+
     await api.sendMessage({
       chat_id: chatId,
-      text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:`,
+      text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce added, click <b>"Done"</b>:`,
+      parse_mode: 'HTML',
       reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Done', callback_data: 'bot_admin_added' }],
-          [{ text: 'Change Channel', callback_data: 'change_channel' }]
-        ]
+        inline_keyboard: keyboardRows
       }
     });
+    return;
   }
-}
 
-async function showDisplayNameInstructions(chatId) {
-  await api.sendMessage({
-    chat_id: chatId,
-    text: '✏️ Step 4: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")',
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Skip This Step', callback_data: 'skip_display_name' }]
-      ]
+  // Bot is verified as admin! Enrich channel info (username & title) now that bot has admin access
+  if (activeChannelId && activeChannelId !== channelId) {
+    channelId = activeChannelId;
+  }
+  try {
+    const enriched = await resolveChannelMetadata(api, channelId, user.channel_name);
+    if (enriched.channelId !== user.channel_id || enriched.channelName !== user.channel_name) {
+      channelId = enriched.channelId;
+      await updateUserChannelId(user.telegram_id, enriched.channelId, enriched.channelName);
     }
-  });
+  } catch (_) {}
+
+  await updateUserOnboardingStep(user.telegram_id, 'select_categories');
+  await showCategorySelection(chatId);
 }
 
 async function showCategorySelection(chatId) {
@@ -1146,7 +1139,7 @@ async function showCategorySelection(chatId) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: '📂 Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
+    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -1168,24 +1161,40 @@ async function showAddChannelBotAdminInstructions(chatId, channelId = null, chan
     channelInfoText = `📢 <b>Channel:</b> ${channelName || channelId}\n\n`;
   }
 
-  const addBotUrl = botUsername
-    ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
-    : null;
+  // Create direct link to the channel if it's public (has @username)
+  let channelUrl = null;
+  if (channelId && channelId.startsWith('@')) {
+    channelUrl = `https://t.me/${channelId.replace('@', '')}`;
+  }
 
   const inlineKeyboard = [];
-  if (addBotUrl) {
+
+  // Add direct channel link button (if public channel)
+  if (channelUrl) {
     inlineKeyboard.push([
-      { text: '➕ Add Bot as Admin Automatically', url: addBotUrl }
+      { text: '🔗 Open Channel', url: channelUrl }
     ]);
   }
+
   inlineKeyboard.push([
-    { text: 'Done', callback_data: 'bot_admin_added' }
+    { text: '✅ Done', callback_data: 'bot_admin_added' }
   ]);
 
   const botTag = botUsername ? `@${botUsername}` : 'this bot';
+  let instructions = `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Add Bot as Admin</b>\n\n`;
+
+  if (channelUrl) {
+    instructions += `1. Tap <b>"🔗 Open Channel"</b> to go to your channel\n`;
+    instructions += `2. Add ${botTag} as admin with <b>Post Messages</b> permission\n\n`;
+  } else {
+    instructions += `Add ${botTag} as admin to your channel with <b>Post Messages</b> permission.\n\n`;
+  }
+
+  instructions += `Once added, tap <b>"✅ Done"</b> below to continue:`;
+
   await api.sendMessage({
     chat_id: chatId,
-    text: `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Add Bot as Admin</b>\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add ${botTag} directly to your channel with <b>Post Messages</b> permission, or add ${botTag} manually from your channel settings.\n\nOnce added, send "done" or click below to continue:`,
+    text: instructions,
     parse_mode: 'HTML',
     reply_markup: {
       remove_keyboard: true,
@@ -1204,76 +1213,65 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
     return;
   }
 
-  let normalizedChannelId = normalizeChannelId(channelId);
-  if (normalizedChannelId && normalizedChannelId !== channelId) {
-    channelName = channelName || normalizedChannelId;
-    channelId = normalizedChannelId;
-  }
+  let targetChannelId = channelId;
+  let targetChannelName = channelName || targetChannelId;
 
-  try {
-    const botInfo = await api.getMe();
-    const botMember = await api.getChatMember({
-      chat_id: channelId,
-      user_id: botInfo.id
-    });
+  console.log('Checking verifyAndAddChannel admin status for:', targetChannelId);
+  const { isAdmin, status, botUsername, activeChannelId, error } = await checkBotAdminStatus(api, targetChannelId);
 
-    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
+  if (!isAdmin) {
+    const botTag = botUsername ? `@${botUsername}` : 'this bot';
+    const addBotUrl = botUsername
+      ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+      : null;
 
-    if (!isAdmin) {
-      const addBotUrl = botInfo.username
-        ? `https://t.me/${botInfo.username}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
-        : null;
-
-      const keyboardRows = [];
-      if (addBotUrl) {
-        keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
-      }
-      keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
-
-      await api.sendMessage({
-        chat_id: chatId,
-        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add @${botInfo.username || 'this bot'} directly to your channel with Post Messages permission, or add the bot manually.\n\nOnce added, send "done" to continue:`,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: keyboardRows
-        }
-      });
-      return;
+    const keyboardRows = [];
+    if (addBotUrl) {
+      keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
     }
+    keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
 
-    // Bot is verified as admin! Enrich channel info (username & title) now that bot has admin access
-    try {
-      const enriched = await resolveChannelMetadata(api, channelId, channelName);
-      channelId = enriched.channelId;
-      channelName = enriched.channelName;
-    } catch (_) {}
-
-    // Add the channel
-    await addUserChannel(user.id, channelId, channelName, 0, 0);
-    await clearPendingChannelAdd(user.telegram_id);
-
-    await api.sendMessage({
-      chat_id: chatId,
-      text: `✅ Channel "${channelName || channelId}" has been added successfully!\n\nYou can now post content to this channel.`,
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'Settings', callback_data: 'settings' }
-          ]
-        ]
-      }
-    });
-  } catch (error) {
-    console.error('Error checking bot admin status:', error);
     const errText = error?.description || error?.message || '';
     let detailMsg = '';
     if (errText.includes('chat not found')) {
-      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${targetChannelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
     }
+
     await api.sendMessage({
       chat_id: chatId,
-      text: `❌ Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nSend "done" to try again or send "cancel" to abort:`,
+      text: `❌ The bot is not yet an administrator in <b>${targetChannelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce added, send "done" or click "Done" below to continue:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboardRows
+      }
     });
+    return;
   }
+
+  // Bot is verified as admin! Enrich channel info (username & title) now that bot has admin access
+  if (activeChannelId && activeChannelId !== targetChannelId) {
+    targetChannelId = activeChannelId;
+  }
+  try {
+    const enriched = await resolveChannelMetadata(api, targetChannelId, targetChannelName);
+    targetChannelId = enriched.channelId;
+    targetChannelName = enriched.channelName;
+  } catch (_) {}
+
+  // Add the channel
+  await addUserChannel(user.id, targetChannelId, targetChannelName, 0, 0);
+  await clearPendingChannelAdd(user.telegram_id);
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `✅ Channel "${targetChannelName || targetChannelId}" has been added successfully!\n\nYou can now post content to this channel.`,
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: 'Settings', callback_data: 'settings' }
+        ]
+      ]
+    }
+  });
 }
 

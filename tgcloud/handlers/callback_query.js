@@ -6,7 +6,7 @@ import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit,
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
-import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay } from '../lib/channel.js';
+import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay, checkBotAdminStatus, resolveChannelMetadata } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 import { processSingleAutoPost, checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
 import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker, showAutoPostLanguagePicker } from '../lib/autopost_ui.js';
@@ -44,7 +44,7 @@ async function showMainMenu(chatId, isOwner = false) {
     ],
     [
       { text: 'Direct Translation', callback_data: 'direct_translate_menu' },
-      { text: 'Rates', callback_data: 'get_rates' }
+      { text: 'Credits', callback_data: 'get_credits' }
     ],
     [
       { text: 'My Stats', callback_data: 'my_stats' },
@@ -91,7 +91,7 @@ async function showGuestMenu(chatId) {
       inline_keyboard: [
         [
           { text: ' Browse News', callback_data: 'get_news' },
-          { text: 'Rates', callback_data: 'get_rates' }
+          { text: 'Credits', callback_data: 'get_credits' }
         ],
         [
           { text: 'Settings', callback_data: 'settings' }
@@ -638,11 +638,6 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  if (data === 'skip_display_name') {
-    await handleSkipDisplayName(callbackQuery, userId);
-    return;
-  }
-
   if (data.startsWith('select_category_')) {
     await handleSelectCategory(callbackQuery, userId, data);
     return;
@@ -665,6 +660,11 @@ export default async function (callbackQuery, ctx) {
 
   if (data === 'get_rates') {
     await handleGetRates(callbackQuery, userId);
+    return;
+  }
+
+  if (data === 'get_credits') {
+    await handleGetCredits(callbackQuery, userId);
     return;
   }
 
@@ -3232,47 +3232,110 @@ async function handleChangeChannel(callbackQuery, userId) {
 }
 
 async function handleBotAdminAdded(callbackQuery, userId) {
-  const user = await getUserByTelegramId(userId);
-
-  if (!user || !user.channel_id) {
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: ' Channel ID not found. Please provide your channel first.',
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: 'Provide Channel', callback_data: 'change_channel' }
-          ]
-        ]
-      }
-    });
-    return;
-  }
-
-  // Normalize channel ID in case it was stored as a URL, link, or bare username
-  let channelId = normalizeChannelId(user.channel_id);
-  if (channelId && channelId !== user.channel_id) {
-    await updateUserChannelId(userId, channelId, user.channel_name || channelId);
-  } else if (!channelId) {
-    channelId = user.channel_id;
-  }
+  console.log('=== handleBotAdminAdded START ===');
+  console.log('userId:', userId);
 
   try {
-    // Get bot's user ID
-    const botInfo = await api.getMe();
-    const botId = botInfo.id;
+    const user = await getUserByTelegramId(userId);
+    console.log('User found:', !!user);
+    if (user) {
+      console.log('User channel_id:', user.channel_id);
+      console.log('User onboarding_step:', user.onboarding_step);
+    }
 
-    // Check if bot is admin in the user's channel
-    const botMember = await api.getChatMember({
-      chat_id: channelId,
-      user_id: botId
-    });
+    // Check if user is in pending channel add flow first
+    const pendingChannel = await getPendingChannelAdd(userId);
+    console.log('Pending channel:', pendingChannel);
 
-    const isAdmin = botMember.status === 'administrator' || botMember.status === 'creator';
+    if (pendingChannel && pendingChannel.channelId && pendingChannel.channelId !== 'waiting') {
+      console.log('Processing pending channel add flow');
+      let targetChannelId = pendingChannel.channelId;
+      let targetChannelName = pendingChannel.channelName || targetChannelId;
+
+      console.log('Checking pending channel admin status for:', targetChannelId);
+      const { isAdmin, status, botUsername, activeChannelId } = await checkBotAdminStatus(api, targetChannelId);
+      console.log('Admin check result:', { isAdmin, status, activeChannelId });
+
+      if (isAdmin) {
+        console.log('Bot is admin, adding channel');
+        if (activeChannelId) targetChannelId = activeChannelId;
+        try {
+          const enriched = await resolveChannelMetadata(api, targetChannelId, targetChannelName);
+          targetChannelId = enriched.channelId;
+          targetChannelName = enriched.channelName;
+        } catch (e) {
+          console.log('Error enriching metadata:', e.message);
+        }
+
+        await addUserChannel(user.id, targetChannelId, targetChannelName, 0, 0);
+        await clearPendingChannelAdd(userId);
+
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `✅ Channel "${targetChannelName}" has been added successfully!\n\nYou can now post content to this channel.`,
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: '⚙️ Settings', callback_data: 'settings' }]
+            ]
+          }
+        });
+        console.log('=== handleBotAdminAdded END (pending channel added) ===');
+        return;
+      } else {
+        console.log('Bot is not admin in pending channel');
+        const botTag = botUsername ? `@${botUsername}` : 'this bot';
+        const addBotUrl = botUsername
+          ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+          : null;
+
+        const keyboardRows = [];
+        if (addBotUrl) {
+          keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
+        }
+        keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
+        keyboardRows.push([{ text: 'Settings', callback_data: 'settings' }]);
+
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `❌ The bot is not yet an administrator in <b>${targetChannelId}</b>.\n\nPlease ensure:\n1. You added ${botTag} as an administrator in your channel with <b>Post Messages</b> permission.\n2. Tap <b>"Done"</b> below to verify:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboardRows
+          }
+        });
+        console.log('=== handleBotAdminAdded END (pending channel not admin) ===');
+        return;
+      }
+    }
+
+    if (!user || !user.channel_id) {
+      console.log('No user or no channel_id');
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: '❌ Channel ID not found. Please provide your channel first.',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Provide Channel', callback_data: 'change_channel' }
+            ]
+          ]
+        }
+      });
+      console.log('=== handleBotAdminAdded END (no channel) ===');
+      return;
+    }
+
+    let channelId = user.channel_id;
+    console.log('Checking bot admin status for onboarding channel:', channelId);
+
+    const { isAdmin, status, botUsername, activeChannelId, error } = await checkBotAdminStatus(api, channelId);
+    console.log('Admin check result:', { isAdmin, status, activeChannelId, error });
 
     if (!isAdmin) {
-      const addBotUrl = botInfo.username
-        ? `https://t.me/${botInfo.username}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
+      console.log('Bot is not admin in onboarding channel');
+      const botTag = botUsername ? `@${botUsername}` : 'this bot';
+      const addBotUrl = botUsername
+        ? `https://t.me/${botUsername}?startgroup=true&admin=post_messages+edit_messages+delete_messages`
         : null;
 
       const keyboardRows = [];
@@ -3282,55 +3345,52 @@ async function handleBotAdminAdded(callbackQuery, userId) {
       keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
       keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
 
+      const errText = error?.description || error?.message || '';
+      let detailMsg = '';
+      if (errText.includes('chat not found')) {
+        detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+      }
+
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.\n\nTap <b>"➕ Add Bot as Admin Automatically"</b> below to add @${botInfo.username || 'this bot'} directly to your channel with Post Messages permission, or add the bot manually.\n\nOnce added, click <b>"Done"</b>:`,
+        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce done, click <b>"Done"</b>:`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: keyboardRows
         }
       });
+      console.log('=== handleBotAdminAdded END (onboarding not admin) ===');
       return;
     }
 
-    // Bot is admin, proceed to next step
-    await updateUserOnboardingStep(userId, 'provide_display_name');
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: ` Great! Bot is verified as an admin in ${channelId}.\n\n Step 3: Display Name (Optional)\n\nSend the name you want to be displayed on your channel (e.g., "Your Name")`,
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Skip This Step', callback_data: 'skip_display_name' }]
-        ]
-      }
-    });
-  } catch (error) {
-    console.error('Error checking bot admin status:', error);
-    const errText = error?.description || error?.message || '';
-    let detailMsg = '';
-    if (errText.includes('chat not found')) {
-      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+    // Bot is verified as admin!
+    console.log('Bot is admin, proceeding to next step');
+    if (activeChannelId && activeChannelId !== channelId) {
+      channelId = activeChannelId;
     }
+    try {
+      const enriched = await resolveChannelMetadata(api, channelId, user.channel_name);
+      if (enriched.channelId !== user.channel_id || enriched.channelName !== user.channel_name) {
+        channelId = enriched.channelId;
+        await updateUserChannelId(userId, enriched.channelId, enriched.channelName);
+      }
+    } catch (e) {
+      console.log('Error enriching metadata:', e.message);
+    }
+
+    await updateUserOnboardingStep(userId, 'select_categories');
+    await showCategorySelection(callbackQuery.message.chat.id);
+    console.log('=== handleBotAdminAdded END (onboarding success) ===');
+  } catch (error) {
+    console.error('ERROR in handleBotAdminAdded:', error);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` Failed to verify bot admin status for ${channelId}.${detailMsg}\n\nPlease make sure:\n1. The bot is added as admin to your channel\n2. The channel ID is correct\n\nClick the button below to try again:`,
-      reply_markup: {
-        inline_keyboard: [
-          [
-            { text: ' Done', callback_data: 'bot_admin_added' }
-          ],
-          [
-            { text: ' Change Channel', callback_data: 'change_channel' }
-          ]
-        ]
-      }
+      text: `❌ An error occurred: ${error.message}`,
     });
   }
 }
 
-async function handleSkipDisplayName(callbackQuery, userId) {
-  await updateUserOnboardingStep(userId, 'select_categories');
-
+async function showCategorySelection(chatId) {
   const keyboard = [];
   for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
     const row = [];
@@ -3348,15 +3408,15 @@ async function handleSkipDisplayName(callbackQuery, userId) {
   }
 
   keyboard.push([
-    { text: ' Add Custom Source', callback_data: 'add_custom_source' }
+    { text: 'Add Custom Source', callback_data: 'add_custom_source' }
   ]);
   keyboard.push([
-    { text: ' Complete Setup', callback_data: 'complete_setup' }
+    { text: 'Complete Setup', callback_data: 'complete_setup' }
   ]);
 
   await api.sendMessage({
-    chat_id: callbackQuery.message.chat.id,
-    text: ' Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
+    chat_id: chatId,
+    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -3507,6 +3567,10 @@ async function handleGenerateContent(callbackQuery, userId) {
 
   keyboard.push([
     { text: 'All Sources', callback_data: 'news_cat_all' },
+    { text: 'Rates', callback_data: 'get_rates' }
+  ]);
+
+  keyboard.push([
     { text: 'Main Menu', callback_data: 'back' }
   ]);
 
@@ -3529,6 +3593,42 @@ async function handleGetRates(callbackQuery, userId) {
         [
           { text: 'Dollar (USD/ETB)', callback_data: 'rate_dollar' },
           { text: 'Bitcoin (BTC)', callback_data: 'rate_btc' }
+        ],
+        [
+          { text: 'Back', callback_data: 'back' }
+        ]
+      ]
+    }
+  });
+}
+
+async function handleGetCredits(callbackQuery, userId) {
+  await api.sendMessage({
+    chat_id: callbackQuery.message.chat.id,
+    text: ' <b>Free Credits & Resources</b>\n\nTop platforms for free AI credits, software credits, and startup resources:',
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: [
+        [
+          { text: 'FreeCredit.ai', url: 'https://freecredit.ai' }
+        ],
+        [
+          { text: 'AICredits.dev', url: 'https://aicredits.dev' }
+        ],
+        [
+          { text: 'Find AI Credits', url: 'https://findaicredits.com' }
+        ],
+        [
+          { text: 'AI Credits & Startups', url: 'https://aicreditsandstartups.com' }
+        ],
+        [
+          { text: 'OpenAI Free Credits', url: 'https://openai.com' }
+        ],
+        [
+          { text: 'GitHub Student Pack', url: 'https://education.github.com/pack' }
+        ],
+        [
+          { text: 'DigitalOcean Credits', url: 'https://digitalocean.com' }
         ],
         [
           { text: 'Back', callback_data: 'back' }

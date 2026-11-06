@@ -83,7 +83,8 @@ export const NEWS_CATEGORIES = [
   { id: 'research', name: '🔬 Research & Academia', description: 'Academic papers, studies & scientific research' },
   { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
   { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
-  { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' }
+  { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' },
+  { id: 'credits', name: '💰 Free Credits', description: 'Free AI credits, software credits & startup resources' }
 ];
 
 /**
