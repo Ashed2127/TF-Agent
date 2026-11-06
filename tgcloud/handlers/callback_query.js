@@ -3567,6 +3567,10 @@ async function handleGenerateContent(callbackQuery, userId) {
 
   keyboard.push([
     { text: 'All Sources', callback_data: 'news_cat_all' },
+    { text: 'Credits', callback_data: 'news_cat_credits' }
+  ]);
+
+  keyboard.push([
     { text: 'Rates', callback_data: 'get_rates' }
   ]);
 

@@ -84,7 +84,7 @@ export const NEWS_CATEGORIES = [
   { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
   { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
   { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' },
-  { id: 'credits', name: '💰 Free Credits', description: 'Free AI credits, software credits & startup resources' }
+  { id: 'credits', name: '💰 Credits', description: 'AI credits, software credits & startup resources' }
 ];
 
 /**
@@ -101,7 +101,6 @@ export const NEWS_PLATFORMS = [
   { id: 'ieee', name: 'IEEE Spectrum', category: 'tech', url: 'https://spectrum.ieee.org/rss/full' },
   { id: 'venturebeat', name: 'VentureBeat', category: 'tech', url: 'https://venturebeat.com/feed/' },
   { id: 'engadget', name: 'Engadget', category: 'tech', url: 'https://www.engadget.com/rss.xml' },
-  { id: 'hackernews', name: 'Hacker News', category: 'tech', url: 'https://hnrss.org/frontpage' },
   { id: 'newscientist', name: 'New Scientist', category: 'tech', url: 'https://www.newscientist.com/feed/' },
 
   // Business & Finance - Most Trusted Financial News
@@ -129,7 +128,6 @@ export const NEWS_PLATFORMS = [
   { id: 'techcabal', name: 'TechCabal', category: 'startups', url: 'https://techcabal.com/feed/' },
   { id: 'disruptafrica', name: 'Disrupt Africa', category: 'startups', url: 'https://disrupt-africa.com/feed/' },
   { id: 'restofworld', name: 'Rest of World', category: 'startups', url: 'https://restofworld.org/feed/latest/' },
-  { id: 'producthunt', name: 'Product Hunt', category: 'startups', url: 'https://www.producthunt.com/feed' },
   { id: 'techpointafrica', name: 'Techpoint Africa', category: 'startups', url: 'https://techpoint.africa/feed' },
   { id: 'weetracker', name: 'WeeTracker', category: 'startups', url: 'https://weetracker.com/feed' },
   { id: 'ventureburn', name: 'Ventureburn', category: 'startups', url: 'https://ventureburn.com/feed' },
@@ -185,7 +183,17 @@ export const NEWS_PLATFORMS = [
   { id: 'theathletic', name: 'The Athletic', category: 'sports', url: 'https://theathletic.com/feed' },
   { id: 'bleacherreport', name: 'Bleacher Report', category: 'sports', url: 'https://bleacherreport.com/feed' },
   { id: 'skysports', name: 'Sky Sports', category: 'sports', url: 'https://www.skysports.com/rss/0,20514,00.xml' },
-  { id: 'goalcom', name: 'Goal.com', category: 'sports', url: 'https://www.goal.com/en/feeds/news' }
+  { id: 'goalcom', name: 'Goal.com', category: 'sports', url: 'https://www.goal.com/en/feeds/news' },
+
+  // Credits - AI/Software Credits & Startup Resources
+  { id: 'techcrunch_startups', name: 'TechCrunch Startups', category: 'credits', url: 'https://techcrunch.com/category/startups/feed/' },
+  { id: 'producthunt', name: 'Product Hunt', category: 'credits', url: 'https://www.producthunt.com/feed' },
+  { id: 'hackernews', name: 'Hacker News', category: 'credits', url: 'https://hnrss.org/frontpage' },
+  { id: 'github', name: 'GitHub Blog', category: 'credits', url: 'https://github.blog/feed/' },
+  { id: 'digitalocean', name: 'DigitalOcean Blog', category: 'credits', url: 'https://www.digitalocean.com/blog/feed' },
+  { id: 'developer_tech', name: 'Developer Tech', category: 'credits', url: 'https://www.developertech.com/feed' },
+  { id: 'gigaom', name: 'GigaOM', category: 'credits', url: 'https://gigaom.com/feed/' },
+  { id: 'venturebeat_ai', name: 'VentureBeat AI', category: 'credits', url: 'https://venturebeat.com/category/ai/feed/' }
 ];
 
 /**
