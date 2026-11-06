@@ -189,6 +189,88 @@ export function formatIntervalDisplay(intervalHours) {
 }
 
 /**
+ * Checks whether the bot is an administrator or creator in the given channel.
+ * Robustly tries both raw/numeric ID formats and username/handle formats,
+ * checking via getChatMember and falling back to getChatAdministrators.
+ */
+export async function checkBotAdminStatus(api, channelId, botId = null) {
+  if (!api || !channelId) {
+    return { isAdmin: false, error: 'Missing channelId or API client' };
+  }
+
+  let resolvedBotId = botId;
+  let botUsername = '';
+  try {
+    const me = await api.getMe();
+    resolvedBotId = resolvedBotId || me.id;
+    botUsername = me.username || '';
+  } catch (err) {
+    console.error('Error in getMe inside checkBotAdminStatus:', err);
+  }
+
+  // Determine formats to try:
+  // 1. As-is
+  // 2. If it's an integer string, also try as a Number
+  // 3. If it's missing '-100' but looks like a positive channel ID, try with '-100'
+  const idsToTry = [];
+  const normalized = normalizeChannelId(channelId) || channelId;
+  idsToTry.push(normalized);
+
+  if (/^-?\d+$/.test(String(channelId))) {
+    const num = Number(channelId);
+    if (!idsToTry.includes(num)) idsToTry.push(num);
+    const str = String(channelId);
+    if (!str.startsWith('-')) {
+      const withPref = `-100${str}`;
+      if (!idsToTry.includes(withPref)) idsToTry.push(withPref);
+      const withPrefNum = Number(withPref);
+      if (!idsToTry.includes(withPrefNum)) idsToTry.push(withPrefNum);
+    }
+  }
+
+  let lastError = null;
+
+  for (const testId of idsToTry) {
+    // First try: api.getChatMember
+    if (resolvedBotId) {
+      try {
+        const member = await api.getChatMember({
+          chat_id: testId,
+          user_id: resolvedBotId
+        });
+        if (member && (member.status === 'administrator' || member.status === 'creator')) {
+          return { isAdmin: true, status: member.status, botUsername, activeChannelId: testId };
+        }
+        if (member && (member.status === 'member' || member.status === 'restricted' || member.status === 'left' || member.status === 'kicked')) {
+          return { isAdmin: false, status: member.status, botUsername, activeChannelId: testId };
+        }
+      } catch (err) {
+        lastError = err;
+        console.log(`getChatMember check failed for ${testId}:`, err?.description || err?.message);
+      }
+    }
+
+    // Fallback try: api.getChatAdministrators
+    try {
+      const admins = await api.getChatAdministrators({ chat_id: testId });
+      if (Array.isArray(admins)) {
+        const isBotInAdmins = admins.some(a => a.user && (a.user.id === resolvedBotId || (botUsername && a.user.username === botUsername)));
+        if (isBotInAdmins) {
+          return { isAdmin: true, status: 'administrator', botUsername, activeChannelId: testId };
+        }
+        // If admins list succeeded and bot is not in it, bot is not admin
+        return { isAdmin: false, status: 'not_admin', botUsername, activeChannelId: testId };
+      }
+    } catch (err) {
+      lastError = lastError || err;
+      console.log(`getChatAdministrators check failed for ${testId}:`, err?.description || err?.message);
+    }
+  }
+
+  return { isAdmin: false, error: lastError, botUsername };
+}
+
+/**
  * Parse user-entered interval text into hours (float)
  * Examples supported:
  * - "30m", "30 min", "30 minutes", "45mins" -> minutes converted to hours

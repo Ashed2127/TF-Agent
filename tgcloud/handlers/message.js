@@ -881,11 +881,6 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Settings', callback_data: 'settings' }
     ],
     [
-      { text: 'Direct Translation', callback_data: 'direct_translate_menu' },
-      { text: 'Credits', callback_data: 'get_credits' }
-    ],
-    [
-      { text: 'My Stats', callback_data: 'my_stats' },
       { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
     ],
     [
