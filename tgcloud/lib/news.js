@@ -186,14 +186,14 @@ export const NEWS_PLATFORMS = [
   { id: 'goalcom', name: 'Goal.com', category: 'sports', url: 'https://www.goal.com/en/feeds/news' },
 
   // Credits - AI/Software Credits & Startup Resources
-  { id: 'techcrunch_startups', name: 'TechCrunch Startups', category: 'credits', url: 'https://techcrunch.com/category/startups/feed/' },
-  { id: 'producthunt', name: 'Product Hunt', category: 'credits', url: 'https://www.producthunt.com/feed' },
+  { id: 'freecredit_ai', name: 'FreeCredit.ai', category: 'credits', url: 'https://freecredit.ai/feed' },
+  { id: 'aicredits_dev', name: 'AICredits.dev', category: 'credits', url: 'https://aicredits.dev/feed' },
+  { id: 'findaicredits', name: 'Find AI Credits', category: 'credits', url: 'https://findaicredits.com/feed' },
+  { id: 'aicredits_startups', name: 'AI Credits & Startups', category: 'credits', url: 'https://aicreditsandstartups.com/feed' },
   { id: 'hackernews', name: 'Hacker News', category: 'credits', url: 'https://hnrss.org/frontpage' },
-  { id: 'github', name: 'GitHub Blog', category: 'credits', url: 'https://github.blog/feed/' },
-  { id: 'digitalocean', name: 'DigitalOcean Blog', category: 'credits', url: 'https://www.digitalocean.com/blog/feed' },
-  { id: 'developer_tech', name: 'Developer Tech', category: 'credits', url: 'https://www.developertech.com/feed' },
-  { id: 'gigaom', name: 'GigaOM', category: 'credits', url: 'https://gigaom.com/feed/' },
-  { id: 'venturebeat_ai', name: 'VentureBeat AI', category: 'credits', url: 'https://venturebeat.com/category/ai/feed/' }
+  { id: 'producthunt', name: 'Product Hunt', category: 'credits', url: 'https://www.producthunt.com/feed' },
+  { id: 'dev_to', name: 'DEV Community', category: 'credits', url: 'https://dev.to/feed' },
+  { id: 'startup_news', name: 'Startup News', category: 'credits', url: 'https://startupnews.one/feed' }
 ];
 
 /**
