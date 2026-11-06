@@ -810,11 +810,6 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  if (data === 'news_cat_credits') {
-    await handleGetCredits(callbackQuery, userId);
-    return;
-  }
-
   if (data.startsWith('news_cat_')) {
     const catId = data.replace('news_cat_', '');
     let platforms = catId === 'all'

@@ -186,14 +186,10 @@ export const NEWS_PLATFORMS = [
   { id: 'goalcom', name: 'Goal.com', category: 'sports', url: 'https://www.goal.com/en/feeds/news' },
 
   // Credits - AI/Software Credits & Startup Resources
-  { id: 'techcrunch_ai', name: 'TechCrunch AI', category: 'credits', url: 'https://techcrunch.com/category/artificial-intelligence/feed/' },
-  { id: 'venturebeat_ai', name: 'VentureBeat AI', category: 'credits', url: 'https://venturebeat.com/category/ai/feed/' },
-  { id: 'aws_blog', name: 'AWS Blog', category: 'credits', url: 'https://aws.amazon.com/blogs/aws/feed/' },
-  { id: 'google_cloud', name: 'Google Cloud Blog', category: 'credits', url: 'https://cloud.google.com/blog/feed/' },
-  { id: 'microsoft_azure', name: 'Microsoft Azure Blog', category: 'credits', url: 'https://azure.microsoft.com/en-us/blog/feed/' },
-  { id: 'stripe_blog', name: 'Stripe Blog', category: 'credits', url: 'https://stripe.com/blog/feed' },
-  { id: 'github_developer', name: 'GitHub Developer Blog', category: 'credits', url: 'https://github.blog/category/developer/' },
-  { id: 'indiehackers', name: 'Indie Hackers', category: 'credits', url: 'https://www.indiehackers.com/feed' }
+  { id: 'aicredits_dev', name: 'AICredits.dev', category: 'credits', url: 'https://aicredits.dev/' },
+  { id: 'findaicredits', name: 'Find AI Credits', category: 'credits', url: 'https://www.findaicredits.com/' },
+  { id: 'aicreditsandstartups', name: 'AI Credits & Startups', category: 'credits', url: 'https://aicreditsandstartups.com' },
+  { id: 'freecredit_ai', name: 'FreeCredit.ai', category: 'credits', url: 'https://freecredit.ai' }
 ];
 
 /**
@@ -465,6 +461,101 @@ export async function fetchArticleImage(link) {
 export async function fetchRSSFeed(url, platformName) {
   try {
     let feedUrl = url.trim();
+
+    // Specialized handler for AICredits.dev
+    if (feedUrl.includes('aicredits.dev')) {
+      const res = await fetch('https://aicredits.dev/', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      if (!res.ok) return [];
+      const html = await res.text();
+      const linkRegex = /<a[^>]+href=["'](\/submissions\/\d+[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+      let m;
+      const items = [];
+      const seen = new Set();
+      while ((m = linkRegex.exec(html)) !== null) {
+        const href = m[1];
+        if (seen.has(href)) continue;
+        seen.add(href);
+        const content = m[2];
+        const titleMatch = content.match(/<p[^>]+text-neutral-100[^>]*>([^<]+)<\/p>/i) ||
+                           content.match(/<h\d[^>]*>([^<]+)<\/h\d>/i);
+        const descMatch = content.match(/<p[^>]+text-neutral-400[^>]*>([^<]+)<\/p>/i);
+        const rawClean = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        const title = titleMatch ? titleMatch[1].trim() : rawClean;
+        const desc = descMatch ? descMatch[1].trim() : title;
+        if (title && title.length > 3) {
+          items.push({
+            title,
+            link: 'https://aicredits.dev' + href,
+            description: desc,
+            image: 'https://aicredits.dev/og-image.png',
+            time: 'Recently',
+            platform: platformName
+          });
+        }
+      }
+      if (items.length < 15) {
+        try {
+          const subRes = await fetch('https://aicredits.dev/submissions', {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+          });
+          if (subRes.ok) {
+            const subHtml = await subRes.text();
+            const subRegex = /<a[^>]+href=["'](\/submissions\/\d+[^"']*)["'][^>]*>([\s\S]*?)<\/a>/gi;
+            let sm;
+            while ((sm = subRegex.exec(subHtml)) !== null) {
+              const href = sm[1];
+              if (seen.has(href)) continue;
+              seen.add(href);
+              const content = sm[2];
+              const rawClean = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+              if (rawClean && rawClean.length > 5) {
+                items.push({
+                  title: rawClean,
+                  link: 'https://aicredits.dev' + href,
+                  description: 'AI credits & startup program: ' + rawClean,
+                  image: 'https://aicredits.dev/og-image.png',
+                  time: 'Recently',
+                  platform: platformName
+                });
+              }
+              if (items.length >= 15) break;
+            }
+          }
+        } catch (_) {}
+      }
+      return items;
+    }
+
+    // Specialized handler for Find AI Credits
+    if (feedUrl.includes('findaicredits.com')) {
+      const res = await fetch('https://www.findaicredits.com/sitemap.xml', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      });
+      if (!res.ok) return [];
+      const text = await res.text();
+      const deals = (text.match(/<loc>[^<]+<\/loc>/g) || [])
+        .map(m => m.replace(/<\/?loc>/g, '').trim())
+        .filter(u => u.includes('/deals/'));
+      const blogs = (text.match(/<loc>[^<]+<\/loc>/g) || [])
+        .map(m => m.replace(/<\/?loc>/g, '').trim())
+        .filter(u => u.includes('/blog/'));
+      const allUrls = [...deals, ...blogs];
+      return allUrls.slice(0, 15).map(u => {
+        const slug = u.split('/').pop();
+        const rawTitle = slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        return {
+          title: rawTitle,
+          link: u,
+          description: 'Free AI credits & startup deal: ' + rawTitle,
+          image: 'https://findaicredits.com/images/findaicredits.png',
+          time: 'Recently',
+          platform: platformName
+        };
+      });
+    }
+
     let response = await fetch(feedUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
