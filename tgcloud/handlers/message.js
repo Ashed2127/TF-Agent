@@ -106,41 +106,7 @@ export default async function (message, ctx) {
       return;
     }
 
-    // Check if user has already completed onboarding
-    if (user && user.onboarding_step === 'completed') {
-      // Show appropriate menu based on user type
-      if (user.user_type === 'guest') {
-        await api.sendMessage({
-          chat_id: message.chat.id,
-          text: ' True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
-          reply_markup: {
-            inline_keyboard: [
-              [
-                { text: ' Browse News', callback_data: 'get_news' },
-                { text: 'Credits', callback_data: 'get_credits' }
-              ],
-              [
-                { text: 'Settings', callback_data: 'settings' }
-              ],
-              [
-                { text: ' Switch to User Mode', callback_data: 'switch_to_user' }
-              ],
-              [
-                { text: 'Refresh', callback_data: 'refresh_guest_menu' }
-              ],
-              [
-                { text: 'Back', callback_data: 'back' }
-              ]
-            ]
-          }
-        });
-      } else {
-        await showMainMenu(message.chat.id, userId === OWNER_CHAT_ID);
-      }
-      return;
-    }
-
-    // Show User/Guest choice for new users who haven't completed onboarding
+    // Always show User/Guest choice when /start is clicked
     await showUserTypeChoice(message.chat.id);
     return;
   }
@@ -877,7 +843,7 @@ async function buildDirectTranslatePostKeyboard(isOwner, user, editId) {
 async function showMainMenu(chatId, isOwner = false) {
   const keyboard = [
     [
-      { text: 'Generate Content', callback_data: 'generate_content' },
+      { text: 'Content', callback_data: 'generate_content' },
       { text: 'Settings', callback_data: 'settings' }
     ],
     [

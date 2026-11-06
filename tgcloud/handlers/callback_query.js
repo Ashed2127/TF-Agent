@@ -39,7 +39,7 @@ export function buildPostReactionKeyboard(postId, counts = {}) {
 async function showMainMenu(chatId, isOwner = false) {
   const keyboard = [
     [
-      { text: 'Generate Content', callback_data: 'generate_content' },
+      { text: 'Content', callback_data: 'generate_content' },
       { text: 'Settings', callback_data: 'settings' }
     ],
     [
@@ -85,8 +85,7 @@ async function showGuestMenu(chatId) {
     reply_markup: {
       inline_keyboard: [
         [
-          { text: ' Browse News', callback_data: 'get_news' },
-          { text: 'Credits', callback_data: 'get_credits' }
+          { text: 'Content', callback_data: 'get_news' }
         ],
         [
           { text: 'Settings', callback_data: 'settings' }
@@ -497,7 +496,7 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: ' Browse News', callback_data: 'get_news' },
+            { text: 'Content', callback_data: 'get_news' },
             { text: 'Rates', callback_data: 'get_rates' }
           ],
           [
@@ -579,7 +578,7 @@ export default async function (callbackQuery, ctx) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: ' Browse News', callback_data: 'get_news' },
+            { text: 'Content', callback_data: 'get_news' },
             { text: 'Rates', callback_data: 'get_rates' }
           ],
           [
