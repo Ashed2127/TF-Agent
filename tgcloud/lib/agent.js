@@ -108,7 +108,7 @@ export async function generateIdea(userId = null) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model: 'google/gemini-2.5-flash-lite',
         messages: [
           { role: 'system', content: prompt.system },
           { role: 'user', content: prompt.user }
