@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -10,6 +10,8 @@ import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, for
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 import { processSingleAutoPost, checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
 import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker, showAutoPostLanguagePicker } from '../lib/autopost_ui.js';
+import { getDailyRecommendations } from '../lib/recommendations.js';
+import { checkAndTriggerDueRecommendations } from '../lib/recommendation_service.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -445,6 +447,11 @@ export default async function (callbackQuery, ctx) {
   } catch (e) {
     console.log('Callback query already answered or expired:', e.message);
   }
+
+  // Proactively check and execute any due scheduled recommendations in background
+  try {
+    checkAndTriggerDueRecommendations().catch(e => console.error('Recommendation check error:', e.message));
+  } catch (_) {}
 
   // Handle User/Guest choice
   if (data === 'choose_user') {
@@ -1221,6 +1228,15 @@ export default async function (callbackQuery, ctx) {
     const contentStructureStatus = contentStructure ? 'Set' : 'Not set';
     const autoPostStatus = autoPostSchedule ? (autoPostSchedule.is_active === 1 ? 'Active' : 'Paused') : 'Not set';
 
+    // Get recommendation settings
+    const recommendationsEnabled = user?.recommendations_enabled === 1 ? 'Enabled' : 'Disabled';
+    const recommendationInterval = user?.recommendation_interval || 1440;
+    const intervalText = recommendationInterval === 1 ? 'Every 1 minute' :
+                         recommendationInterval === 60 ? 'Every 1 hour' :
+                         recommendationInterval === 240 ? 'Every 4 hours' :
+                         recommendationInterval === 480 ? 'Every 8 hours' :
+                         'Every 24 hours';
+
     // Build keyboard - only show channel management for non-guest users
     const keyboard = [
       [
@@ -1228,6 +1244,9 @@ export default async function (callbackQuery, ctx) {
         { text: 'Toggle Source Link', callback_data: 'toggle_source_link' }
       ],
       ...(isOwner ? [[{ text: 'Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
+      [
+        { text: '📅 Recommendations', callback_data: 'recommendation_settings' }
+      ],
     ];
 
     // Add content structure and auto post options for non-guest users
@@ -1255,7 +1274,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}${!isGuest ? `\nContent Structure: ${contentStructureStatus}\nAuto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
+      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}\n📅 Recommendations: ${recommendationsEnabled} (${intervalText})${!isGuest ? `\nContent Structure: ${contentStructureStatus}\nAuto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -1300,6 +1319,181 @@ export default async function (callbackQuery, ctx) {
         ]
       }
     });
+    return;
+  }
+
+  // Handle recommendation settings
+  if (data === 'recommendation_settings') {
+    const user = await getUserByTelegramId(userId);
+    const isEnabled = user?.recommendations_enabled === 1;
+    const currentInterval = user?.recommendation_interval || 1440;
+
+    const intervalText = currentInterval === 1 ? 'Every 1 minute' :
+                         currentInterval === 60 ? 'Every 1 hour' :
+                         currentInterval === 240 ? 'Every 4 hours' :
+                         currentInterval === 480 ? 'Every 8 hours' :
+                         'Every 24 hours';
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📅 Recommendation Settings\n\nStatus: ${isEnabled ? '✅ Enabled' : '❌ Disabled'}\nFrequency: ${intervalText}\n\nYou'll receive AI-curated news digests based on your selected categories.\n\nWhat would you like to change?`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: isEnabled ? '❌ Disable' : '✅ Enable', callback_data: 'toggle_recommendations' }
+          ],
+          [
+            { text: 'Set Frequency', callback_data: 'set_recommendation_interval' }
+          ],
+          [
+            { text: 'Get Now', callback_data: 'get_recommendation_now' }
+          ],
+          [
+            { text: 'Back', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle toggle recommendations
+  if (data === 'toggle_recommendations') {
+    const user = await getUserByTelegramId(userId);
+    const newValue = user?.recommendations_enabled === 1 ? 0 : 1;
+    const currentInterval = user?.recommendation_interval || 24;
+    await updateRecommendationSettings(userId, newValue === 1, currentInterval);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: ` Recommendations ${newValue === 1 ? 'enabled' : 'disabled'}.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle set recommendation interval
+  if (data === 'set_recommendation_interval') {
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: 'How often would you like to receive recommendations?',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Every 1 minute', callback_data: 'set_interval_1' }
+          ],
+          [
+            { text: 'Every 1 hour', callback_data: 'set_interval_60' }
+          ],
+          [
+            { text: 'Every 4 hours', callback_data: 'set_interval_240' }
+          ],
+          [
+            { text: 'Every 8 hours', callback_data: 'set_interval_480' }
+          ],
+          [
+            { text: 'Every 24 hours', callback_data: 'set_interval_1440' }
+          ],
+          [
+            { text: 'Back', callback_data: 'recommendation_settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle interval selection
+  if (data.startsWith('set_interval_')) {
+    const interval = parseInt(data.replace('set_interval_', ''));
+    const user = await getUserByTelegramId(userId);
+    const isEnabled = user?.recommendations_enabled === 1;
+    await updateRecommendationSettings(userId, isEnabled, interval);
+
+    const intervalText = interval === 1 ? 'Every 1 minute' :
+                         interval === 60 ? 'Every 1 hour' :
+                         interval === 240 ? 'Every 4 hours' :
+                         interval === 480 ? 'Every 8 hours' :
+                         'Every 24 hours';
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: ` Frequency set to ${intervalText}.`,
+      reply_markup: {
+        inline_keyboard: [
+          [
+            { text: 'Back', callback_data: 'recommendation_settings' }
+          ]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle get recommendation now
+  if (data === 'get_recommendation_now') {
+    const loading = await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: ' Fetching your personalized recommendations...',
+    });
+
+    try {
+      const result = await getDailyRecommendations(userId, true); // Force refresh
+
+      await api.deleteMessage({
+        chat_id: callbackQuery.message.chat.id,
+        message_id: loading.message_id,
+      });
+
+      if (result.digest) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: result.digest,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: 'Back', callback_data: 'settings' }
+              ]
+            ]
+          }
+        });
+      } else {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: result.message || 'Could not generate recommendations.',
+          reply_markup: {
+            inline_keyboard: [
+              [
+                { text: 'Back', callback_data: 'settings' }
+              ]
+            ]
+          }
+        });
+      }
+    } catch (error) {
+      await api.deleteMessage({
+        chat_id: callbackQuery.message.chat.id,
+        message_id: loading.message_id,
+      });
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: ` Error: ${error.message}`,
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Back', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    }
     return;
   }
 

@@ -38,6 +38,9 @@ export const users = table('users', {
   last_posted_at: integer('last_posted_at', { mode: 'timestamp' }),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
   completed_at: integer('completed_at', { mode: 'timestamp' }),
+  recommendations_enabled: integer('recommendations_enabled').default(0),
+  recommendation_interval: integer('recommendation_interval').default(1440), // minutes: 1, 60, 240, 480, 1440
+  last_recommendation_at: integer('last_recommendation_at', { mode: 'timestamp' }),
 });
 
 export const customSources = table('custom_sources', {
@@ -111,5 +114,17 @@ export const userActivities = table('user_activities', {
   activity_type: text('activity_type').notNull(), // 'message', 'command', 'button_click', 'direct_translate', 'auto_post', etc.
   details: text('details'),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+});
+
+export const dailyRecommendations = table('daily_recommendations', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  user_id: integer('user_id').notNull(),
+  recommendation_date: text('recommendation_date').notNull(), // Format: YYYY-MM-DD
+  digest_content: text('digest_content').notNull(), // AI-generated personalized digest
+  raw_articles: text('raw_articles'), // JSON string of source articles (for reference)
+  categories: text('categories').notNull(), // JSON string of categories used
+  created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
+}, {
+  deprecated: ['article_data']
 });
 

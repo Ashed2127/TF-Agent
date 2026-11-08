@@ -1,6 +1,6 @@
 import { db } from 'sdk';
 import { eq, desc, sql, and } from 'sdk/db';
-import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules, postInteractions, userActivities } from '../schema.js';
+import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules, postInteractions, userActivities, dailyRecommendations } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
   const [idea] = await db.insert(ideas)
@@ -170,7 +170,9 @@ export async function getOrCreateUser(telegramId, username = null, firstName = n
       username: username,
       first_name: firstName,
       user_type: 'guest',
-      onboarding_step: 'join_channel'
+      onboarding_step: 'join_channel',
+      recommendations_enabled: 0,
+      recommendation_interval: 1440
     })
     .returning()
     .run();
@@ -246,6 +248,23 @@ export async function updateUserDotPunctuation(telegramId, useDotPunctuation) {
 export async function updateUserCategories(telegramId, categories) {
   await db.update(users)
     .set({ categories: JSON.stringify(categories) })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateRecommendationSettings(telegramId, enabled, interval) {
+  await db.update(users)
+    .set({
+      recommendations_enabled: enabled ? 1 : 0,
+      recommendation_interval: interval
+    })
+    .where(eq(users.telegram_id, telegramId))
+    .run();
+}
+
+export async function updateLastRecommendationTime(telegramId) {
+  await db.update(users)
+    .set({ last_recommendation_at: sql`(unixepoch())` })
     .where(eq(users.telegram_id, telegramId))
     .run();
 }
@@ -332,7 +351,10 @@ export async function clearUserData(userId) {
       categories: null,
       posts_count: 0,
       completed_at: null,
-      last_posted_at: null
+      last_posted_at: null,
+      recommendations_enabled: 0,
+      recommendation_interval: 1440,
+      last_recommendation_at: null
     })
     .where(eq(users.id, user.id))
     .returning()

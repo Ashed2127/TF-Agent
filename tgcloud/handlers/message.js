@@ -10,6 +10,7 @@ import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, direct
 import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata, checkBotAdminStatus } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
 import { showAutoPostCategoryPicker } from '../lib/autopost_ui.js';
+import { checkAndTriggerDueRecommendations } from '../lib/recommendation_service.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
 
@@ -55,6 +56,11 @@ export default async function (message, ctx) {
   // Proactively check and execute any due scheduled auto posts in background
   try {
     checkAndTriggerDueAutoPosts().catch(e => console.error('AutoPost check error:', e.message));
+  } catch (_) {}
+
+  // Proactively check and execute any due recommendations in background
+  try {
+    checkAndTriggerDueRecommendations().catch(e => console.error('Recommendation check error:', e.message));
   } catch (_) {}
 
   // Track user activity detection
