@@ -1343,7 +1343,7 @@ export default async function (callbackQuery, ctx) {
             { text: isEnabled ? '❌ Disable' : '✅ Enable', callback_data: 'toggle_recommendations' }
           ],
           [
-            { text: 'Set Frequency', callback_data: 'set_recommendation_interval' }
+            { text: 'Auto Recommendation Feature', callback_data: 'set_recommendation_interval' }
           ],
           [
             { text: 'Get Now', callback_data: 'get_recommendation_now' }
