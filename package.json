@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "deploy": "tgcloud push"
+    "deploy": "tgcloud push",
+    "recommendation-daemon": "node scripts/recommendation_daemon.js"
   },
   "keywords": [
     "telegram",
