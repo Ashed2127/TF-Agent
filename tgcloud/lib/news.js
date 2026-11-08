@@ -84,7 +84,13 @@ export const NEWS_CATEGORIES = [
   { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
   { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
   { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' },
-  { id: 'credits', name: '💰 Credits', description: 'AI credits, software credits & startup resources' }
+  { id: 'credits', name: '💰 Credits', description: 'AI credits, software credits & startup resources' },
+  { id: 'geopolitics', name: '⚔️ War & Geopolitics', description: 'War, defense analysis & geopolitical intelligence' },
+  { id: 'psychology', name: '🧠 Psychology & Science', description: 'Psychology, cognitive science & research studies' },
+  { id: 'jokes', name: '😂 Jokes & Humor', description: 'Humor, jokes, satire & fun' },
+  { id: 'economics', name: '📊 Economics & Stats', description: 'Country economic data, macro stats & indicators' },
+  { id: 'intl_news', name: '📰 Intl News', description: 'Major international news providers & reporting' },
+  { id: 'aggregators', name: '🌐 News Aggregators', description: 'News aggregators, feed readers & media monitoring' }
 ];
 
 /**
@@ -189,7 +195,56 @@ export const NEWS_PLATFORMS = [
   { id: 'aicredits_dev', name: 'AICredits.dev', category: 'credits', url: 'https://aicredits.dev/' },
   { id: 'findaicredits', name: 'Find AI Credits', category: 'credits', url: 'https://www.findaicredits.com/' },
   { id: 'aicreditsandstartups', name: 'AI Credits & Startups', category: 'credits', url: 'https://aicreditsandstartups.com' },
-  { id: 'freecredit_ai', name: 'FreeCredit.ai', category: 'credits', url: 'https://freecredit.ai' }
+  { id: 'freecredit_ai', name: 'FreeCredit.ai', category: 'credits', url: 'https://freecredit.ai' },
+
+  // War & Geopolitical Intelligence
+  { id: 'isw', name: 'Institute for the Study of War', category: 'geopolitics', url: 'https://www.understandingwar.org/' },
+  { id: 'acled', name: 'ACLED Data', category: 'geopolitics', url: 'https://acleddata.com/' },
+  { id: 'crisisgroup', name: 'Crisis Group', category: 'geopolitics', url: 'https://www.crisisgroup.org/' },
+  { id: 'sipri', name: 'SIPRI', category: 'geopolitics', url: 'https://www.sipri.org/' },
+  { id: 'iiss', name: 'IISS', category: 'geopolitics', url: 'https://www.iiss.org/' },
+  { id: 'csis', name: 'CSIS', category: 'geopolitics', url: 'https://www.csis.org/' },
+
+  // Psychology & Scientific Research
+  { id: 'scholar_google', name: 'Google Scholar', category: 'psychology', url: 'https://scholar.google.com/' },
+  { id: 'pubmed', name: 'PubMed', category: 'psychology', url: 'https://pubmed.ncbi.nlm.nih.gov/' },
+  { id: 'apa', name: 'American Psychological Association', category: 'psychology', url: 'https://www.apa.org/' },
+  { id: 'frontiers_psych', name: 'Frontiers in Psychology', category: 'psychology', url: 'https://www.frontiersin.org/journals/psychology' },
+  { id: 'nature_psych', name: 'Nature Psychology', category: 'psychology', url: 'https://www.nature.com/subjects/psychology' },
+
+  // Jokes & Humor
+  { id: 'reddit_jokes', name: 'Reddit r/Jokes', category: 'jokes', url: 'https://www.reddit.com/r/Jokes/' },
+  { id: 'reddit_dadjokes', name: 'Reddit r/dadjokes', category: 'jokes', url: 'https://www.reddit.com/r/dadjokes/' },
+  { id: 'ninegag', name: '9GAG', category: 'jokes', url: 'https://www.9gag.com/' },
+  { id: 'theonion', name: 'The Onion', category: 'jokes', url: 'https://www.theonion.com/' },
+  { id: 'icanhazdadjoke', name: 'icanhazdadjoke', category: 'jokes', url: 'https://icanhazdadjoke.com/' },
+
+  // Country Economics & Statistics
+  { id: 'worldbank_data', name: 'World Bank Data', category: 'economics', url: 'https://data.worldbank.org/' },
+  { id: 'imf_data', name: 'IMF Data', category: 'economics', url: 'https://www.imf.org/en/Data' },
+  { id: 'trading_econ', name: 'Trading Economics', category: 'economics', url: 'https://tradingeconomics.com/' },
+  { id: 'oecd_data', name: 'OECD Data', category: 'economics', url: 'https://data.oecd.org/' },
+  { id: 'ourworldindata', name: 'Our World in Data', category: 'economics', url: 'https://ourworldindata.org/' },
+  { id: 'worldometers', name: 'Worldometers', category: 'economics', url: 'https://www.worldometers.info/' },
+
+  // International News Providers
+  { id: 'reuters_intl', name: 'Reuters', category: 'intl_news', url: 'https://www.reuters.com/' },
+  { id: 'apnews_intl', name: 'AP News', category: 'intl_news', url: 'https://apnews.com/' },
+  { id: 'bbc_intl', name: 'BBC News', category: 'intl_news', url: 'https://www.bbc.com/news' },
+  { id: 'aljazeera_intl', name: 'Al Jazeera', category: 'intl_news', url: 'https://www.aljazeera.com/' },
+  { id: 'dw_intl', name: 'DW News', category: 'intl_news', url: 'https://www.dw.com/' },
+  { id: 'france24_intl', name: 'France 24', category: 'intl_news', url: 'https://www.france24.com/' },
+  { id: 'theguardian_intl', name: 'The Guardian', category: 'intl_news', url: 'https://www.theguardian.com/international' },
+  { id: 'bloomberg_intl', name: 'Bloomberg', category: 'intl_news', url: 'https://www.bloomberg.com/' },
+
+  // News Aggregators & Media Monitoring
+  { id: 'google_news', name: 'Google News', category: 'aggregators', url: 'https://news.google.com/' },
+  { id: 'ground_news', name: 'Ground News', category: 'aggregators', url: 'https://ground.news/' },
+  { id: 'allsides', name: 'AllSides', category: 'aggregators', url: 'https://www.allsides.com/' },
+  { id: 'feedly', name: 'Feedly', category: 'aggregators', url: 'https://feedly.com/' },
+  { id: 'inoreader', name: 'Inoreader', category: 'aggregators', url: 'https://www.inoreader.com/' },
+  { id: 'gdelt', name: 'GDELT Project', category: 'aggregators', url: 'https://www.gdeltproject.org/' },
+  { id: 'newsapi', name: 'NewsAPI', category: 'aggregators', url: 'https://newsapi.org/' }
 ];
 
 /**
