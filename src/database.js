@@ -32,9 +32,9 @@ const Idea = mongoose.model('Idea', ideaSchema);
 async function initDB() {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ Database connected to MongoDB');
+    console.log(' Database connected to MongoDB');
   } catch (error) {
-    console.error('❌ MongoDB connection error:', error);
+    console.error(' MongoDB connection error:', error);
     throw error;
   }
 }
@@ -179,7 +179,7 @@ async function deleteLastIdea() {
     const lastIdea = await Idea.findOne().sort({ created_at: -1 });
     if (lastIdea) {
       await Idea.findByIdAndDelete(lastIdea._id);
-      console.log('✅ Last idea deleted');
+      console.log(' Last idea deleted');
       return true;
     }
     return false;

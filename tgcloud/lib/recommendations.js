@@ -97,13 +97,13 @@ Instructions:
 2. Prioritize stories that will make the user think, feel, or remember something significant. Skip mundane or routine news.
 3. Select 5-7 stories that cover different emotions and impact levels - mix of shocking (sad/tragic), funny/humorous, inspiring/uplifting, and fascinating/mind-blowing content.
 4. Group them by region/topic (e.g., Ethiopia, Iran, Ukraine, Elsewhere)
-5. Write a warm, personalized opening: "Hey ${firstName} — happy ${dayOfWeek} ☺️ Here's what the world did while you were getting on with your week:"
+5. Write a warm, personalized opening: "Hey ${firstName} — happy ${dayOfWeek} Here's what the world did while you were getting on with your week:"
 6. For each story:
    - Write a compelling 2-3 sentence summary that captures the emotional impact
    - Include the most important facts
    - Add "Also worth knowing" section with 2-3 bullet points of related context
    - At the end of each story, add the source platform as a clickable link where the platform name itself is the link. Format: "Source: [Platform Name](article_url)" - this will display as "Source: Platform Name" with Platform Name being clickable
-7. End with a warm closing like "Somewhere in there, a ${dayOfWeek}. Rest up 🥰"
+7. End with a warm closing like "Somewhere in there, a ${dayOfWeek}. Rest up "
 8. Keep the tone conversational, informative, and engaging
 9. Make it feel like a smart friend sharing the most impressive and memorable news
 10. IMPORTANT: Use Markdown format for links like this: [Platform Name](article_url) - the platform name should be the clickable text
@@ -158,7 +158,7 @@ function generateFallbackDigest(user, articles) {
   const firstName = user.first_name || 'Friend';
   const dayOfWeek = getDayOfWeek();
 
-  let digest = `Hey ${firstName} — happy ${dayOfWeek} ☺️ Here's what the world did while you were getting on with your week:\n\n`;
+  let digest = `Hey ${firstName} — happy ${dayOfWeek} Here's what the world did while you were getting on with your week:\n\n`;
 
   const selectedArticles = articles.slice(0, 7);
   selectedArticles.forEach((article, index) => {
@@ -172,7 +172,7 @@ function generateFallbackDigest(user, articles) {
     }
   });
 
-  digest += `Somewhere in there, a ${dayOfWeek}. Rest up 🥰`;
+  digest += `Somewhere in there, a ${dayOfWeek}. Rest up `;
   return digest;
 }
 

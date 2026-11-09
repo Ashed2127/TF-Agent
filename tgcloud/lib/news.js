@@ -3,9 +3,9 @@ import { OPENROUTER_API_KEY } from './secrets.js';
 import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
 
 export const SUPPORTED_LANGUAGES = {
-  am: { code: 'am', name: 'Amharic', label: '🇪🇹 አማርኛ (Amharic)', flag: '🇪🇹' },
-  ti: { code: 'ti', name: 'Tigrinya', label: '🇪🇹 ትግርኛ (Tigrinya)', flag: '🇪🇹' },
-  om: { code: 'om', name: 'Afaan Oromo', label: '🇪🇹 Afaan Oromoo', flag: '🇪🇹' }
+  am: { code: 'am', name: 'Amharic', label: 'አማርኛ (Amharic)', flag: '' },
+  ti: { code: 'ti', name: 'Tigrinya', label: 'ትግርኛ (Tigrinya)', flag: '' },
+  om: { code: 'om', name: 'Afaan Oromo', label: 'Afaan Oromoo', flag: '' }
 };
 
 export async function translateToAmharic(text) {
@@ -74,28 +74,28 @@ export async function directTranslateToLanguage(text, targetLang = 'am') {
  * Top News Categories
  */
 export const NEWS_CATEGORIES = [
-  { id: 'tech', name: '💻 Tech & AI', description: 'AI, software, computing & gadgets' },
-  { id: 'business', name: '📈 Business & Finance', description: 'Markets, economy, banking & commerce' },
-  { id: 'world', name: '🌍 World News', description: 'Global headlines & international events' },
-  { id: 'startups', name: '🚀 Startups & Africa', description: 'African tech, VC funding & innovation' },
-  { id: 'science', name: '🔬 Science & Space', description: 'Science breakthroughs, health & space' },
-  { id: 'education', name: '📚 Education', description: 'Learning, schools, universities & skills' },
-  { id: 'research', name: '🔬 Research & Academia', description: 'Academic papers, studies & scientific research' },
-  { id: 'crypto', name: '🪙 Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
-  { id: 'entertainment', name: '🎬 Entertainment', description: 'Movies, gaming, music & culture' },
-  { id: 'sports', name: '⚽ Sports', description: 'Global football, athletics & tournaments' },
-  { id: 'credits', name: '💰 Credits', description: 'AI credits, software credits & startup resources' },
-  { id: 'geopolitics', name: '⚔️ War & Geopolitics', description: 'War, defense analysis & geopolitical intelligence' },
-  { id: 'psychology', name: '🧠 Psychology & Science', description: 'Psychology, cognitive science & research studies' },
-  { id: 'jokes', name: '😂 Jokes & Humor', description: 'Humor, jokes, satire & fun' },
-  { id: 'economics', name: '📊 Economics & Stats', description: 'Country economic data, macro stats & indicators' },
-  { id: 'intl_news', name: '📰 Intl News', description: 'Major international news providers & reporting' },
-  { id: 'aggregators', name: '🌐 News Aggregators', description: 'News aggregators, feed readers & media monitoring' },
-  { id: 'family', name: '👨‍👩‍👧 Relationships & Family', description: 'Relationships, parenting, family dynamics & social research' },
-  { id: 'nature', name: '🌿 Nature & Wildlife', description: 'Nature, wildlife, biodiversity & conservation' },
-  { id: 'curiosity', name: '✨ Amazing Facts & Curiosity', description: 'Fascinating discoveries, trivia, mysteries & general knowledge' },
-  { id: 'wealth', name: '💎 Wealth & Billionaires', description: 'Billionaires, wealth intelligence, inequality & family offices' },
-  { id: 'disaster', name: '🚨 Disaster & Emergencies', description: 'Disaster monitoring, humanitarian relief & emergency response' }
+  { id: 'tech', name: 'Tech & AI', description: 'AI, software, computing & gadgets' },
+  { id: 'business', name: 'Business & Finance', description: 'Markets, economy, banking & commerce' },
+  { id: 'world', name: 'World News', description: 'Global headlines & international events' },
+  { id: 'startups', name: 'Startups & Africa', description: 'African tech, VC funding & innovation' },
+  { id: 'science', name: 'Science & Space', description: 'Science breakthroughs, health & space' },
+  { id: 'education', name: 'Education', description: 'Learning, schools, universities & skills' },
+  { id: 'research', name: 'Research & Academia', description: 'Academic papers, studies & scientific research' },
+  { id: 'crypto', name: 'Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
+  { id: 'entertainment', name: 'Entertainment', description: 'Movies, gaming, music & culture' },
+  { id: 'sports', name: 'Sports', description: 'Global football, athletics & tournaments' },
+  { id: 'credits', name: 'Credits', description: 'AI credits, software credits & startup resources' },
+  { id: 'geopolitics', name: 'War & Geopolitics', description: 'War, defense analysis & geopolitical intelligence' },
+  { id: 'psychology', name: 'Psychology & Science', description: 'Psychology, cognitive science & research studies' },
+  { id: 'jokes', name: 'Jokes & Humor', description: 'Humor, jokes, satire & fun' },
+  { id: 'economics', name: 'Economics & Stats', description: 'Country economic data, macro stats & indicators' },
+  { id: 'intl_news', name: 'Intl News', description: 'Major international news providers & reporting' },
+  { id: 'aggregators', name: 'News Aggregators', description: 'News aggregators, feed readers & media monitoring' },
+  { id: 'family', name: '‍‍ Relationships & Family', description: 'Relationships, parenting, family dynamics & social research' },
+  { id: 'nature', name: 'Nature & Wildlife', description: 'Nature, wildlife, biodiversity & conservation' },
+  { id: 'curiosity', name: 'Amazing Facts & Curiosity', description: 'Fascinating discoveries, trivia, mysteries & general knowledge' },
+  { id: 'wealth', name: 'Wealth & Billionaires', description: 'Billionaires, wealth intelligence, inequality & family offices' },
+  { id: 'disaster', name: 'Disaster & Emergencies', description: 'Disaster monitoring, humanitarian relief & emergency response' }
 ];
 
 /**
@@ -882,7 +882,7 @@ export function getPlatformById(platformId) {
 
 const OWNER_CHAT_ID = 685669468;
 
-const OWNER_STRUCTURE = `🟢 Hybrid: [Name]
+const OWNER_STRUCTURE = ` Hybrid: [Name]
 
 Value [5+ lines insight]
 
@@ -1086,7 +1086,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     }
 
     // Bullet line
-    const bulletMatch = trimmed.match(/^([•\-\*🔹▪️▫️🔸♦️])\s*(.*)$/);
+    const bulletMatch = trimmed.match(/^([•\-\*])\s*(.*)$/);
     if (bulletMatch) {
       const bulletChar = bulletMatch[1];
       const pointText = samplePoints[pIdx] || samplePoints[0] || sampleDesc;
@@ -1140,19 +1140,19 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
 
     // Get user's content structure if userId is provided
     if (user) {
-      console.log('🔍 Fetching user for userId:', userId);
-      console.log('✅ User found, database ID:', user.id);
+      console.log(' Fetching user for userId:', userId);
+      console.log(' User found, database ID:', user.id);
       const customStructure = await getContentStructure(user.id);
-      console.log('🔍 Custom structure query result:', customStructure);
+      console.log(' Custom structure query result:', customStructure);
       if (customStructure && customStructure.structure_template) {
         structure = customStructure.structure_template;
-        console.log('✅ Using USER custom structure for news translation:', userId);
-        console.log('📋 Structure content:', structure);
+        console.log(' Using USER custom structure for news translation:', userId);
+        console.log(' Structure content:', structure);
       } else {
-        console.log('ℹ️ No custom structure found for user:', user.id);
+        console.log('No custom structure found for user:', user.id);
       }
     } else {
-      console.log('ℹ️ No user found for userId:', userId);
+      console.log('No user found for userId:', userId);
     }
 
     // If user is guest or has no custom structure
@@ -1162,10 +1162,10 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
     } else if (!structure) {
       if (isOwner) {
         structure = OWNER_STRUCTURE;
-        console.log('👑 Using OWNER structure for news translation');
+        console.log(' Using OWNER structure for news translation');
       } else {
         structure = DEFAULT_USER_STRUCTURE;
-        console.log('ℹ️ Using DEFAULT structure for news translation');
+        console.log('Using DEFAULT structure for news translation');
       }
     }
 

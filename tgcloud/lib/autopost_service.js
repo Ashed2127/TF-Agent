@@ -39,7 +39,7 @@ export async function processSingleAutoPost(schedule) {
   if (schedule.post_mode === 'repetitive' && schedule.repetitive_content) {
     let repContent = schedule.repetitive_content;
     if (userChannelLink && !repContent.includes(userChannelLink)) {
-      repContent += '\n\n📢 ' + userChannelLink;
+      repContent += '\n\n ' + userChannelLink;
     }
     const lines = repContent.split('\n');
     let titleSnippet = 'Repetitive Post';
@@ -309,7 +309,7 @@ export async function checkAndTriggerDueAutoPosts() {
   const dueSchedules = await getDueAutoPostSchedules();
   if (!dueSchedules || dueSchedules.length === 0) return 0;
 
-  console.log(`⏱️ AutoPost worker found ${dueSchedules.length} due schedule(s)`);
+  console.log(`AutoPost worker found ${dueSchedules.length} due schedule(s)`);
 
   let count = 0;
   for (const schedule of dueSchedules) {

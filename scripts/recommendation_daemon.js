@@ -39,6 +39,6 @@ function triggerRecommendationCheck() {
   });
 }
 
-console.log(`🤖 TF-Agent Recommendation daemon started (checking every ${POLL_INTERVAL_MS / 1000}s)`);
+console.log(` TF-Agent Recommendation daemon started (checking every ${POLL_INTERVAL_MS / 1000}s)`);
 setInterval(triggerRecommendationCheck, POLL_INTERVAL_MS);
 triggerRecommendationCheck();

@@ -10,12 +10,12 @@ const path = require('path');
  */
 async function addLogoOverlay(imageBuffer) {
   try {
-    console.log('🏷️ Adding TF logo overlay...');
+    console.log('️ Adding TF logo overlay...');
 
     const logoPath = path.join(__dirname, 'tf.jpg');
 
     if (!fs.existsSync(logoPath)) {
-      console.warn('⚠️ TF logo not found, skipping logo overlay');
+      console.warn('️ TF logo not found, skipping logo overlay');
       return imageBuffer;
     }
 
@@ -53,11 +53,11 @@ async function addLogoOverlay(imageBuffer) {
       .jpeg({ quality: 90 })
       .toBuffer();
 
-    console.log('✅ TF logo overlay added successfully');
+    console.log(' TF logo overlay added successfully');
     return result;
 
   } catch (error) {
-    console.error('❌ Error adding logo overlay:', error.message);
+    console.error(' Error adding logo overlay:', error.message);
     // Return original image if logo overlay fails
     return imageBuffer;
   }
@@ -71,7 +71,7 @@ async function addLogoOverlay(imageBuffer) {
  */
 async function editNewsImage(imageUrl, headline) {
   try {
-    console.log('🎨 Starting image editing process...');
+    console.log(' Starting image editing process...');
 
     // Download the source image
     const imageResponse = await axios.get(imageUrl, {
@@ -99,7 +99,7 @@ Overall Aesthetic: Bold contrast, feed-stopping tech journalism graphic, highly 
 
 Keep the original image content recognizable but apply this tech news explainer card style transformation.`;
 
-    console.log('📝 Sending edit request to OpenRouter Image API...');
+    console.log(' Sending edit request to OpenRouter Image API...');
 
     const response = await axios.post('https://openrouter.ai/api/v1/images', {
       model: 'google/gemini-nano-banana-2.1',
@@ -125,12 +125,12 @@ Keep the original image content recognizable but apply this tech news explainer 
     // Add TF logo overlay
     const finalImageBuffer = await addLogoOverlay(editedImageBuffer);
 
-    console.log('✅ Image editing completed successfully');
+    console.log(' Image editing completed successfully');
     console.log(`Final image size: ${finalImageBuffer.length} bytes`);
     return finalImageBuffer;
 
   } catch (error) {
-    console.error('❌ Error editing image:', error.message);
+    console.error(' Error editing image:', error.message);
     if (error.response) {
       console.error('OpenRouter API response:', error.response.status, error.response.data);
     }

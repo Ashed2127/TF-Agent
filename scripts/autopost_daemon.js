@@ -39,6 +39,6 @@ function triggerAutoPost() {
   });
 }
 
-console.log(`🤖 TF-Agent Auto-Post daemon started (checking every ${POLL_INTERVAL_MS / 1000}s)`);
+console.log(` TF-Agent Auto-Post daemon started (checking every ${POLL_INTERVAL_MS / 1000}s)`);
 setInterval(triggerAutoPost, POLL_INTERVAL_MS);
 triggerAutoPost();

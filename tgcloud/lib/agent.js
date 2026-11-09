@@ -5,14 +5,14 @@ import { OPENROUTER_API_KEY } from './secrets.js';
 const OWNER_CHAT_ID = 685669468;
 
 // Default owner structure (fallback if no custom structure set)
-const OWNER_STRUCTURE = `🟢 Hybrid: [Name]
+const OWNER_STRUCTURE = ` Hybrid: [Name]
 
 Value [5+ lines insight]
 
 @true_feed`;
 
 // Default user structure (fallback if no custom structure set)
-const DEFAULT_USER_STRUCTURE = `🟢 Hybrid: [Name]
+const DEFAULT_USER_STRUCTURE = ` Hybrid: [Name]
 
 Value [5+ lines insight]
 
@@ -53,7 +53,7 @@ INSTRUCTIONS:
 
 export async function generateIdea(userId = null) {
   try {
-    console.log('🤖 Generating new idea...');
+    console.log(' Generating new idea...');
 
     const previousTopics = await getPreviousTopics();
     console.log('Previous topics:', previousTopics);
@@ -72,18 +72,18 @@ export async function generateIdea(userId = null) {
         user = await getUserById(userId);
       }
       if (user) {
-        console.log('🔍 Found user record for telegram_id:', userId, 'with user.id:', user.id);
+        console.log(' Found user record for telegram_id:', userId, 'with user.id:', user.id);
         const customStructure = await getContentStructure(user.id);
-        console.log('🔍 Custom structure query result:', customStructure);
+        console.log(' Custom structure query result:', customStructure);
         if (customStructure && customStructure.structure_template) {
           structure = customStructure.structure_template.trim();
-          console.log('✅ Using USER custom structure for user:', userId);
-          console.log('📝 Structure preview:', structure.substring(0, 100));
+          console.log(' Using USER custom structure for user:', userId);
+          console.log(' Structure preview:', structure.substring(0, 100));
         } else {
-          console.log('⚠️ No custom structure found for user.id:', user.id);
+          console.log('No custom structure found for user.id:', user.id);
         }
       } else {
-        console.log('⚠️ User not found for telegram_id:', userId);
+        console.log('User not found for telegram_id:', userId);
       }
     }
 
@@ -91,10 +91,10 @@ export async function generateIdea(userId = null) {
     if (!structure) {
       if (isOwner) {
         structure = OWNER_STRUCTURE;
-        console.log('👑 Using default OWNER structure for user:', userId);
+        console.log(' Using default OWNER structure for user:', userId);
       } else {
         structure = DEFAULT_USER_STRUCTURE;
-        console.log('ℹ️ Using DEFAULT USER structure for user:', userId);
+        console.log('Using DEFAULT USER structure for user:', userId);
       }
     }
 
@@ -182,13 +182,13 @@ export async function generateIdea(userId = null) {
 
     const id = await saveIdea(cleanContent, topic, category);
 
-    console.log(`✅ Idea generated: ${topic} (ID: ${id})`);
+    console.log(` Idea generated: ${topic} (ID: ${id})`);
     console.log('Content preview:', cleanContent.substring(0, 100));
 
     return { id, content: cleanContent, topic, category };
 
   } catch (error) {
-    console.error('❌ Error generating idea:', error.message);
+    console.error(' Error generating idea:', error.message);
     throw new Error(`Failed to generate idea: ${error.message}`);
   }
 }

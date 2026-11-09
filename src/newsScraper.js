@@ -2975,10 +2975,10 @@ async function fetchNewsFromAllSources(perSource = 3) {
  */
 function formatNewsForTelegram(articles) {
   if (!articles || articles.length === 0) {
-    return '❌ No news articles found at the moment. Please try again later.';
+    return ' No news articles found at the moment. Please try again later.';
   }
 
-  let message = '📰 <b>Latest Tech News</b>\n\n';
+  let message = ' <b>Latest Tech News</b>\n\n';
 
   articles.forEach((article, index) => {
     message += `<b>${index + 1}. ${article.title}</b>\n`;
@@ -2986,7 +2986,7 @@ function formatNewsForTelegram(articles) {
     message += `<a href="${article.link}">${article.source}</a>\n`;
     // Add image URL if available
     if (article.image) {
-      message += `🖼️ ${article.image}\n`;
+      message += `️ ${article.image}\n`;
     }
     message += '\n';
   });

@@ -147,14 +147,14 @@ export async function fetchBTCPrice() {
  * Format Ethiopian rates for Telegram message
  */
 export function formatEthiopianRates(rates) {
-  let message = '💰 <b>Ethiopian Dollar Rates (USD/ETB)</b>\n\n';
+  let message = ' <b>Ethiopian Dollar Rates (USD/ETB)</b>\n\n';
 
   if (rates.nbe_rate) {
-    message += `🏛️ <b>NBE Reference Rate:</b> ${rates.nbe_rate.toFixed(4)} ETB\n\n`;
+    message += `<b>NBE Reference Rate:</b> ${rates.nbe_rate.toFixed(4)} ETB\n\n`;
   }
 
   if (rates.banks && rates.banks.length > 0) {
-    message += '🏦 <b>Bank Rates:</b>\n';
+    message += ' <b>Bank Rates:</b>\n';
     rates.banks.slice(0, 10).forEach(bank => {
       message += `• ${bank.bank}: Buy ${bank.buy.toFixed(2)} | Sell ${bank.sell.toFixed(2)}\n`;
     });
@@ -165,7 +165,7 @@ export function formatEthiopianRates(rates) {
   }
 
   const dateStr = new Date(rates.timestamp).toLocaleString();
-  message += `\n📅 Last updated: ${dateStr}`;
+  message += `\n Last updated: ${dateStr}`;
   message += `\n\n<i>Rates from ${rates.source || 'ET-Forex'}</i>`;
 
   return message;
@@ -175,12 +175,12 @@ export function formatEthiopianRates(rates) {
  * Format BTC price for Telegram message
  */
 export function formatBTCPrice(btcData) {
-  const changeEmoji = btcData.change_24h >= 0 ? '📈' : '📉';
+  const changeEmoji = btcData.change_24h >= 0 ? '' : '';
   const changeColor = btcData.change_24h >= 0 ? '+' : '';
 
   return `₿ <b>Bitcoin (BTC) Price</b>\n\n` +
-         `💵 <b>Price:</b> $${btcData.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
+         ` <b>Price:</b> $${btcData.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\n` +
          `${changeEmoji} <b>24h Change:</b> ${changeColor}${btcData.change_24h.toFixed(2)}%\n\n` +
-         `📅 Last updated: ${new Date(btcData.timestamp).toLocaleString()}\n\n` +
+         ` Last updated: ${new Date(btcData.timestamp).toLocaleString()}\n\n` +
          `<i>Data from CoinGecko</i>`;
 }

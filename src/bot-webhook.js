@@ -75,11 +75,11 @@ const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID ? parseInt(process
 async function fetchRelevantGif(newsTitle) {
   try {
     if (!process.env.GIPHY_API_KEY) {
-      console.log('⚠️ GIPHY_API_KEY not configured in .env file - GIF feature disabled');
+      console.log('️ GIPHY_API_KEY not configured in .env file - GIF feature disabled');
       return null;
     }
 
-    console.log(`🔍 Searching for GIF with keywords from: ${newsTitle}`);
+    console.log(` Searching for GIF with keywords from: ${newsTitle}`);
 
     // Extract keywords from the title for GIF search
     const keywords = newsTitle
@@ -91,11 +91,11 @@ async function fetchRelevantGif(newsTitle) {
       .join(' ');
 
     if (!keywords) {
-      console.log('⚠️ No valid keywords found for GIF search');
+      console.log('️ No valid keywords found for GIF search');
       return null;
     }
 
-    console.log(`🔍 GIF search keywords: ${keywords}`);
+    console.log(` GIF search keywords: ${keywords}`);
 
     const response = await axios.get('https://api.giphy.com/v1/gifs/search', {
       params: {
@@ -112,14 +112,14 @@ async function fetchRelevantGif(newsTitle) {
       const gif = response.data.data[0];
       // Get the small version of the GIF
       const gifUrl = gif.images.fixed_height_small?.url || gif.images.original?.url;
-      console.log(`✅ GIF found: ${gifUrl}`);
+      console.log(` GIF found: ${gifUrl}`);
       return gifUrl;
     }
 
-    console.log('⚠️ No GIFs found for the given keywords');
+    console.log('️ No GIFs found for the given keywords');
     return null;
   } catch (error) {
-    console.error('❌ Error fetching GIF from Giphy:', error.message);
+    console.error(' Error fetching GIF from Giphy:', error.message);
     if (error.response) {
       console.error('Giphy API response:', error.response.status, error.response.data);
     }
@@ -147,12 +147,12 @@ async function downloadImage(url) {
 // Helper function to add TF logo overlay to image
 async function addLogoToImage(imageBuffer) {
   try {
-    console.log('🏷️ Adding TF logo overlay...');
+    console.log('️ Adding TF logo overlay...');
 
     const logoPath = path.join(__dirname, 'tf.jpg');
 
     if (!fs.existsSync(logoPath)) {
-      console.warn('⚠️ TF logo not found, skipping logo overlay');
+      console.warn('️ TF logo not found, skipping logo overlay');
       return imageBuffer;
     }
 
@@ -190,11 +190,11 @@ async function addLogoToImage(imageBuffer) {
       .jpeg({ quality: 90 })
       .toBuffer();
 
-    console.log('✅ TF logo overlay added successfully');
+    console.log(' TF logo overlay added successfully');
     return result;
 
   } catch (error) {
-    console.error('❌ Error adding logo overlay:', error.message);
+    console.error(' Error adding logo overlay:', error.message);
     // Return original image if logo overlay fails
     return imageBuffer;
   }
@@ -210,7 +210,7 @@ bot.use((ctx, next) => {
   if (userId && userId !== OWNER_CHAT_ID) {
     // Only reply if it's a message, not a callback query
     if (ctx.message) {
-      ctx.reply('⛔ Unauthorized');
+      ctx.reply(' Unauthorized');
     }
     return;
   }
@@ -227,7 +227,7 @@ bot.use((ctx, next) => {
 bot.start((ctx) => {
   console.log('Start command received from:', ctx.from?.id);
   ctx.reply(
-    '🌱 TF Agent እንኳን ደህና መጡ!\n\n' +
+    ' TF Agent እንኳን ደህና መጡ!\n\n' +
     'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
     'ከታች ያሉትን አማራጮች ይጫኑ።',
     {
@@ -235,7 +235,7 @@ bot.start((ctx) => {
         inline_keyboard: [
           [
             { text: 'idea', callback_data: 'new_idea' },
-            { text: '📰 news', callback_data: 'get_news' }
+            { text: ' news', callback_data: 'get_news' }
           ]
         ]
       }
@@ -248,7 +248,7 @@ bot.start((ctx) => {
 bot.action('new_idea', async (ctx) => {
   try {
     await ctx.answerCbQuery();
-    await ctx.reply('⏳ Generating idea...');
+    await ctx.reply(' Generating idea...');
     
     const idea = await generateIdea();
     
@@ -259,11 +259,11 @@ bot.action('new_idea', async (ctx) => {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: '✅ Approve & Post', callback_data: `approve_${idea.id}` },
-              { text: '❌ Reject — New Idea', callback_data: `reject_${idea.id}` }
+              { text: ' Approve & Post', callback_data: `approve_${idea.id}` },
+              { text: ' Reject — New Idea', callback_data: `reject_${idea.id}` }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: '️ Back', callback_data: 'back' }
             ]
           ]
         }
@@ -273,13 +273,13 @@ bot.action('new_idea', async (ctx) => {
   } catch (error) {
     console.error('Error in new_idea callback:', error);
     await ctx.reply(
-      '❌ Failed to generate idea. Please try again.',
+      ' Failed to generate idea. Please try again.',
       {
         reply_markup: {
           inline_keyboard: [
             [
               { text: 'idea', callback_data: 'new_idea' },
-              { text: '📰 news', callback_data: 'get_news' }
+              { text: ' news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -292,7 +292,7 @@ bot.action('back', async (ctx) => {
   try {
     await ctx.answerCbQuery();
     await ctx.reply(
-      '🌱 TF Agent እንኳን ደህና መጡ!\n\n' +
+      ' TF Agent እንኳን ደህና መጡ!\n\n' +
       'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
       'ከታች ያሉትን አማራጮች ይጫኑ።',
       {
@@ -300,7 +300,7 @@ bot.action('back', async (ctx) => {
           inline_keyboard: [
             [
               { text: 'idea', callback_data: 'new_idea' },
-              { text: '📰 news', callback_data: 'get_news' }
+              { text: ' news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -317,7 +317,7 @@ bot.action('get_news', async (ctx) => {
 
     // Show news source selection menu with all sources
     await ctx.reply(
-      '📰 <b>Select a news source:</b>',
+      ' <b>Select a news source:</b>',
       {
         parse_mode: 'HTML',
         reply_markup: {
@@ -416,7 +416,7 @@ bot.action('get_news', async (ctx) => {
               { text: 'SingularityHub', callback_data: 'news_singularityhub' }
             ],
             [
-              { text: '↩️ Back', callback_data: 'back' }
+              { text: '️ Back', callback_data: 'back' }
             ]
           ]
         }
@@ -424,7 +424,7 @@ bot.action('get_news', async (ctx) => {
     );
   } catch (error) {
     console.error('Error in get_news callback:', error);
-    await ctx.reply('❌ Error. Please try again.');
+    await ctx.reply(' Error. Please try again.');
   }
 });
 
@@ -432,7 +432,7 @@ bot.action('get_news', async (ctx) => {
 async function fetchAndDisplayNews(ctx, sourceName, fetchFunction, sourceCallback) {
   try {
     await ctx.answerCbQuery();
-    await ctx.reply(`⏳ Fetching latest news from ${sourceName}...`);
+    await ctx.reply(` Fetching latest news from ${sourceName}...`);
 
     // Clear previous news articles to ensure fresh content
     ctx.session.newsArticles = null;
@@ -442,7 +442,7 @@ async function fetchAndDisplayNews(ctx, sourceName, fetchFunction, sourceCallbac
     const articles = await fetchFunction(10);
 
     if (articles.length === 0) {
-      await ctx.reply(`❌ No news articles found from ${sourceName} at the moment. Please try again later.`);
+      await ctx.reply(` No news articles found from ${sourceName} at the moment. Please try again later.`);
       return;
     }
 
@@ -458,7 +458,7 @@ async function fetchAndDisplayNews(ctx, sourceName, fetchFunction, sourceCallbac
 
   } catch (error) {
     console.error(`Error fetching news from ${sourceName}:`, error);
-    await ctx.reply(`❌ Failed to fetch news from ${sourceName}. Please try again.`);
+    await ctx.reply(` Failed to fetch news from ${sourceName}. Please try again.`);
   }
 }
 
@@ -687,16 +687,16 @@ bot.action('news_singularityhub', async (ctx) => {
 async function sendNewsArticle(ctx, index) {
   const article = ctx.session.newsArticles[index];
   if (!article) {
-    await ctx.reply('❌ No more articles.');
+    await ctx.reply(' No more articles.');
     return;
   }
 
   const message = `
-📰 <b>${article.title}</b>
+ <b>${article.title}</b>
 
 ${article.description ? article.description.substring(0, 200) + '...' : ''}
 
-🔗 ${article.url}
+ ${article.url}
 
 <b>Article ${index + 1} of ${ctx.session.newsArticles.length}</b>
   `.trim();
@@ -706,12 +706,12 @@ ${article.description ? article.description.substring(0, 200) + '...' : ''}
     reply_markup: {
       inline_keyboard: [
         [
-          { text: '✅ Approve & Post', callback_data: `approve_news_${article.id}` },
-          { text: '❌ Reject', callback_data: `reject_news_${article.id}` }
+          { text: ' Approve & Post', callback_data: `approve_news_${article.id}` },
+          { text: ' Reject', callback_data: `reject_news_${article.id}` }
         ],
         [
-          { text: '⏭️ Next', callback_data: `next_news` },
-          { text: '↩️ Back', callback_data: 'back' }
+          { text: '️ Next', callback_data: `next_news` },
+          { text: '️ Back', callback_data: 'back' }
         ]
       ]
     }
@@ -726,19 +726,19 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
     const article = ctx.session.newsArticles.find(a => a.id === articleId);
 
     if (!article) {
-      await ctx.reply('❌ Article not found.');
+      await ctx.reply(' Article not found.');
       return;
     }
 
-    await ctx.reply('⏳ Processing news article for posting...');
+    await ctx.reply(' Processing news article for posting...');
 
     // Here you would add logic to post to the channel
     // For now, just mark as posted
-    await ctx.reply('✅ News article approved and posted to channel!');
+    await ctx.reply(' News article approved and posted to channel!');
 
   } catch (error) {
     console.error('Error approving news:', error);
-    await ctx.reply('❌ Failed to approve news article.');
+    await ctx.reply(' Failed to approve news article.');
   }
 });
 
@@ -753,13 +753,13 @@ bot.action(/reject_news_(.+)/, async (ctx) => {
     if (ctx.session.currentNewsIndex < ctx.session.newsArticles.length) {
       await sendNewsArticle(ctx, ctx.session.currentNewsIndex);
     } else {
-      await ctx.reply('❌ No more articles. Returning to menu...');
+      await ctx.reply(' No more articles. Returning to menu...');
       await bot.action('get_news')(ctx);
     }
 
   } catch (error) {
     console.error('Error rejecting news:', error);
-    await ctx.reply('❌ Failed to reject news article.');
+    await ctx.reply(' Failed to reject news article.');
   }
 });
 
@@ -772,13 +772,13 @@ bot.action('next_news', async (ctx) => {
     if (ctx.session.currentNewsIndex < ctx.session.newsArticles.length) {
       await sendNewsArticle(ctx, ctx.session.currentNewsIndex);
     } else {
-      await ctx.reply('❌ No more articles. Returning to menu...');
+      await ctx.reply(' No more articles. Returning to menu...');
       await bot.action('get_news')(ctx);
     }
 
   } catch (error) {
     console.error('Error going to next news:', error);
-    await ctx.reply('❌ Failed to go to next article.');
+    await ctx.reply(' Failed to go to next article.');
   }
 });
 
@@ -788,16 +788,16 @@ bot.action(/approve_(.+)/, async (ctx) => {
     await ctx.answerCbQuery();
     const ideaId = ctx.match[1];
 
-    await ctx.reply('⏳ Approving and posting idea...');
+    await ctx.reply(' Approving and posting idea...');
 
     // Mark idea as posted
     await markPosted(ideaId);
 
-    await ctx.reply('✅ Idea approved and posted to channel!');
+    await ctx.reply(' Idea approved and posted to channel!');
 
   } catch (error) {
     console.error('Error approving idea:', error);
-    await ctx.reply('❌ Failed to approve idea.');
+    await ctx.reply(' Failed to approve idea.');
   }
 });
 
@@ -815,7 +815,7 @@ bot.action(/reject_(.+)/, async (ctx) => {
 
   } catch (error) {
     console.error('Error rejecting idea:', error);
-    await ctx.reply('❌ Failed to reject idea.');
+    await ctx.reply(' Failed to reject idea.');
   }
 });
 
