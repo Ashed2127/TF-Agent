@@ -2,14 +2,14 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, getRepetitiveTaskSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { normalizeChannelId, extractChannelFromMessage, formatChannelHandle, formatIntervalDisplay, checkBotAdminStatus, resolveChannelMetadata } from '../lib/channel.js';
 import { fetchEthiopianDollarRates, fetchBTCPrice, formatEthiopianRates, formatBTCPrice } from '../lib/rates.js';
 import { processSingleAutoPost, checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
-import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker, showAutoPostLanguagePicker } from '../lib/autopost_ui.js';
+import { showAutoPostCategoryPicker, showAutoPostPlatformPicker, showAutoPostIntervalPicker, showAutoPostLanguagePicker, showRepetitiveIntervalPicker } from '../lib/autopost_ui.js';
 import { getDailyRecommendations } from '../lib/recommendations.js';
 import { checkAndTriggerDueRecommendations } from '../lib/recommendation_service.js';
 
@@ -20,11 +20,11 @@ const OWNER_CHAT_ID = 685669468;
  * Emojis and labels representing popular funny sticker emotions (lol/dead, mindblown, chad/cool, shocked/crying)
  */
 export const FUNNY_STICKER_REACTIONS = [
-  { id: 'lol', emoji: '', label: 'Dead', stickerUrl: 'https://app8909892200.tgcloud.ai/stickers/laugh.gif' },
-  { id: 'mindblown', emoji: '', label: 'Mindblown', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742752.png' },
-  { id: 'chad', emoji: '', label: 'Chad', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' },
-  { id: 'shocked', emoji: '', label: 'Cooked', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742817.png' },
-  { id: 'fire', emoji: '', label: 'Fire', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742774.png' }
+  { id: 'lol', emoji: '🤣', label: 'Dead', stickerUrl: 'https://app8909892200.tgcloud.ai/stickers/laugh.gif' },
+  { id: 'mindblown', emoji: '🤯', label: 'Mindblown', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742752.png' },
+  { id: 'chad', emoji: '😎', label: 'Chad', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742750.png' },
+  { id: 'shocked', emoji: '💀', label: 'Cooked', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742817.png' },
+  { id: 'fire', emoji: '🔥', label: 'Fire', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742774.png' }
 ];
 
 /**
@@ -45,7 +45,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Settings', callback_data: 'settings' }
     ],
     [
-      { text: 'Creator Rankings', callback_data: 'view_rankings' }
+      { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
     ],
     [
       { text: 'Refresh', callback_data: 'refresh_menu' }
@@ -64,7 +64,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Manage Users', callback_data: 'owner_manage_users' },
       { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ], [
-      { text: 'Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+      { text: '🌟 Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
     ]);
   }
 
@@ -83,7 +83,7 @@ async function showMainMenu(chatId, isOwner = false) {
 async function showGuestMenu(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: 'True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+    text: ' True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
     reply_markup: {
       inline_keyboard: [
         [
@@ -93,7 +93,7 @@ async function showGuestMenu(chatId) {
           { text: 'Settings', callback_data: 'settings' }
         ],
         [
-          { text: 'Switch to User Mode', callback_data: 'switch_to_user' }
+          { text: ' Switch to User Mode', callback_data: 'switch_to_user' }
         ],
         [
           { text: 'Refresh', callback_data: 'refresh_guest_menu' }
@@ -149,7 +149,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
     // Show loading message
     const loadingMessage = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Fetching next article from ${platform.name}...`,
+      text: ` Fetching next article from ${platform.name}...`,
     });
 
     const articles = await fetchRSSFeed(platform.url, platform.name);
@@ -162,7 +162,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       });
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'No more articles from this platform.',
+        text: ' No more articles from this platform.',
         reply_markup: {
           inline_keyboard: [
             [
@@ -242,7 +242,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       if (hasTestChannel) {
         keyboard = [
           [
-            { text: 'Main Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` },
+            { text: ' Main Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` },
             { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_${nextIndex}` }
           ],
           [
@@ -259,7 +259,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
       } else {
         keyboard = [
           [
-            { text: 'Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
+            { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_${nextIndex}` }
           ],
           [
             { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_${nextIndex}` },
@@ -361,7 +361,7 @@ async function showNextArticle(callbackQuery, platformId, currentIndex) {
     console.error('Error showing next article:', error);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Failed to load next article: ${error.message}`,
+      text: ` Failed to load next article: ${error.message}`,
       reply_markup: {
         inline_keyboard: [
           [
@@ -406,7 +406,7 @@ export default async function (callbackQuery, ctx) {
       const summary = await getPostReactionsSummary(postId);
 
       const stickerDef = FUNNY_STICKER_REACTIONS.find(s => s.id === reactionType);
-      const stickerSymbol = stickerDef ? stickerDef.emoji : (reactionType === 'like' ? '' : reactionType);
+      const stickerSymbol = stickerDef ? stickerDef.emoji : (reactionType === 'like' ? '❤️' : reactionType);
       const alertMsg = result.action === 'added'
         ? `You reacted with ${stickerSymbol} ${stickerDef ? stickerDef.label : ''}!`
         : `Reaction removed!`;
@@ -499,7 +499,7 @@ export default async function (callbackQuery, ctx) {
     await updateUserOnboardingStep(userId, 'guest_ready');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Guest Mode Activated!\n\nYou can now browse and translate news without setting up a channel.',
+      text: ' Guest Mode Activated!\n\nYou can now browse and translate news without setting up a channel.',
       reply_markup: {
         inline_keyboard: [
           [
@@ -518,12 +518,12 @@ export default async function (callbackQuery, ctx) {
   if (data === 'refresh_user_type') {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Welcome to True Feed!\n\nChoose how you want to use the bot:',
+      text: ' Welcome to True Feed!\n\nChoose how you want to use the bot:',
       reply_markup: {
         inline_keyboard: [
           [
             { text: 'User', callback_data: 'choose_user' },
-            { text: 'Guest', callback_data: 'choose_guest' }
+            { text: ' Guest', callback_data: 'choose_guest' }
           ],
           [
             { text: 'Refresh', callback_data: 'refresh_user_type' }
@@ -551,7 +551,7 @@ export default async function (callbackQuery, ctx) {
     await updateUserOnboardingStep(userId, 'join_channel');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Switching to User Mode...\n\nTo get started, please join our True Feed channel first:',
+      text: ' Switching to User Mode...\n\nTo get started, please join our True Feed channel first:',
       reply_markup: {
         inline_keyboard: [
           [
@@ -581,7 +581,7 @@ export default async function (callbackQuery, ctx) {
     await updateUserOnboardingStep(userId, 'guest_ready');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Switched to Guest Mode!\n\nYou can now browse and translate news without setting up a channel.',
+      text: ' Switched to Guest Mode!\n\nYou can now browse and translate news without setting up a channel.',
       reply_markup: {
         inline_keyboard: [
           [
@@ -592,7 +592,7 @@ export default async function (callbackQuery, ctx) {
             { text: 'Settings', callback_data: 'settings' }
           ],
           [
-            { text: 'Switch to User Mode', callback_data: 'switch_to_user' }
+            { text: ' Switch to User Mode', callback_data: 'switch_to_user' }
           ],
           [
             { text: 'Refresh', callback_data: 'refresh_guest_menu' }
@@ -696,7 +696,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '<b>Choose Translation Language:</b>\n\nSelect which language you want to directly translate this article to (exact content preserved):',
+      text: '🌐 <b>Choose Translation Language:</b>\n\nSelect which language you want to directly translate this article to (exact content preserved):',
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -726,7 +726,7 @@ export default async function (callbackQuery, ctx) {
   if (data === 'direct_translate_menu') {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '<b>Direct Translation</b>\n\nChoose your target language for direct translation without content modification:',
+      text: '🌐 <b>Direct Translation</b>\n\nChoose your target language for direct translation without content modification:',
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -754,7 +754,7 @@ export default async function (callbackQuery, ctx) {
     await setPendingChannelAdd(userId, `waiting_direct_${lang}`);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` <b>Direct Translation to ${langInfo.label}</b>\n\nSend or forward any English text, news article, or message here.\n\nThe bot will directly translate it to natural ${langInfo.name} without modifying, summarizing, or changing any of the content.`,
+      text: `🌐 <b>Direct Translation to ${langInfo.label}</b>\n\nSend or forward any English text, news article, or message here.\n\nThe bot will directly translate it to natural ${langInfo.name} without modifying, summarizing, or changing any of the content.`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -838,7 +838,7 @@ export default async function (callbackQuery, ctx) {
         } else {
           await api.sendMessage({
             chat_id: callbackQuery.message.chat.id,
-            text: 'You have no custom sources yet.\n\nAdd custom sources during setup or in settings.',
+            text: ' You have no custom sources yet.\n\nAdd custom sources during setup or in settings.',
             reply_markup: {
               inline_keyboard: [
                 [
@@ -1027,7 +1027,7 @@ export default async function (callbackQuery, ctx) {
         if (hasTestChannel) {
           keyboard = [
             [
-              { text: 'Main Channel', callback_data: `news_user_channel_${platformId}_0` },
+              { text: ' Main Channel', callback_data: `news_user_channel_${platformId}_0` },
               { text: 'Test Channel', callback_data: `news_user_test_channel_${platformId}_0` }
             ],
             [
@@ -1044,7 +1044,7 @@ export default async function (callbackQuery, ctx) {
         } else {
           keyboard = [
             [
-              { text: 'Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
+              { text: ' Post to Channel', callback_data: `news_user_channel_${platformId}_0` }
             ],
             [
               { text: 'Direct Translate', callback_data: `news_direct_pick_${platformId}_0` },
@@ -1201,7 +1201,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Please send your edited version of the news.\n\nReply with the text you want to post.',
+      text: ' Please send your edited version of the news.\n\nReply with the text you want to post.',
     });
     return;
   }
@@ -1222,11 +1222,13 @@ export default async function (callbackQuery, ctx) {
     const isGuest = user?.user_type === 'guest';
     const userChannels = await getUserChannels(user.id);
 
-    // Get content structure and auto post status
+    // Get content structure, auto post, and repetitive task status
     const contentStructure = await getContentStructure(user.id);
-    const autoPostSchedule = await getAutoPostSchedule(user.id);
+    const autoPostSchedule = await getAutoPostSchedule(user.id, 'news');
+    const repetitiveSchedule = await getRepetitiveTaskSchedule(user.id);
     const contentStructureStatus = contentStructure ? 'Set' : 'Not set';
     const autoPostStatus = autoPostSchedule ? (autoPostSchedule.is_active === 1 ? 'Active' : 'Paused') : 'Not set';
+    const repetitiveStatus = repetitiveSchedule ? (repetitiveSchedule.is_active === 1 ? 'Active' : 'Paused') : 'Not set';
 
     // Get recommendation settings
     const recommendationsEnabled = user?.recommendations_enabled === 1 ? 'Enabled' : 'Disabled';
@@ -1245,25 +1247,26 @@ export default async function (callbackQuery, ctx) {
       ],
       ...(isOwner ? [[{ text: 'Toggle Dot Punctuation', callback_data: 'toggle_dot_punctuation' }]] : []),
       [
-        { text: 'Recommendations', callback_data: 'recommendation_settings' }
+        { text: '📅 Recommendations', callback_data: 'recommendation_settings' }
       ],
     ];
 
-    // Add content structure and auto post options for non-guest users
+    // Add content structure, auto post, and repetitive task options for non-guest users
     if (!isGuest) {
       keyboard.push(
         [
           { text: 'Content Structure', callback_data: 'content_structure' }
         ],
         [
-          { text: 'Auto Post', callback_data: 'auto_post' }
+          { text: '📰 Auto Post', callback_data: 'auto_post' },
+          { text: '🔁 Repetitive Task', callback_data: 'repetitive_task' }
         ],
         [
           { text: 'Manage Channels', callback_data: 'manage_channels' }
         ],
         [
           { text: 'Edit Channel Link', callback_data: 'edit_channel_link' },
-          { text: 'Add Channel', callback_data: 'add_channel' }
+          { text: ' Add Channel', callback_data: 'add_channel' }
         ]
       );
     }
@@ -1274,7 +1277,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}\n Recommendations: ${recommendationsEnabled} (${intervalText})${!isGuest ? `\nContent Structure: ${contentStructureStatus}\nAuto Post: ${autoPostStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
+      text: `Settings\n\nShow Source Link: ${showSourceLink}${isOwner ? `\nUse Dot Punctuation: ${useDotPunctuation}` : ''}\nYour Categories: ${categoriesText}\n📅 Recommendations: ${recommendationsEnabled} (${intervalText})${!isGuest ? `\nContent Structure: ${contentStructureStatus}\n📰 Auto Post: ${autoPostStatus}\n🔁 Repetitive Task: ${repetitiveStatus}\nYour Channels: ${userChannels.length}` : ''}\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: keyboard
       }
@@ -1336,11 +1339,11 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` Recommendation Settings\n\nStatus: ${isEnabled ? ' Enabled' : ' Disabled'}\nFrequency: ${intervalText}\n\nYou'll receive AI-curated news digests based on your selected categories.\n\nWhat would you like to change?`,
+      text: `📅 Recommendation Settings\n\nStatus: ${isEnabled ? '✅ Enabled' : '❌ Disabled'}\nFrequency: ${intervalText}\n\nYou'll receive AI-curated news digests based on your selected categories.\n\nWhat would you like to change?`,
       reply_markup: {
         inline_keyboard: [
           [
-            { text: isEnabled ? ' Disable' : ' Enable', callback_data: 'toggle_recommendations' }
+            { text: isEnabled ? '❌ Disable' : '✅ Enable', callback_data: 'toggle_recommendations' }
           ],
           [
             { text: 'Auto Recommendation Feature', callback_data: 'set_recommendation_interval' }
@@ -1440,7 +1443,7 @@ export default async function (callbackQuery, ctx) {
   if (data === 'get_recommendation_now') {
     const loading = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Fetching your personalized recommendations...',
+      text: ' Fetching your personalized recommendations...',
     });
 
     try {
@@ -1510,7 +1513,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `<b>Edit Channel Link</b>\n\nCurrent channel: <code>${currentChannel}</code>\n\nTap <b>" Choose Channel"</b> below to select your channel directly, or send your new username or link:`,
+      text: `✏️ <b>Edit Channel Link</b>\n\nCurrent channel: <code>${currentChannel}</code>\n\nTap <b>"📢 Choose Channel"</b> below to select your channel directly, or send your new username or link:`,
       parse_mode: 'HTML',
       reply_markup: {
         keyboard: [
@@ -1634,7 +1637,7 @@ export default async function (callbackQuery, ctx) {
   // Handle auto post button
   if (data === 'auto_post') {
     const user = await getUserByTelegramId(userId);
-    const autoPostSchedule = await getAutoPostSchedule(user.id);
+    const autoPostSchedule = await getAutoPostSchedule(user.id, 'news');
     const userChannels = await getUserChannels(user.id);
     const isOwner = userId === OWNER_CHAT_ID;
 
@@ -1645,14 +1648,12 @@ export default async function (callbackQuery, ctx) {
       const channelName = channel ? channel.channel_name || channel.channel_id : autoPostSchedule.channel_id;
 
       let platformName = 'General News (TechCrunch)';
-      if (autoPostSchedule.post_mode === 'repetitive') {
-        platformName = ' Repetitive Custom Content';
-      } else if (autoPostSchedule.source_platform) {
+      if (autoPostSchedule.source_platform) {
         if (autoPostSchedule.source_platform.startsWith('custom_')) {
           const customId = parseInt(autoPostSchedule.source_platform.replace('custom_', ''), 10);
           const customs = await getCustomSources(user.id);
           const match = customs.find(c => c.id === customId);
-          platformName = match ? `${match.source_name}` : autoPostSchedule.source_platform;
+          platformName = match ? `⭐ ${match.source_name}` : autoPostSchedule.source_platform;
         } else {
           const match = getPlatformById(autoPostSchedule.source_platform);
           platformName = match ? match.name : autoPostSchedule.source_platform;
@@ -1660,55 +1661,32 @@ export default async function (callbackQuery, ctx) {
       }
 
       let langName = 'Amharic';
-      if (autoPostSchedule.post_mode === 'repetitive') {
-        langName = 'Original / Custom';
-      } else if (autoPostSchedule.target_lang === 'ti') langName = 'Tigrinya';
+      if (autoPostSchedule.target_lang === 'ti') langName = 'Tigrinya';
       else if (autoPostSchedule.target_lang === 'om') langName = 'Afaan Oromo';
       else if (autoPostSchedule.target_lang === 'en') langName = 'English (Original)';
 
-      const isRepetitive = autoPostSchedule.post_mode === 'repetitive';
-      let snippet = '';
-      if (isRepetitive && autoPostSchedule.repetitive_content) {
-        const cleanRep = autoPostSchedule.repetitive_content.substring(0, 150);
-        snippet = `\n\n<b>Current Repetitive Text:</b>\n<i>${cleanRep}${autoPostSchedule.repetitive_content.length > 150 ? '...' : ''}</i>`;
-      }
-
-      const editRows = isRepetitive
-        ? [
-            [
-              { text: 'Edit Repetitive Text', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
-              { text: 'News Mode', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
-            ]
-          ]
-        : [
-            [
-              { text: 'Setup Repetitive Task', callback_data: `edit_rep_content_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` }
-            ],
-            [
-              { text: 'Change Platform', callback_data: `edit_auto_post_platform_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}` },
-              { text: 'Change Language', callback_data: `edit_auto_post_lang_${autoPostSchedule.channel_id}_${autoPostSchedule.interval_hours}_${autoPostSchedule.source_platform || 'techcrunch'}` }
-            ]
-          ];
-
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `<b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Mode:</b> <b>${isRepetitive ? ' Repetitive Task' : ' News Auto Post'}</b>\n<b>Source:</b> <b>${platformName}</b>\n<b>Language:</b> <b>${langName}</b>\n<b>Interval:</b> Every ${intervalText}${snippet}\n\n<i>Auto Post runs automatically in the background on your schedule. Use the buttons below to change settings or pause.</i>`,
+        text: `📰 <b>Auto Post Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Source:</b> <b>${platformName}</b>\n<b>Language:</b> <b>${langName}</b>\n<b>Interval:</b> Every ${intervalText}\n\n<i>Auto Post runs automatically in the background to post fresh news. This runs simultaneously alongside any repetitive tasks!</i>`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: autoPostSchedule.is_active === 1 ? 'Pause Auto Post' : 'Resume Auto Post', callback_data: 'toggle_auto_post' }
+              { text: autoPostSchedule.is_active === 1 ? '⏸️ Pause Auto Post' : '▶️ Resume Auto Post', callback_data: 'toggle_auto_post' }
             ],
             [
-              { text: 'Change Channel', callback_data: 'ap_sel_chn_edit' },
-              { text: 'Change Interval', callback_data: 'edit_auto_post' }
-            ],
-            ...editRows,
-            [
-              { text: 'Delete Schedule', callback_data: 'delete_auto_post' }
+              { text: '📢 Change Channel', callback_data: 'ap_sel_chn_edit' },
+              { text: '⏱️ Change Interval', callback_data: 'edit_auto_post' }
             ],
             [
-              { text: 'Back to Settings', callback_data: 'settings' }
+              { text: '📡 Change Platform', callback_data: 'edit_auto_post_platform' },
+              { text: '🌐 Change Language', callback_data: 'edit_auto_post_lang' }
+            ],
+            [
+              { text: '🗑️ Delete Schedule', callback_data: 'delete_auto_post' }
+            ],
+            [
+              { text: '« Back to Settings', callback_data: 'settings' }
             ]
           ]
         }
@@ -1735,12 +1713,12 @@ export default async function (callbackQuery, ctx) {
         for (const channel of userChannels) {
           const cName = channel.channel_name || channel.channel_id;
           keyboard.push([
-            { text: ` ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
+            { text: `📢 ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
           ]);
         }
 
         keyboard.push([
-          { text: 'Add Channel', callback_data: 'add_channel' }
+          { text: '➕ Add Channel', callback_data: 'add_channel' }
         ]);
         keyboard.push([
           { text: 'Back', callback_data: 'settings' }
@@ -1748,7 +1726,7 @@ export default async function (callbackQuery, ctx) {
 
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: ` <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
+          text: `📢 <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboard
@@ -1767,15 +1745,15 @@ export default async function (callbackQuery, ctx) {
     for (const channel of userChannels) {
       const cName = channel.channel_name || channel.channel_id;
       keyboard.push([
-        { text: ` ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
+        { text: `📢 ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
       ]);
     }
-    keyboard.push([{ text: 'Add Channel', callback_data: 'add_channel' }]);
+    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
     keyboard.push([{ text: 'Back', callback_data: 'settings' }]);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
+      text: `📢 <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: keyboard
@@ -1794,7 +1772,7 @@ export default async function (callbackQuery, ctx) {
   // User wants to change channel on existing schedule
   if (data === 'ap_sel_chn_edit') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
     const userChannels = await getUserChannels(user.id);
 
     let keyboard = [];
@@ -1802,15 +1780,15 @@ export default async function (callbackQuery, ctx) {
       const cName = channel.channel_name || channel.channel_id;
       const isCurrent = schedule && schedule.channel_id === channel.channel_id;
       keyboard.push([
-        { text: `${isCurrent ? ' ' : '}${cName}`, callback_data: `ap_set_chn_${channel.channel_id}` }
+        { text: `${isCurrent ? '✅ ' : '📢 '}${cName}`, callback_data: `ap_set_chn_${channel.channel_id}` }
       ]);
     }
-    keyboard.push([{ text: 'Add Channel', callback_data: 'add_channel' }]);
-    keyboard.push([{ text: 'Back', callback_data: 'auto_post' }]);
+    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+    keyboard.push([{ text: '« Back', callback_data: 'auto_post' }]);
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` <b>Change Auto Post Channel</b>\n\nSelect which channel this auto-post schedule should post to:`,
+      text: `📢 <b>Change Auto Post Channel</b>\n\nSelect which channel this auto-post schedule should post to:`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: keyboard
@@ -1823,12 +1801,12 @@ export default async function (callbackQuery, ctx) {
   if (data.startsWith('ap_set_chn_')) {
     const channelId = data.replace('ap_set_chn_', '');
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
     if (schedule) {
       await updateAutoPostSchedule(schedule.id, channelId, undefined, true);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Channel updated to <code>${channelId}</code>!`,
+        text: `✅ Channel updated to <code>${channelId}</code>!`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
@@ -1845,7 +1823,7 @@ export default async function (callbackQuery, ctx) {
     const channelId = data.replace('custom_auto_post_setup_', '');
     await setPendingChannelAdd(userId, `waiting_custom_autopost_setup_${channelId}`);
 
-    const guideText = `<b>Custom Auto Post Interval</b>\n\n` +
+    const guideText = `⏱️ <b>Custom Auto Post Interval</b>\n\n` +
       `Channel: <code>${channelId}</code>\n\n` +
       `Please reply with your desired posting interval.\n\n` +
       `<b>How to format your time:</b>\n` +
@@ -1873,7 +1851,7 @@ export default async function (callbackQuery, ctx) {
     const channelId = data.replace('custom_auto_post_update_', '');
     await setPendingChannelAdd(userId, `waiting_custom_autopost_update_${channelId}`);
 
-    const guideText = `<b>Custom Auto Post Interval</b>\n\n` +
+    const guideText = `⏱️ <b>Custom Auto Post Interval</b>\n\n` +
       `Channel: <code>${channelId}</code>\n\n` +
       `Please reply with your desired posting interval.\n\n` +
       `<b>How to format your time:</b>\n` +
@@ -1897,38 +1875,62 @@ export default async function (callbackQuery, ctx) {
   }
 
   // Direct change of platform from Auto Post settings
-  if (data.startsWith('edit_auto_post_platform_')) {
-    const parts = data.replace('edit_auto_post_platform_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
+  if (data === 'edit_auto_post_platform' || data.startsWith('edit_auto_post_platform_')) {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (data === 'edit_auto_post_platform' && schedule) {
+      await showAutoPostCategoryPicker(callbackQuery.message.chat.id, schedule.channel_id, schedule.interval_hours, true);
+      return;
+    }
+    const raw = data.replace('edit_auto_post_platform_', '');
+    const lastUnder = raw.lastIndexOf('_');
+    const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : (schedule ? schedule.channel_id : raw);
+    const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : (schedule ? schedule.interval_hours : 2);
     await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, true);
     return;
   }
 
   // Direct change of language from Auto Post settings
-  if (data.startsWith('edit_auto_post_lang_')) {
-    const parts = data.replace('edit_auto_post_lang_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-    const platformId = parts.slice(2).join('_');
+  if (data === 'edit_auto_post_lang' || data.startsWith('edit_auto_post_lang_')) {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (data === 'edit_auto_post_lang' && schedule) {
+      await showAutoPostLanguagePicker(callbackQuery.message.chat.id, schedule.channel_id, schedule.interval_hours, schedule.source_platform || 'techcrunch', true);
+      return;
+    }
+    const raw = data.replace('edit_auto_post_lang_', '');
+    const parts = raw.split('_');
+    const intervalIdx = parts.findIndex(p => !isNaN(Number(p)) && Number(p) > 0 && !p.startsWith('-'));
+    let channelId, intervalHours, platformId;
+    if (intervalIdx !== -1) {
+      channelId = parts.slice(0, intervalIdx).join('_');
+      intervalHours = parseFloat(parts[intervalIdx]);
+      platformId = parts.slice(intervalIdx + 1).join('_') || 'techcrunch';
+    } else {
+      channelId = schedule ? schedule.channel_id : parts[0];
+      intervalHours = schedule ? schedule.interval_hours : (parseFloat(parts[1]) || 2);
+      platformId = schedule ? schedule.source_platform : (parts.slice(2).join('_') || 'techcrunch');
+    }
     await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, true);
     return;
   }
 
   // Handle setup auto post -> forward to platform category picker
   if (data.startsWith('setup_auto_post_')) {
-    const parts = data.replace('setup_auto_post_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
+    const raw = data.replace('setup_auto_post_', '');
+    const lastUnder = raw.lastIndexOf('_');
+    const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : raw;
+    const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
     await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, false);
     return;
   }
 
   // Handle update auto post -> forward to platform category picker
   if (data.startsWith('update_auto_post_')) {
-    const parts = data.replace('update_auto_post_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
+    const raw = data.replace('update_auto_post_', '');
+    const lastUnder = raw.lastIndexOf('_');
+    const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : raw;
+    const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
     await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, true);
     return;
   }
@@ -1936,9 +1938,10 @@ export default async function (callbackQuery, ctx) {
   // Back button from platform picker to category picker
   if (data.startsWith('ap_st_back_') || data.startsWith('ap_up_back_')) {
     const isUpdate = data.startsWith('ap_up_back_');
-    const parts = data.replace(isUpdate ? 'ap_up_back_' : 'ap_st_back_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
+    const raw = data.replace(isUpdate ? 'ap_up_back_' : 'ap_st_back_', '');
+    const lastUnder = raw.lastIndexOf('_');
+    const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : raw;
+    const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
     await showAutoPostCategoryPicker(callbackQuery.message.chat.id, channelId, intervalHours, isUpdate);
     return;
   }
@@ -1947,10 +1950,11 @@ export default async function (callbackQuery, ctx) {
   if (data.startsWith('ap_st_cat_') || data.startsWith('ap_up_cat_')) {
     const isUpdate = data.startsWith('ap_up_cat_');
     const prefix = isUpdate ? 'ap_up_cat_' : 'ap_st_cat_';
-    const parts = data.replace(prefix, '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-    const catId = parts[2];
+    const raw = data.replace(prefix, '');
+    const parts = raw.split('_');
+    const catId = parts.pop();
+    const intervalHours = parseFloat(parts.pop()) || 2;
+    const channelId = parts.join('_');
     await showAutoPostPlatformPicker(callbackQuery.message.chat.id, userId, channelId, intervalHours, catId, isUpdate);
     return;
   }
@@ -1964,9 +1968,10 @@ export default async function (callbackQuery, ctx) {
     } else if (data.startsWith('ap_up_rep_')) {
       cleanPrefix = 'ap_up_rep_';
     }
-    const parts = data.replace(cleanPrefix, '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
+    const raw = data.replace(cleanPrefix, '');
+    const lastUnder = raw.lastIndexOf('_');
+    const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : raw;
+    const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
 
     const stateKey = isUpdate
       ? `waiting_rep_content_update_${channelId}_${intervalHours}`
@@ -1978,7 +1983,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` <b>Setup Repetitive Auto Post Content</b>\n\nChannel: <code>${channelId}</code>\nInterval: <b>Every ${intervalText}</b>\n\nPlease send the exact message or announcement text you want the bot to post repetitively based on this interval.\n\n<i>You can include emojis, custom formatting, and links. Send 'cancel' to abort.</i>`,
+      text: `🔁 <b>Setup Repetitive Auto Post Content</b>\n\nChannel: <code>${channelId}</code>\nInterval: <b>Every ${intervalText}</b>\n\nPlease send the exact message or announcement text you want the bot to post repetitively based on this interval.\n\n<i>You can include emojis, custom formatting, and links. Send 'cancel' to abort.</i>`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -1991,34 +1996,66 @@ export default async function (callbackQuery, ctx) {
 
   // Platform selected for setup -> forward to Language picker
   if (data.startsWith('ap_st_plat_')) {
-    const parts = data.replace('ap_st_plat_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-    const platformId = parts.slice(2).join('_');
+    const raw = data.replace('ap_st_plat_', '');
+    const parts = raw.split('_');
+    const intervalIdx = parts.findIndex(p => !isNaN(Number(p)) && Number(p) > 0 && !p.startsWith('-'));
+    let channelId, intervalHours, platformId;
+    if (intervalIdx !== -1) {
+      channelId = parts.slice(0, intervalIdx).join('_');
+      intervalHours = parseFloat(parts[intervalIdx]);
+      platformId = parts.slice(intervalIdx + 1).join('_');
+    } else {
+      channelId = parts[0];
+      intervalHours = parseFloat(parts[1]) || 2;
+      platformId = parts.slice(2).join('_');
+    }
     await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, false);
     return;
   }
 
   // Platform selected for update -> forward to Language picker
   if (data.startsWith('ap_up_plat_')) {
-    const parts = data.replace('ap_up_plat_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-    const platformId = parts.slice(2).join('_');
+    const raw = data.replace('ap_up_plat_', '');
+    const parts = raw.split('_');
+    const intervalIdx = parts.findIndex(p => !isNaN(Number(p)) && Number(p) > 0 && !p.startsWith('-'));
+    let channelId, intervalHours, platformId;
+    if (intervalIdx !== -1) {
+      channelId = parts.slice(0, intervalIdx).join('_');
+      intervalHours = parseFloat(parts[intervalIdx]);
+      platformId = parts.slice(intervalIdx + 1).join('_');
+    } else {
+      channelId = parts[0];
+      intervalHours = parseFloat(parts[1]) || 2;
+      platformId = parts.slice(2).join('_');
+    }
     await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, true);
     return;
   }
 
   // Language selected for setup -> save schedule
   if (data.startsWith('ap_st_lang_')) {
-    const parts = data.replace('ap_st_lang_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-    const targetLang = parts[parts.length - 1];
-    const platformId = parts.slice(2, -1).join('_');
+    const raw = data.replace('ap_st_lang_', '');
+    const parts = raw.split('_');
+    const targetLang = parts.pop();
+    const intervalIdx = parts.findIndex(p => !isNaN(Number(p)) && Number(p) > 0 && !p.startsWith('-'));
+    let channelId, intervalHours, platformId;
+    if (intervalIdx !== -1) {
+      channelId = parts.slice(0, intervalIdx).join('_');
+      intervalHours = parseFloat(parts[intervalIdx]);
+      platformId = parts.slice(intervalIdx + 1).join('_');
+    } else {
+      channelId = parts[0];
+      intervalHours = parseFloat(parts[1]) || 2;
+      platformId = parts.slice(2).join('_');
+    }
 
     const user = await getUserByTelegramId(userId);
-    await createAutoPostSchedule(user.id, channelId, intervalHours, platformId, targetLang);
+    const existingSchedule = await getAutoPostSchedule(user.id, 'news');
+    if (existingSchedule) {
+      await updateAutoPostSchedule(existingSchedule.id, channelId, intervalHours, true, platformId, targetLang, 'news');
+    } else {
+      await createAutoPostSchedule(user.id, channelId, intervalHours, platformId, targetLang, 'news');
+    }
 
     const intervalText = formatIntervalDisplay(intervalHours);
     const platformObj = getPlatformById(platformId);
@@ -2030,7 +2067,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` <b>Auto post enabled!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate, translate, and post content based on your schedule.`,
+      text: `✅ <b>Auto post enabled!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate, translate, and post content based on your schedule.`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -2043,16 +2080,25 @@ export default async function (callbackQuery, ctx) {
 
   // Language selected for update -> update schedule
   if (data.startsWith('ap_up_lang_')) {
-    const parts = data.replace('ap_up_lang_', '').split('_');
-    const channelId = parts[0];
-    const intervalHours = parseFloat(parts[1]);
-    const targetLang = parts[parts.length - 1];
-    const platformId = parts.slice(2, -1).join('_');
+    const raw = data.replace('ap_up_lang_', '');
+    const parts = raw.split('_');
+    const targetLang = parts.pop();
+    const intervalIdx = parts.findIndex(p => !isNaN(Number(p)) && Number(p) > 0 && !p.startsWith('-'));
+    let channelId, intervalHours, platformId;
+    if (intervalIdx !== -1) {
+      channelId = parts.slice(0, intervalIdx).join('_');
+      intervalHours = parseFloat(parts[intervalIdx]);
+      platformId = parts.slice(intervalIdx + 1).join('_');
+    } else {
+      channelId = parts[0];
+      intervalHours = parseFloat(parts[1]) || 2;
+      platformId = parts.slice(2).join('_');
+    }
 
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
     if (schedule) {
-      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true, platformId, targetLang);
+      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, true, platformId, targetLang, 'news');
 
       const intervalText = formatIntervalDisplay(intervalHours);
       const platformObj = getPlatformById(platformId);
@@ -2064,7 +2110,7 @@ export default async function (callbackQuery, ctx) {
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` <b>Auto post schedule updated!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}`,
+        text: `✅ <b>Auto post schedule updated!</b>\n\nChannel: <code>${channelId}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
@@ -2079,7 +2125,7 @@ export default async function (callbackQuery, ctx) {
   // Handle toggle auto post
   if (data === 'toggle_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
     if (schedule) {
       const updated = await toggleAutoPostSchedule(schedule.id);
       const statusText = updated.is_active === 1 ? 'Active' : 'Paused';
@@ -2101,7 +2147,7 @@ export default async function (callbackQuery, ctx) {
   // Handle edit auto post interval
   if (data === 'edit_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
 
     if (schedule) {
       await showAutoPostIntervalPicker(callbackQuery.message.chat.id, schedule.channel_id, true);
@@ -2112,7 +2158,7 @@ export default async function (callbackQuery, ctx) {
   // Handle delete auto post
   if (data === 'delete_auto_post') {
     const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
     if (schedule) {
       await deleteAutoPostSchedule(schedule.id);
       await api.sendMessage({
@@ -2123,6 +2169,321 @@ export default async function (callbackQuery, ctx) {
             [
               { text: 'Back', callback_data: 'settings' }
             ]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle Repetitive Task main menu button
+  if (data === 'repetitive_task') {
+    const user = await getUserByTelegramId(userId);
+    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    const userChannels = await getUserChannels(user.id);
+
+    if (repSchedule) {
+      const intervalText = formatIntervalDisplay(repSchedule.interval_hours);
+      const statusText = repSchedule.is_active === 1 ? 'Active' : 'Paused';
+      const channel = userChannels.find(c => c.channel_id === repSchedule.channel_id);
+      const channelName = channel ? channel.channel_name || channel.channel_id : repSchedule.channel_id;
+
+      let snippet = '';
+      if (repSchedule.repetitive_content) {
+        const cleanRep = repSchedule.repetitive_content.substring(0, 150);
+        snippet = `\n\n<b>Current Repetitive Message:</b>\n<i>${cleanRep}${repSchedule.repetitive_content.length > 150 ? '...' : ''}</i>`;
+      }
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `🔁 <b>Repetitive Task Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Interval:</b> Every ${intervalText}${snippet}\n\n<i>This task runs simultaneously and independently from your Auto Post news schedule!</i>`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: repSchedule.is_active === 1 ? '⏸️ Pause Task' : '▶️ Resume Task', callback_data: 'toggle_rep_task' }
+            ],
+            [
+              { text: '📢 Change Channel', callback_data: 'rep_sel_chn_edit' },
+              { text: '⏱️ Change Interval', callback_data: 'edit_rep_task_interval' }
+            ],
+            [
+              { text: '✏️ Edit Message Content', callback_data: `edit_rep_content_${repSchedule.channel_id}_${repSchedule.interval_hours}` }
+            ],
+            [
+              { text: '🗑️ Delete Repetitive Task', callback_data: 'delete_rep_task' }
+            ],
+            [
+              { text: '« Back to Settings', callback_data: 'settings' }
+            ]
+          ]
+        }
+      });
+    } else {
+      if (userChannels.length === 0) {
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `🔁 <b>Repetitive Task</b>\n\nYou need to add a channel first before setting up a repetitive task.`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Add Channel', callback_data: 'add_channel' }],
+              [{ text: 'Back', callback_data: 'settings' }]
+            ]
+          }
+        });
+      } else {
+        let keyboard = [];
+        for (const channel of userChannels) {
+          const cName = channel.channel_name || channel.channel_id;
+          keyboard.push([
+            { text: `📢 ${cName}`, callback_data: `rep_pick_chn_${channel.channel_id}` }
+          ]);
+        }
+        keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+        keyboard.push([{ text: 'Back', callback_data: 'settings' }]);
+
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `🔁 <b>Select Channel for Repetitive Task</b>\n\nChoose the channel where you want your repetitive announcement or message posted periodically:`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: keyboard
+          }
+        });
+      }
+    }
+    return;
+  }
+
+  // Repetitive channel picker back/selection
+  if (data === 'rep_sel_chn') {
+    const user = await getUserByTelegramId(userId);
+    const userChannels = await getUserChannels(user.id);
+    let keyboard = [];
+    for (const channel of userChannels) {
+      const cName = channel.channel_name || channel.channel_id;
+      keyboard.push([
+        { text: `📢 ${cName}`, callback_data: `rep_pick_chn_${channel.channel_id}` }
+      ]);
+    }
+    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+    keyboard.push([{ text: 'Back', callback_data: 'settings' }]);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `🔁 <b>Select Channel for Repetitive Task</b>\n\nChoose the channel where you want your repetitive announcement or message posted periodically:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+
+  // Selected channel for new repetitive task setup -> show intervals
+  if (data.startsWith('rep_pick_chn_')) {
+    const channelId = data.replace('rep_pick_chn_', '');
+    await showRepetitiveIntervalPicker(callbackQuery.message.chat.id, channelId, false);
+    return;
+  }
+
+  // Change channel on existing repetitive task
+  if (data === 'rep_sel_chn_edit') {
+    const user = await getUserByTelegramId(userId);
+    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    const userChannels = await getUserChannels(user.id);
+
+    let keyboard = [];
+    for (const channel of userChannels) {
+      const cName = channel.channel_name || channel.channel_id;
+      const isCurrent = repSchedule && repSchedule.channel_id === channel.channel_id;
+      keyboard.push([
+        { text: `${isCurrent ? '✅ ' : '📢 '}${cName}`, callback_data: `rep_set_chn_${channel.channel_id}` }
+      ]);
+    }
+    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+    keyboard.push([{ text: '« Back', callback_data: 'repetitive_task' }]);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `📢 <b>Change Repetitive Task Channel</b>\n\nSelect which channel this repetitive task should post to:`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboard
+      }
+    });
+    return;
+  }
+
+  // Set new channel on existing repetitive task
+  if (data.startsWith('rep_set_chn_')) {
+    const channelId = data.replace('rep_set_chn_', '');
+    const user = await getUserByTelegramId(userId);
+    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    if (repSchedule) {
+      await updateAutoPostSchedule(repSchedule.id, channelId, undefined, true);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Channel updated to <code>${channelId}</code>!`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Preset interval selected for setup or update of repetitive task
+  if (data.startsWith('rep_st_ivl_') || data.startsWith('rep_up_ivl_')) {
+    const isUpdate = data.startsWith('rep_up_ivl_');
+    const prefix = isUpdate ? 'rep_up_ivl_' : 'rep_st_ivl_';
+    const raw = data.replace(prefix, '');
+    const lastUnder = raw.lastIndexOf('_');
+    const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : raw;
+    const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
+
+    const user = await getUserByTelegramId(userId);
+    const existingRepSchedule = await getRepetitiveTaskSchedule(user.id);
+
+    // If updating interval and content already exists, just update interval
+    if (isUpdate && existingRepSchedule && existingRepSchedule.repetitive_content) {
+      await updateAutoPostSchedule(existingRepSchedule.id, channelId, intervalHours, true);
+      const intervalText = formatIntervalDisplay(intervalHours);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ <b>Repetitive task interval updated!</b>\n\nNew interval: Every ${intervalText}`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+          ]
+        }
+      });
+      return;
+    }
+
+    // Otherwise prompt for message content
+    const stateKey = isUpdate
+      ? `waiting_rep_content_update_${channelId}_${intervalHours}`
+      : `waiting_rep_content_setup_${channelId}_${intervalHours}`;
+    await setPendingChannelAdd(userId, stateKey);
+
+    const intervalText = formatIntervalDisplay(intervalHours);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `🔁 <b>Setup Repetitive Task Content</b>\n\nChannel: <code>${channelId}</code>\nInterval: <b>Every ${intervalText}</b>\n\nPlease send the exact message or announcement text you want the bot to post repetitively based on this interval.\n\n<i>You can include emojis, custom formatting, and links. Send 'cancel' to abort.</i>`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: 'repetitive_task' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle custom repetitive interval setup prompt
+  if (data.startsWith('custom_rep_task_setup_')) {
+    const channelId = data.replace('custom_rep_task_setup_', '');
+    await setPendingChannelAdd(userId, `waiting_custom_reptask_setup_${channelId}`);
+
+    const guideText = `⏱️ <b>Custom Repetitive Task Interval</b>\n\n` +
+      `Channel: <code>${channelId}</code>\n\n` +
+      `Please reply with your desired posting interval.\n\n` +
+      `<b>How to format your time:</b>\n` +
+      `• <b>Seconds (Testing):</b> <code>5s</code>, <code>5 sec</code>, or <code>10 seconds</code>\n` +
+      `• <b>Minutes:</b> <code>30m</code>, <code>45 min</code>, or <code>90 minutes</code>\n` +
+      `• <b>Hours:</b> <code>1h</code>, <code>2hr</code>, <code>4 hours</code>, or <code>1.5h</code>\n` +
+      `• <b>Plain numbers:</b> treated as hours (e.g. <code>2</code> = 2 hours)\n\n` +
+      `<i>Type 'cancel' anytime to abort.</i>`;
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: guideText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: 'repetitive_task' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle custom repetitive interval update prompt
+  if (data.startsWith('custom_rep_task_update_')) {
+    const channelId = data.replace('custom_rep_task_update_', '');
+    await setPendingChannelAdd(userId, `waiting_custom_reptask_update_${channelId}`);
+
+    const guideText = `⏱️ <b>Custom Repetitive Task Interval</b>\n\n` +
+      `Channel: <code>${channelId}</code>\n\n` +
+      `Please reply with your desired posting interval.\n\n` +
+      `<b>How to format your time:</b>\n` +
+      `• <b>Seconds (Testing):</b> <code>5s</code>, <code>5 sec</code>, or <code>10 seconds</code>\n` +
+      `• <b>Minutes:</b> <code>30m</code>, <code>45 min</code>, or <code>90 minutes</code>\n` +
+      `• <b>Hours:</b> <code>1h</code>, <code>2hr</code>, <code>4 hours</code>, or <code>1.5h</code>\n` +
+      `• <b>Plain numbers:</b> treated as hours (e.g. <code>2</code> = 2 hours)\n\n` +
+      `<i>Type 'cancel' anytime to abort.</i>`;
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: guideText,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Cancel', callback_data: 'repetitive_task' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Handle toggle repetitive task
+  if (data === 'toggle_rep_task') {
+    const user = await getUserByTelegramId(userId);
+    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    if (repSchedule) {
+      const updated = await toggleAutoPostSchedule(repSchedule.id);
+      const statusText = updated.is_active === 1 ? 'Active' : 'Paused';
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Repetitive task ${statusText}.`,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Back', callback_data: 'repetitive_task' }]
+          ]
+        }
+      });
+    }
+    return;
+  }
+
+  // Handle edit repetitive task interval
+  if (data === 'edit_rep_task_interval') {
+    const user = await getUserByTelegramId(userId);
+    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    if (repSchedule) {
+      await showRepetitiveIntervalPicker(callbackQuery.message.chat.id, repSchedule.channel_id, true);
+    }
+    return;
+  }
+
+  // Handle delete repetitive task
+  if (data === 'delete_rep_task') {
+    const user = await getUserByTelegramId(userId);
+    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    if (repSchedule) {
+      await deleteAutoPostSchedule(repSchedule.id);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Repetitive task deleted.`,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Back', callback_data: 'settings' }]
           ]
         }
       });
@@ -2157,7 +2518,7 @@ export default async function (callbackQuery, ctx) {
     if (!targetChannel) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Channel not found.',
+        text: '❌ Channel not found.',
       });
       return;
     }
@@ -2197,7 +2558,7 @@ export default async function (callbackQuery, ctx) {
     if (!user) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'User not found.',
+        text: ' User not found.',
       });
       return;
     }
@@ -2212,11 +2573,11 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` Your Stats\n\n Total Posts: ${user.posts_count || 0}\nYour Categories: ${categoriesText}\n Channel: ${user.channel_name || user.channel_id || 'Not set'}\n Display Name: ${user.display_name || 'Not set'}`,
+      text: ` Your Stats\n\n Total Posts: ${user.posts_count || 0}\nYour Categories: ${categoriesText}\n Channel: ${user.channel_name || user.channel_id || 'Not set'}\n👤 Display Name: ${user.display_name || 'Not set'}`,
       reply_markup: {
         inline_keyboard: [
           [
-            { text: 'Creator Rankings', callback_data: 'view_rankings' }
+            { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
           ],
           [
             { text: 'Back', callback_data: 'back' }
@@ -2234,37 +2595,37 @@ export default async function (callbackQuery, ctx) {
     const isOwner = callerId === OWNER_CHAT_ID;
     const user = await getUserByTelegramId(callerId);
 
-    let rankText = ` <b>Content Creators Activity Ranking</b>\n\n`;
+    let rankText = `🏆 <b>Content Creators Activity Ranking</b>\n\n`;
 
     const topList = rankings.slice(0, 10);
     topList.forEach((creator, idx) => {
-      const medals = ['', '', ''];
+      const medals = ['🥇', '🥈', '🥉'];
       const medal = medals[idx] || `<b>#${idx + 1}</b>`;
       const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
       const creatorName = creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || creator.username || creator.channel_name || `User #${creator.id}`;
       const channelDisplay = creator.channel_id || creator.channel_name || 'No channel';
 
       rankText += `${medal} <b>${creatorName}</b>${isYou}\n`;
-      rankText += `   Channel: <code>${channelDisplay}</code> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
+      rankText += `   Channel: <b>${channelDisplay}</b> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
     });
 
     const myRankItem = rankings.find(r => r.telegram_id === callerId);
     if (myRankItem) {
       rankText += `━━━━━━━━━━━━━━━━━━━━\n`;
-      rankText += ` <b>Your Rank:</b> #${myRankItem.rank} of ${rankings.length}\n`;
-      rankText += ` <b>Your Score:</b> ${myRankItem.score} pts\n`;
-      rankText += ` <b>Total Posts:</b> ${myRankItem.total_posts}\n`;
+      rankText += `👤 <b>Your Rank:</b> #${myRankItem.rank} of ${rankings.length}\n`;
+      rankText += `📊 <b>Your Score:</b> ${myRankItem.score} pts\n`;
+      rankText += `📝 <b>Total Posts:</b> ${myRankItem.total_posts}\n`;
     }
 
     const rankKeyboard = [];
     if (isOwner) {
       rankKeyboard.push([
-        { text: 'Open Rank Dashboard (Web App)', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+        { text: '🌟 Open Rank Dashboard (Web App)', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
       ]);
     }
     rankKeyboard.push([
-      { text: 'Refresh', callback_data: 'view_rankings' },
-      { text: 'Back', callback_data: 'back' }
+      { text: '🔄 Refresh', callback_data: 'view_rankings' },
+      { text: '« Back', callback_data: 'back' }
     ]);
 
     await api.sendMessage({
@@ -2288,7 +2649,7 @@ export default async function (callbackQuery, ctx) {
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No content found. Please try again.',
+          text: '⚠️ No content found. Please try again.',
         });
         return;
       }
@@ -2299,7 +2660,7 @@ export default async function (callbackQuery, ctx) {
       if (!targetChannel) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'Channel not found.',
+          text: '❌ Channel not found.',
         });
         return;
       }
@@ -2340,7 +2701,7 @@ export default async function (callbackQuery, ctx) {
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Content posted successfully to <b>${targetChannel.channel_name || targetChannel.channel_id}</b>!`,
+        text: `✅ Content posted successfully to <b>${targetChannel.channel_name || targetChannel.channel_id}</b>!`,
         parse_mode: 'HTML',
       });
     } catch (error) {
@@ -2348,12 +2709,12 @@ export default async function (callbackQuery, ctx) {
       if (error instanceof BotApiError) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: ` Failed to post: ${error.description}. Make sure the bot is an admin in your channel with "Post Messages" permission.`,
+          text: `❌ Failed to post: ${error.description}. Make sure the bot is an admin in your channel with "Post Messages" permission.`,
         });
       } else {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: ` Failed to post: ${error.message}`,
+          text: `❌ Failed to post: ${error.message}`,
         });
       }
     }
@@ -2367,7 +2728,7 @@ export default async function (callbackQuery, ctx) {
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No content found. Please try again.',
+          text: '⚠️ No content found. Please try again.',
         });
         return;
       }
@@ -2380,7 +2741,7 @@ export default async function (callbackQuery, ctx) {
       if (!userChannels || userChannels.length === 0) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No channels found.',
+          text: '❌ No channels found.',
         });
         return;
       }
@@ -2430,19 +2791,19 @@ export default async function (callbackQuery, ctx) {
       if (failCount === 0) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: ` Posted to all ${successCount} channel(s)!`,
+          text: `✅ Posted to all ${successCount} channel(s)!`,
         });
       } else {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: `Posted to ${successCount} channel(s), failed on ${failCount} channel(s).`,
+          text: `⚠️ Posted to ${successCount} channel(s), failed on ${failCount} channel(s).`,
         });
       }
     } catch (error) {
       console.error('Error posting to all channels:', error);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Failed to post: ${error.message}`,
+        text: `❌ Failed to post: ${error.message}`,
       });
     }
     return;
@@ -2460,7 +2821,7 @@ export default async function (callbackQuery, ctx) {
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No edited text found. Please try editing again.',
+          text: ' No edited text found. Please try editing again.',
         });
         return;
       }
@@ -2471,7 +2832,7 @@ export default async function (callbackQuery, ctx) {
       if (!user || !user.channel_id) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'Channel not found. Please complete onboarding first.',
+          text: ' Channel not found. Please complete onboarding first.',
         });
         return;
       }
@@ -2537,7 +2898,7 @@ export default async function (callbackQuery, ctx) {
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No edited text found. Please try editing again.',
+          text: ' No edited text found. Please try editing again.',
         });
         return;
       }
@@ -2623,12 +2984,12 @@ export default async function (callbackQuery, ctx) {
     if (isOwner) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
+        text: ' TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
         reply_markup: {
           inline_keyboard: [
             [
               { text: 'idea', callback_data: 'new_idea' },
-              { text: 'news', callback_data: 'get_news' }
+              { text: ' news', callback_data: 'get_news' }
             ],
             [
               { text: 'Rates', callback_data: 'get_rates' },
@@ -2636,7 +2997,7 @@ export default async function (callbackQuery, ctx) {
             ],
             [
               { text: 'Manage Users', callback_data: 'owner_manage_users' },
-              { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
+              { text: ' Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ]
           ]
         }
@@ -2645,12 +3006,12 @@ export default async function (callbackQuery, ctx) {
       // Show user/guest mode choice for non-owner users
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Welcome to True Feed!\n\nChoose how you want to use the bot:',
+        text: ' Welcome to True Feed!\n\nChoose how you want to use the bot:',
         reply_markup: {
           inline_keyboard: [
             [
               { text: 'User', callback_data: 'choose_user' },
-              { text: 'Guest', callback_data: 'choose_guest' }
+              { text: ' Guest', callback_data: 'choose_guest' }
             ],
             [
               { text: 'Refresh', callback_data: 'refresh_user_type' }
@@ -2669,7 +3030,7 @@ export default async function (callbackQuery, ctx) {
   if (userId !== OWNER_CHAT_ID) {
     await api.answerCallbackQuery({
       callback_query_id: callbackQuery.id,
-      text: 'Unauthorized',
+      text: '⛔ Unauthorized',
     });
     return;
   }
@@ -2678,7 +3039,7 @@ export default async function (callbackQuery, ctx) {
   if (data === 'owner_manage_users') {
     await clearPendingChannelAdd(userId);
     const allUsers = await getAllUsers();
-    let text = ` <b>User Management (${allUsers.length} total)</b>\n\nSelect a user to view their posts, clear data/onboarding, or delete:`;
+    let text = `👥 <b>User Management (${allUsers.length} total)</b>\n\nSelect a user to view their posts, clear data/onboarding, or delete:`;
     const keyboard = [];
 
     allUsers.slice(0, 15).forEach(u => {
@@ -2716,7 +3077,7 @@ export default async function (callbackQuery, ctx) {
     if (!targetUser) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'User not found.',
+        text: '❌ User not found.',
         reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'owner_manage_users' }]] }
       });
       return;
@@ -2726,7 +3087,7 @@ export default async function (callbackQuery, ctx) {
     const userPosts = await getUserPosts(targetUser.id);
     const dateStr = targetUser.created_at ? new Date(Number(targetUser.created_at) > 1e11 ? Number(targetUser.created_at) : Number(targetUser.created_at) * 1000).toLocaleDateString() : 'Unknown';
 
-    let text = ` <b>Creator Profile: ${uname}</b>\n\n`;
+    let text = `👤 <b>Creator Profile: ${uname}</b>\n\n`;
     text += `• <b>User ID:</b> ${targetUser.id}\n`;
     text += `• <b>Telegram ID:</b> <code>${targetUser.telegram_id}</code>\n`;
     text += `• <b>Type:</b> ${targetUser.user_type || 'user'}\n`;
@@ -2778,7 +3139,7 @@ export default async function (callbackQuery, ctx) {
     const userPosts = await getUserPosts(targetUserId);
 
     const uname = targetUser ? (targetUser.username ? `@${targetUser.username}` : `User #${targetUser.id}`) : `User #${targetUserId}`;
-    let text = ` <b>Posts by ${uname} (${userPosts.length} total) — ${isFull ? ' FULL VIEW' : ' HALFWAY PREVIEW'}:</b>\n\n`;
+    let text = `📰 <b>Posts by ${uname} (${userPosts.length} total) — ${isFull ? '🔍 FULL VIEW' : '📖 HALFWAY PREVIEW'}:</b>\n\n`;
 
     if (userPosts.length === 0) {
       text += '<i>No posts found for this user.</i>';
@@ -2787,7 +3148,7 @@ export default async function (callbackQuery, ctx) {
         const clean = (p.content || '').replace(/<[^>]*>/g, '').trim();
         // Halfway gives ~200 characters preview; full gives complete text up to Telegram message limit
         const body = isFull ? clean : (clean.length > 200 ? clean.substring(0, 200) + '...' : clean);
-        text += `<b>${i + 1}.</b>  ${p.channel_id || 'Channel'} [${p.category || 'News'}]\n${body}\n\n`;
+        text += `<b>${i + 1}.</b> 📢 ${p.channel_id || 'Channel'} [${p.category || 'News'}]\n${body}\n\n`;
       });
     }
 
@@ -2820,13 +3181,13 @@ export default async function (callbackQuery, ctx) {
       await clearUserData(targetUserId);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Successfully cleared channels, custom sources, schedules, and structures for User #${targetUserId}. User reset to fresh onboarding.`,
+        text: `✅ Successfully cleared channels, custom sources, schedules, and structures for User #${targetUserId}. User reset to fresh onboarding.`,
         reply_markup: { inline_keyboard: [[{ text: 'Back to User', callback_data: `admin_user_${targetUserId}` }]] }
       });
     } catch (err) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Error clearing data: ${err.message}`,
+        text: `❌ Error clearing data: ${err.message}`,
         reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: `admin_user_${targetUserId}` }]] }
       });
     }
@@ -2840,13 +3201,13 @@ export default async function (callbackQuery, ctx) {
       await clearUserPosts(targetUserId);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Successfully cleared post records and reset posts count to 0 for User #${targetUserId}.`,
+        text: `✅ Successfully cleared post records and reset posts count to 0 for User #${targetUserId}.`,
         reply_markup: { inline_keyboard: [[{ text: 'Back to User', callback_data: `admin_user_${targetUserId}` }]] }
       });
     } catch (err) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` Error clearing posts: ${err.message}`,
+        text: `❌ Error clearing posts: ${err.message}`,
         reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: `admin_user_${targetUserId}` }]] }
       });
     }
@@ -2864,7 +3225,7 @@ export default async function (callbackQuery, ctx) {
 
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `<b>Confirm Deletion of ${userLabel}</b>\n\nThis will permanently delete this user and ALL their channels, schedules, structures, and posts history.\n\nTo confirm, please reply with the word <b>Delete</b>:`,
+      text: `⚠️ <b>Confirm Deletion of ${userLabel}</b>\n\nThis will permanently delete this user and ALL their channels, schedules, structures, and posts history.\n\nTo confirm, please reply with the word <b>Delete</b>:`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
@@ -2892,8 +3253,8 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Approve & Post', callback_data: `approve_${idea.id}` },
-              { text: 'Reject — New Idea', callback_data: `reject_${idea.id}` }
+              { text: ' Approve & Post', callback_data: `approve_${idea.id}` },
+              { text: ' Reject — New Idea', callback_data: `reject_${idea.id}` }
             ],
             [
               { text: 'Back', callback_data: 'back' }
@@ -2906,12 +3267,12 @@ export default async function (callbackQuery, ctx) {
       console.error('Error in new_idea callback:', error);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Failed to generate idea. Please try again.',
+        text: ' Failed to generate idea. Please try again.',
         reply_markup: {
           inline_keyboard: [
             [
               { text: 'idea', callback_data: 'new_idea' },
-              { text: 'news', callback_data: 'get_news' }
+              { text: ' news', callback_data: 'get_news' }
             ]
           ]
         }
@@ -2943,7 +3304,7 @@ export default async function (callbackQuery, ctx) {
       if (currentIndex >= articles.length) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'Article no longer available.',
+          text: ' Article no longer available.',
         });
         return;
       }
@@ -2989,7 +3350,7 @@ export default async function (callbackQuery, ctx) {
       // Confirm to the owner
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Posted toTrueFeed!',
+        text: ' Posted toTrueFeed!',
       });
       
     } catch (error) {
@@ -3028,7 +3389,7 @@ export default async function (callbackQuery, ctx) {
       if (currentIndex >= articles.length) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'Article no longer available.',
+          text: ' Article no longer available.',
         });
         return;
       }
@@ -3073,7 +3434,7 @@ export default async function (callbackQuery, ctx) {
       // Confirm to the owner
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Posted toTest channel!',
+        text: ' Posted toTest channel!',
       });
 
     } catch (error) {
@@ -3095,7 +3456,7 @@ export default async function (callbackQuery, ctx) {
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No edited text found. Please try editing again.',
+          text: ' No edited text found. Please try editing again.',
         });
         return;
       }
@@ -3164,7 +3525,7 @@ export default async function (callbackQuery, ctx) {
       if (!pendingEdit || pendingEdit.text === '__waiting__') {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'No edited text found. Please try editing again.',
+          text: ' No edited text found. Please try editing again.',
         });
         return;
       }
@@ -3233,7 +3594,7 @@ export default async function (callbackQuery, ctx) {
     try {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Approving and posting idea...',
+        text: ' Approving and posting idea...',
       });
       
       const idea = await getIdeaById(ideaId);
@@ -3241,7 +3602,7 @@ export default async function (callbackQuery, ctx) {
       if (!idea) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: 'Idea not found.',
+          text: ' Idea not found.',
         });
         return;
       }
@@ -3256,7 +3617,7 @@ export default async function (callbackQuery, ctx) {
       
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Idea approved and posted to channel!',
+        text: ' Idea approved and posted to channel!',
       });
       
     } catch (error) {
@@ -3290,8 +3651,8 @@ export default async function (callbackQuery, ctx) {
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Approve & Post', callback_data: `approve_${idea.id}` },
-              { text: 'Reject — New Idea', callback_data: `reject_${idea.id}` }
+              { text: ' Approve & Post', callback_data: `approve_${idea.id}` },
+              { text: ' Reject — New Idea', callback_data: `reject_${idea.id}` }
             ],
             [
               { text: 'Back', callback_data: 'back' }
@@ -3304,7 +3665,7 @@ export default async function (callbackQuery, ctx) {
       console.error('Error rejecting idea:', error);
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Failed to reject idea.',
+        text: ' Failed to reject idea.',
       });
     }
   }
@@ -3323,7 +3684,7 @@ async function handleCheckJoin(callbackQuery, userId) {
     if (chatMember.status === 'left' || chatMember.status === 'kicked') {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'You haven\'t joined the True Feed channel yet. Please join first:',
+        text: ' You haven\'t joined the True Feed channel yet. Please join first:',
         reply_markup: {
           inline_keyboard: [
             [
@@ -3342,7 +3703,7 @@ async function handleCheckJoin(callbackQuery, userId) {
     await updateUserOnboardingStep(userId, 'provide_channel_id');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: '<b>You\'ve joined the channel!</b>\n\n <b>Step 1: Connect Your Channel or Group</b>\n\nTap the <b>" Choose Channel"</b> button below to select from your channels, or send your channel username (e.g. <code>@yourchannel</code>), link, or forward a post.',
+      text: '🎉 <b>You\'ve joined the channel!</b>\n\n📝 <b>Step 1: Connect Your Channel or Group</b>\n\nTap the <b>"📢 Choose Channel"</b> button below to select from your channels, or send your channel username (e.g. <code>@yourchannel</code>), link, or forward a post.',
       parse_mode: 'HTML',
       reply_markup: {
         keyboard: [
@@ -3377,7 +3738,7 @@ async function handleCheckJoin(callbackQuery, userId) {
     console.error('Error checking channel membership:', error);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Failed to verify channel membership. Please try again.',
+      text: ' Failed to verify channel membership. Please try again.',
     });
   }
 }
@@ -3386,7 +3747,7 @@ async function handleChangeChannel(callbackQuery, userId) {
   await updateUserOnboardingStep(userId, 'provide_channel_id');
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '<b>Select Your Channel or Group</b>\n\nTap <b>" Choose My Channel"</b> below to pick from channels you own, or send your username/link/forwarded message.',
+    text: '📝 <b>Select Your Channel or Group</b>\n\nTap <b>"📢 Choose My Channel"</b> below to pick from channels you own, or send your username/link/forwarded message.',
     parse_mode: 'HTML',
     reply_markup: {
       keyboard: [
@@ -3460,10 +3821,10 @@ async function handleBotAdminAdded(callbackQuery, userId) {
 
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: ` Channel "${targetChannelName}" has been added successfully!\n\nYou can now post content to this channel.`,
+          text: `✅ Channel "${targetChannelName}" has been added successfully!\n\nYou can now post content to this channel.`,
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Settings', callback_data: 'settings' }]
+              [{ text: '⚙️ Settings', callback_data: 'settings' }]
             ]
           }
         });
@@ -3478,14 +3839,14 @@ async function handleBotAdminAdded(callbackQuery, userId) {
 
         const keyboardRows = [];
         if (addBotUrl) {
-          keyboardRows.push([{ text: 'Add Bot as Admin Automatically', url: addBotUrl }]);
+          keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
         }
         keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
         keyboardRows.push([{ text: 'Settings', callback_data: 'settings' }]);
 
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
-          text: ` The bot is not yet an administrator in <b>${targetChannelId}</b>.\n\nPlease ensure:\n1. You added ${botTag} as an administrator in your channel with <b>Post Messages</b> permission.\n2. Tap <b>"Done"</b> below to verify:`,
+          text: `❌ The bot is not yet an administrator in <b>${targetChannelId}</b>.\n\nPlease ensure:\n1. You added ${botTag} as an administrator in your channel with <b>Post Messages</b> permission.\n2. Tap <b>"Done"</b> below to verify:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: keyboardRows
@@ -3500,7 +3861,7 @@ async function handleBotAdminAdded(callbackQuery, userId) {
       console.log('No user or no channel_id');
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Channel ID not found. Please provide your channel first.',
+        text: '❌ Channel ID not found. Please provide your channel first.',
         reply_markup: {
           inline_keyboard: [
             [
@@ -3528,7 +3889,7 @@ async function handleBotAdminAdded(callbackQuery, userId) {
 
       const keyboardRows = [];
       if (addBotUrl) {
-        keyboardRows.push([{ text: 'Add Bot as Admin Automatically', url: addBotUrl }]);
+        keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
       }
       keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
       keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
@@ -3536,12 +3897,12 @@ async function handleBotAdminAdded(callbackQuery, userId) {
       const errText = error?.description || error?.message || '';
       let detailMsg = '';
       if (errText.includes('chat not found')) {
-        detailMsg = `\n\nTelegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+        detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
       }
 
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ` The bot is not yet an administrator in <b>${channelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce done, click <b>"Done"</b>:`,
+        text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce done, click <b>"Done"</b>:`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: keyboardRows
@@ -3573,7 +3934,7 @@ async function handleBotAdminAdded(callbackQuery, userId) {
     console.error('ERROR in handleBotAdminAdded:', error);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` An error occurred: ${error.message}`,
+      text: `❌ An error occurred: ${error.message}`,
     });
   }
 }
@@ -3604,7 +3965,7 @@ async function showCategorySelection(chatId) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: 'Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
+    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -3656,15 +4017,15 @@ async function handleSelectCategory(callbackQuery, userId, data) {
   }
 
   keyboard.push([
-    { text: 'Add Custom Source', callback_data: 'add_custom_source' }
+    { text: ' Add Custom Source', callback_data: 'add_custom_source' }
   ]);
   keyboard.push([
-    { text: 'Complete Setup', callback_data: 'complete_setup' }
+    { text: ' Complete Setup', callback_data: 'complete_setup' }
   ]);
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: 'Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
+    text: ' Step 5: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -3692,7 +4053,7 @@ async function handleCompleteSetup(callbackQuery, userId) {
   if (!user.channel_id) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Please complete all setup steps first.',
+      text: ' Please complete all setup steps first.',
     });
     return;
   }
@@ -3701,7 +4062,7 @@ async function handleCompleteSetup(callbackQuery, userId) {
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: 'Setup Complete!\n\nYou can now start generating content for your channel. Click the button below to begin:',
+    text: ' Setup Complete!\n\nYou can now start generating content for your channel. Click the button below to begin:',
     reply_markup: {
       inline_keyboard: [
         [
@@ -3718,7 +4079,7 @@ async function handleGenerateContent(callbackQuery, userId) {
   if (!user || !user.channel_id) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Please complete setup first.',
+      text: ' Please complete setup first.',
     });
     return;
   }
@@ -3768,7 +4129,7 @@ async function handleGenerateContent(callbackQuery, userId) {
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: 'Select a category to generate content:',
+    text: ' Select a category to generate content:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -3778,7 +4139,7 @@ async function handleGenerateContent(callbackQuery, userId) {
 async function handleGetRates(callbackQuery, userId) {
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '<b>ExchangeRates</b>\n\nSelect a rate to view:',
+    text: ' <b>ExchangeRates</b>\n\nSelect a rate to view:',
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
@@ -3797,7 +4158,7 @@ async function handleGetRates(callbackQuery, userId) {
 async function handleGetCredits(callbackQuery, userId) {
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '<b>Free Credits & Resources</b>\n\nTop platforms for free AI credits, software credits, and startup resources:',
+    text: '💰 <b>Free Credits & Resources</b>\n\nTop platforms for free AI credits, software credits, and startup resources:',
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: [
@@ -3826,7 +4187,7 @@ async function handleDollarRate(callbackQuery, userId) {
   try {
     loadingMsg = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ' Fetching Ethiopian dollar rates...',
+      text: '⏳ Fetching Ethiopian dollar rates...',
     });
 
     const rates = await fetchEthiopianDollarRates();
@@ -3868,7 +4229,7 @@ async function handleDollarRate(callbackQuery, userId) {
     }
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Failed to fetch dollar rates. Please try again later.',
+      text: '❌ Failed to fetch dollar rates. Please try again later.',
       reply_markup: {
         inline_keyboard: [
           [
@@ -3885,7 +4246,7 @@ async function handleBTCRate(callbackQuery, userId) {
   try {
     loadingMsg = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ' Fetching Bitcoin price...',
+      text: '⏳ Fetching Bitcoin price...',
     });
 
     const btcData = await fetchBTCPrice();
@@ -3927,7 +4288,7 @@ async function handleBTCRate(callbackQuery, userId) {
     }
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Failed to fetch Bitcoin price. Please try again later.',
+      text: '❌ Failed to fetch Bitcoin price. Please try again later.',
       reply_markup: {
         inline_keyboard: [
           [
@@ -3958,7 +4319,7 @@ async function handlePostToUserChannel(callbackQuery, userId, data) {
   if (!user || userChannels.length === 0) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'No channels found. Please add a channel in settings first.',
+      text: ' No channels found. Please add a channel in settings first.',
       reply_markup: {
         inline_keyboard: [
           [{ text: 'Settings', callback_data: 'settings' }]
@@ -4011,7 +4372,7 @@ async function showChannelSelectionForPost(callbackQuery, userId, platformId, cu
 
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '<b>Select Channel:</b>\n\nChoose which channel you want to post this article to:',
+    text: '📢 <b>Select Channel:</b>\n\nChoose which channel you want to post this article to:',
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
@@ -4037,7 +4398,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
     if (currentIndex >= articles.length) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Article no longer available.',
+        text: ' Article no longer available.',
       });
       return;
     }
@@ -4132,7 +4493,7 @@ async function postArticleToChannel(callbackQuery, userId, platformId, currentIn
     // Confirm to the user
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Posted to your channel!',
+      text: ' Posted to your channel!',
     });
 
     // Show next article
@@ -4177,7 +4538,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
     if (currentIndex >= articles.length) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Article no longer available.',
+        text: ' Article no longer available.',
       });
       return;
     }
@@ -4270,7 +4631,7 @@ async function handlePostToUserTestChannel(callbackQuery, userId, data) {
     // Confirm to the user
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Posted to your test channel!',
+      text: ' Posted to your test channel!',
     });
 
   } catch (error) {
@@ -4296,7 +4657,7 @@ async function handleManageChannels(callbackQuery, userId) {
       reply_markup: {
         inline_keyboard: [
           [
-            { text: 'Add Channel', callback_data: 'add_channel' }
+            { text: ' Add Channel', callback_data: 'add_channel' }
           ],
           [
             { text: 'Back', callback_data: 'settings' }
@@ -4317,7 +4678,7 @@ async function handleManageChannels(callbackQuery, userId) {
   }
 
   keyboard.push([
-    { text: 'Add New Channel', callback_data: 'add_channel' }
+    { text: ' Add New Channel', callback_data: 'add_channel' }
   ]);
   keyboard.push([
     { text: 'Back', callback_data: 'settings' }
@@ -4336,7 +4697,7 @@ async function handleAddChannelStart(callbackQuery, userId) {
   const user = await getUserByTelegramId(userId);
   await api.sendMessage({
     chat_id: callbackQuery.message.chat.id,
-    text: '<b>Add New Channel or Group</b>\n\nTap <b>" Choose Channel"</b> below to pick directly from your channels, or send your channel username (e.g., <code>@yourchannel</code>), link, or forward a message.',
+    text: '📢 <b>Add New Channel or Group</b>\n\nTap <b>"📢 Choose Channel"</b> below to pick directly from your channels, or send your channel username (e.g., <code>@yourchannel</code>), link, or forward a message.',
     parse_mode: 'HTML',
     reply_markup: {
       keyboard: [
@@ -4375,7 +4736,7 @@ async function handleDeleteChannel(callbackQuery, userId, channelId) {
   if (!channel) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Channel not found.',
+      text: ' Channel not found.',
       reply_markup: {
         inline_keyboard: [
           [{ text: 'Back', callback_data: 'manage_channels' }]
@@ -4402,7 +4763,7 @@ async function handleChannelInfo(callbackQuery, userId, channelId) {
   if (!channel) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'Channel not found.',
+      text: ' Channel not found.',
       reply_markup: {
         inline_keyboard: [
           [{ text: 'Back', callback_data: 'manage_channels' }]
@@ -4452,7 +4813,7 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
   if (!user || userChannels.length === 0) {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'No channels found. Please add a channel in settings first.',
+      text: ' No channels found. Please add a channel in settings first.',
       reply_markup: {
         inline_keyboard: [
           [{ text: 'Settings', callback_data: 'settings' }]
@@ -4468,7 +4829,7 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
     if (currentIndex >= articles.length) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: 'Article no longer available.',
+        text: ' Article no longer available.',
       });
       return;
     }
@@ -4575,7 +4936,7 @@ async function postArticleToAllChannels(callbackQuery, userId, platformId, curre
     } else {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Posted to ${successCount} channel(s), failed on ${failCount} channel(s).`,
+        text: `⚠️ Posted to ${successCount} channel(s), failed on ${failCount} channel(s).`,
       });
     }
 
@@ -4646,7 +5007,7 @@ async function handleTranslate(callbackQuery, userId, data) {
     // Show loading message
     const loadingMessage = await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` Translating directly to ${langInfo.name} (exact content)...`,
+      text: `🔄 Translating directly to ${langInfo.name} (exact content)...`,
     });
 
     // Fetch the article
@@ -4820,7 +5181,7 @@ async function handleTranslate(callbackQuery, userId, data) {
     console.error('Error translating article:', error);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ` Translation failed: ${error.message}`,
+      text: `❌ Translation failed: ${error.message}`,
       reply_markup: {
         inline_keyboard: [
           [

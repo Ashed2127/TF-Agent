@@ -10,8 +10,9 @@ const { exec } = require('child_process');
 const path = require('path');
 
 const PROJECT_DIR = path.resolve(__dirname, '..');
-const NVM_BIN = process.env.NVM_DIR ? `${process.env.NVM_DIR}/versions/node/v22.22.3/bin` : '';
-const FULL_PATH = `${NVM_BIN}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`;
+const TGCLOUD_BIN = path.resolve(PROJECT_DIR, 'node_modules/.bin/tgcloud');
+const NODE_BIN_DIR = path.dirname(process.execPath);
+const FULL_PATH = `${NODE_BIN_DIR}:/usr/local/bin:/usr/bin:/bin:${process.env.PATH || ''}`;
 const POLL_INTERVAL_MS = 60000; // Check every 1 minute (60 seconds)
 
 let isRunning = false;
@@ -20,7 +21,7 @@ function triggerRecommendationCheck() {
   if (isRunning) return;
   isRunning = true;
 
-  const cmd = `npx tgcloud run endpoints/checkRecommendations "{}"`;
+  const cmd = `"${process.execPath}" "${TGCLOUD_BIN}" run endpoints/checkRecommendations "{}"`;
 
   exec(cmd, {
     cwd: PROJECT_DIR,
@@ -39,6 +40,6 @@ function triggerRecommendationCheck() {
   });
 }
 
-console.log(` TF-Agent Recommendation daemon started (checking every ${POLL_INTERVAL_MS / 1000}s)`);
+console.log(`TF-Agent Recommendation daemon started (checking every ${POLL_INTERVAL_MS / 1000}s)`);
 setInterval(triggerRecommendationCheck, POLL_INTERVAL_MS);
 triggerRecommendationCheck();

@@ -3,7 +3,7 @@ const { buildPrompt } = require('./prompts');
 
 async function generateIdea() {
   try {
-    console.log(' Generating new idea...');
+    console.log('Generating new idea...');
     
     const previousTopics = await getPreviousTopics();
     const category = await getNextCategory();
@@ -45,7 +45,7 @@ async function generateIdea() {
     
     // Validate that the content includes the required structure
     if (!content.includes('')) {
-      console.error(' AI response missing required structure:', content);
+      console.error('AI response missing required structure:', content);
       throw new Error('AI response missing required structure (Title section)');
     }
     
@@ -68,18 +68,18 @@ async function generateIdea() {
     
     // Validate that topic does not contain "Digital"
     if (topic.includes('Digital') || topic.includes('digital')) {
-      console.error(' Topic contains forbidden word "Digital":', topic);
+      console.error('Topic contains forbidden word "Digital":', topic);
       throw new Error('Topic contains forbidden word "Digital" - use "Hybrid" instead');
     }
     
     const id = await saveIdea(content, topic, category);
     
-    console.log(` Idea generated: ${topic} (ID: ${id})`);
+    console.log(`Idea generated: ${topic} (ID: ${id})`);
     
     return { id, content, topic, category };
     
   } catch (error) {
-    console.error(' Error generating idea:', error.message);
+    console.error('Error generating idea:', error.message);
     throw new Error(`Failed to generate idea: ${error.message}`);
   }
 }

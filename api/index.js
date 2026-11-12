@@ -50,7 +50,7 @@ app.post('/api/webhook', async (req, res) => {
 // For local development
 if (require.main === module) {
   app.listen(PORT, () => {
-    console.log(` TF Agent running on port ${PORT}`);
+    console.log(`TF Agent running on port ${PORT}`);
   });
 }
 

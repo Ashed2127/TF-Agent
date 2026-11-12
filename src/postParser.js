@@ -31,11 +31,11 @@ function parsePreviousPosts() {
       }
     }
     
-    console.log(` Parsed ${posts.length} previous posts from HTML file`);
+    console.log(`Parsed ${posts.length} previous posts from HTML file`);
     return posts;
     
   } catch (error) {
-    console.error(' Error parsing previous posts:', error);
+    console.error('Error parsing previous posts:', error);
     return [];
   }
 }

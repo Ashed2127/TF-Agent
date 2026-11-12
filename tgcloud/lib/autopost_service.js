@@ -1,19 +1,21 @@
 import { api } from 'sdk';
-import { 
-  getDueAutoPostSchedules, 
-  updateAutoPostLastPosted, 
-  getUserById, 
-  getUserByTelegramId, 
-  createPost, 
-  getUserPosts, 
+import {
+  getDueAutoPostSchedules,
+  updateAutoPostLastPosted,
+  updateAutoPostSchedule,
+  getUserById,
+  getUserByTelegramId,
+  createPost,
+  getUserPosts,
   getCustomSources,
-  recordUserActivity 
+  recordUserActivity
 } from './database.js';
 import { 
   NEWS_PLATFORMS, 
   fetchRSSFeed, 
   getPlatformById, 
-  formatNewsArticle 
+  formatNewsArticle,
+  fetchArticleImage
 } from './news.js';
 import { formatChannelHandle } from './channel.js';
 import { generateIdea } from './agent.js';
@@ -39,7 +41,7 @@ export async function processSingleAutoPost(schedule) {
   if (schedule.post_mode === 'repetitive' && schedule.repetitive_content) {
     let repContent = schedule.repetitive_content;
     if (userChannelLink && !repContent.includes(userChannelLink)) {
-      repContent += '\n\n ' + userChannelLink;
+      repContent += '\n\n📢 ' + userChannelLink;
     }
     const lines = repContent.split('\n');
     let titleSnippet = 'Repetitive Post';
@@ -134,10 +136,15 @@ export async function processSingleAutoPost(schedule) {
         const postedTitleKeys = new Set();
 
         for (const p of userRecentPosts) {
-          // Track posted URL links
-          const linkMatch = (p.content || '').match(/href=["']([^"']+)["']/i);
-          if (linkMatch && linkMatch[1]) {
-            postedUrlKeys.add(normalizeKey(linkMatch[1]));
+          // Track posted URL links - check <a href="..."> and raw URLs
+          const linkMatches = (p.content || '').match(/href=["']([^"']+)["']/gi) || [];
+          for (const lm of linkMatches) {
+            const m = lm.match(/href=["']([^"']+)["']/i);
+            if (m && m[1]) postedUrlKeys.add(normalizeKey(m[1]));
+          }
+          const rawUrlMatches = (p.content || '').match(/https?:\/\/[^\s<>"')]+/gi) || [];
+          for (const u of rawUrlMatches) {
+            postedUrlKeys.add(normalizeKey(u));
           }
 
           // Track posted article titles (headline is first line in post content)
@@ -189,6 +196,16 @@ export async function processSingleAutoPost(schedule) {
   let postTitle = '';
 
   if (articleToPost) {
+    // If article lacks an image, attempt to fetch its og:image directly from source URL
+    if (!articleToPost.image && !articleToPost.video && articleToPost.link) {
+      try {
+        const fetchedImg = await fetchArticleImage(articleToPost.link);
+        if (fetchedImg) {
+          articleToPost.image = fetchedImg;
+        }
+      } catch (_) {}
+    }
+
     // Format news article using user's content structure & translation
     postedContent = await formatNewsArticle(
       articleToPost, 
@@ -200,45 +217,71 @@ export async function processSingleAutoPost(schedule) {
     );
     postTitle = articleToPost.title || 'News Article';
 
-    // Post to channel (with photo/video if available)
+    // Post to channel (with photo/video if available, respecting caption limit & text fallback)
+    const captionText = postedContent.length > 1024 ? postedContent.substring(0, 1020) + '...' : postedContent;
+
     if (articleToPost.video) {
       try {
         await api.sendVideo({
           chat_id: schedule.channel_id,
           video: articleToPost.video,
-          caption: postedContent,
+          caption: captionText,
           parse_mode: 'HTML'
         });
       } catch (err) {
         console.warn('Failed video post, trying text fallback:', err.message);
-        await api.sendMessage({
-          chat_id: schedule.channel_id,
-          text: postedContent,
-          parse_mode: 'HTML'
-        });
+        try {
+          await api.sendMessage({
+            chat_id: schedule.channel_id,
+            text: postedContent,
+            parse_mode: 'HTML'
+          });
+        } catch (textErr) {
+          console.warn('HTML sendMessage failed, trying plain text fallback:', textErr.message);
+          await api.sendMessage({
+            chat_id: schedule.channel_id,
+            text: postedContent.replace(/<[^>]*>/g, '')
+          });
+        }
       }
     } else if (articleToPost.image) {
       try {
         await api.sendPhoto({
           chat_id: schedule.channel_id,
           photo: articleToPost.image,
-          caption: postedContent,
+          caption: captionText,
           parse_mode: 'HTML'
         });
       } catch (err) {
         console.warn('Failed photo post, trying text fallback:', err.message);
+        try {
+          await api.sendMessage({
+            chat_id: schedule.channel_id,
+            text: postedContent,
+            parse_mode: 'HTML'
+          });
+        } catch (textErr) {
+          console.warn('HTML sendMessage failed, trying plain text fallback:', textErr.message);
+          await api.sendMessage({
+            chat_id: schedule.channel_id,
+            text: postedContent.replace(/<[^>]*>/g, '')
+          });
+        }
+      }
+    } else {
+      try {
         await api.sendMessage({
           chat_id: schedule.channel_id,
           text: postedContent,
           parse_mode: 'HTML'
         });
+      } catch (textErr) {
+        console.warn('HTML sendMessage failed, trying plain text fallback:', textErr.message);
+        await api.sendMessage({
+          chat_id: schedule.channel_id,
+          text: postedContent.replace(/<[^>]*>/g, '')
+        });
       }
-    } else {
-      await api.sendMessage({
-        chat_id: schedule.channel_id,
-        text: postedContent,
-        parse_mode: 'HTML'
-      });
     }
 
     // Save post record
@@ -309,7 +352,7 @@ export async function checkAndTriggerDueAutoPosts() {
   const dueSchedules = await getDueAutoPostSchedules();
   if (!dueSchedules || dueSchedules.length === 0) return 0;
 
-  console.log(`AutoPost worker found ${dueSchedules.length} due schedule(s)`);
+  console.log(`⏱️ AutoPost worker found ${dueSchedules.length} due schedule(s)`);
 
   let count = 0;
   for (const schedule of dueSchedules) {
@@ -318,6 +361,19 @@ export async function checkAndTriggerDueAutoPosts() {
       count++;
     } catch (err) {
       console.error(`AutoPost failed for schedule ${schedule.id}:`, err.message);
+      // Advance next_post_at so failing schedule does not lock into an infinite crash loop
+      try {
+        await updateAutoPostLastPosted(schedule.id);
+      } catch (_) {}
+
+      // If channel is invalid or bot was removed, pause schedule to avoid spamming Bot API
+      const errMsg = (err.message || '').toLowerCase();
+      if (errMsg.includes('chat not found') || errMsg.includes('kicked') || errMsg.includes('not a member') || errMsg.includes('have rights to send a message')) {
+        try {
+          await updateAutoPostSchedule(schedule.id, undefined, undefined, false);
+          console.warn(`AutoPost schedule ${schedule.id} paused due to channel access error: ${err.message}`);
+        } catch (_) {}
+      }
     }
   }
   return count;

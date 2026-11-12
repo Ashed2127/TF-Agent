@@ -451,10 +451,21 @@ export async function addCustomSource(userId, sourceName, sourceUrl) {
 }
 
 export async function getCustomSources(userId) {
-  return await db.select()
+  let sources = await db.select()
     .from(customSources)
     .where(eq(customSources.user_id, userId))
     .all();
+
+  if (sources.length === 0) {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.id !== userId) {
+      sources = await db.select()
+        .from(customSources)
+        .where(eq(customSources.user_id, user.id))
+        .all();
+    }
+  }
+  return sources;
 }
 
 export async function deleteCustomSource(sourceId, userId) {
@@ -828,14 +839,15 @@ export async function deleteContentStructure(userId) {
 
 export async function createAutoPostSchedule(userId, channelId, intervalHours, sourcePlatform = null, targetLang = null, postMode = 'news', repetitiveContent = null) {
   // Support interval in fractional hours or hours accurately
+  const validInterval = (intervalHours && !isNaN(intervalHours) && Number(intervalHours) > 0) ? Number(intervalHours) : 2;
   const nowInSeconds = Math.floor(Date.now() / 1000);
-  const nextPostAt = Math.round(nowInSeconds + (intervalHours * 3600));
+  const nextPostAt = Math.round(nowInSeconds + (validInterval * 3600));
 
   const [schedule] = await db.insert(autoPostSchedules)
     .values({
       user_id: userId,
       channel_id: channelId,
-      interval_hours: intervalHours,
+      interval_hours: validInterval,
       source_platform: sourcePlatform || null,
       target_lang: targetLang || null,
       post_mode: postMode || 'news',
@@ -847,12 +859,42 @@ export async function createAutoPostSchedule(userId, channelId, intervalHours, s
   return schedule;
 }
 
-export async function getAutoPostSchedule(userId) {
+export async function getAutoPostSchedule(userId, postMode = 'news') {
   // Check by user id or fallback if telegram_id was used
+  let query = db.select().from(autoPostSchedules);
+  let conditions = [eq(autoPostSchedules.user_id, userId)];
+  if (postMode) {
+    conditions.push(eq(autoPostSchedules.post_mode, postMode));
+  }
+
+  let result = await query.where(and(...conditions)).limit(1).all();
+
+  if (result.length === 0) {
+    const user = await getUserByTelegramId(userId);
+    if (user && user.id !== userId) {
+      let fallbackConditions = [eq(autoPostSchedules.user_id, user.id)];
+      if (postMode) {
+        fallbackConditions.push(eq(autoPostSchedules.post_mode, postMode));
+      }
+      result = await db.select()
+        .from(autoPostSchedules)
+        .where(and(...fallbackConditions))
+        .limit(1)
+        .all();
+    }
+  }
+
+  return result[0] || null;
+}
+
+export async function getRepetitiveTaskSchedule(userId) {
+  return await getAutoPostSchedule(userId, 'repetitive');
+}
+
+export async function getUserAutoPostSchedules(userId) {
   let result = await db.select()
     .from(autoPostSchedules)
     .where(eq(autoPostSchedules.user_id, userId))
-    .limit(1)
     .all();
 
   if (result.length === 0) {
@@ -861,12 +903,11 @@ export async function getAutoPostSchedule(userId) {
       result = await db.select()
         .from(autoPostSchedules)
         .where(eq(autoPostSchedules.user_id, user.id))
-        .limit(1)
         .all();
     }
   }
 
-  return result[0] || null;
+  return result;
 }
 
 export async function updateAutoPostSchedule(scheduleId, channelId, intervalHours, isActive, sourcePlatform = undefined, targetLang = undefined, postMode = undefined, repetitiveContent = undefined) {
@@ -877,9 +918,10 @@ export async function updateAutoPostSchedule(scheduleId, channelId, intervalHour
   if (postMode !== undefined) updateData.post_mode = postMode;
   if (repetitiveContent !== undefined) updateData.repetitive_content = repetitiveContent;
   if (intervalHours !== undefined) {
-    updateData.interval_hours = intervalHours;
+    const validInterval = (intervalHours && !isNaN(intervalHours) && Number(intervalHours) > 0) ? Number(intervalHours) : 2;
+    updateData.interval_hours = validInterval;
     const now = Math.floor(Date.now() / 1000);
-    updateData.next_post_at = Math.round(now + (intervalHours * 3600));
+    updateData.next_post_at = Math.round(now + (validInterval * 3600));
   }
   if (isActive !== undefined) updateData.is_active = isActive ? 1 : 0;
 
@@ -925,7 +967,9 @@ export async function updateAutoPostLastPosted(scheduleId) {
   if (schedule.length === 0) return null;
 
   const now = Math.floor(Date.now() / 1000);
-  const nextPostAt = Math.round(now + (schedule[0].interval_hours * 3600));
+  const rawInterval = schedule[0].interval_hours;
+  const intervalHours = (rawInterval && !isNaN(rawInterval) && Number(rawInterval) > 0) ? Number(rawInterval) : 2;
+  const nextPostAt = Math.round(now + (intervalHours * 3600));
 
   const [updated] = await db.update(autoPostSchedules)
     .set({
@@ -944,7 +988,7 @@ export async function getDueAutoPostSchedules() {
     .from(autoPostSchedules)
     .where(and(
       eq(autoPostSchedules.is_active, 1),
-      sql`${autoPostSchedules.next_post_at} <= ${now}`
+      sql`(${autoPostSchedules.next_post_at} IS NULL OR ${autoPostSchedules.next_post_at} <= ${now})`
     ))
     .all();
 }

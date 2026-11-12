@@ -75,11 +75,11 @@ const TRUE_FEED_CHANNEL_ID = process.env.TRUE_FEED_CHANNEL_ID ? parseInt(process
 async function fetchRelevantGif(newsTitle) {
   try {
     if (!process.env.GIPHY_API_KEY) {
-      console.log('️ GIPHY_API_KEY not configured in .env file - GIF feature disabled');
+      console.log('GIPHY_API_KEY not configured in .env file - GIF feature disabled');
       return null;
     }
 
-    console.log(` Searching for GIF with keywords from: ${newsTitle}`);
+    console.log(`Searching for GIF with keywords from: ${newsTitle}`);
 
     // Extract keywords from the title for GIF search
     const keywords = newsTitle
@@ -91,11 +91,11 @@ async function fetchRelevantGif(newsTitle) {
       .join(' ');
 
     if (!keywords) {
-      console.log('️ No valid keywords found for GIF search');
+      console.log('No valid keywords found for GIF search');
       return null;
     }
 
-    console.log(` GIF search keywords: ${keywords}`);
+    console.log(`GIF search keywords: ${keywords}`);
 
     const response = await axios.get('https://api.giphy.com/v1/gifs/search', {
       params: {
@@ -112,11 +112,11 @@ async function fetchRelevantGif(newsTitle) {
       const gif = response.data.data[0];
       // Get the small version of the GIF
       const gifUrl = gif.images.fixed_height_small?.url || gif.images.original?.url;
-      console.log(` GIF found: ${gifUrl}`);
+      console.log(`GIF found: ${gifUrl}`);
       return gifUrl;
     }
 
-    console.log('️ No GIFs found for the given keywords');
+    console.log('No GIFs found for the given keywords');
     return null;
   } catch (error) {
     console.error(' Error fetching GIF from Giphy:', error.message);

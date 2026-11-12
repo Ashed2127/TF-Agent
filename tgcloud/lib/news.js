@@ -3,9 +3,9 @@ import { OPENROUTER_API_KEY } from './secrets.js';
 import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
 
 export const SUPPORTED_LANGUAGES = {
-  am: { code: 'am', name: 'Amharic', label: 'አማርኛ (Amharic)', flag: '' },
-  ti: { code: 'ti', name: 'Tigrinya', label: 'ትግርኛ (Tigrinya)', flag: '' },
-  om: { code: 'om', name: 'Afaan Oromo', label: 'Afaan Oromoo', flag: '' }
+  am: { code: 'am', name: 'Amharic', label: '🇪🇹 አማርኛ (Amharic)', flag: '🇪🇹' },
+  ti: { code: 'ti', name: 'Tigrinya', label: '🇪🇹 ትግርኛ (Tigrinya)', flag: '🇪🇹' },
+  om: { code: 'om', name: 'Afaan Oromo', label: '🇪🇹 Afaan Oromoo', flag: '🇪🇹' }
 };
 
 export async function translateToAmharic(text) {
@@ -74,28 +74,28 @@ export async function directTranslateToLanguage(text, targetLang = 'am') {
  * Top News Categories
  */
 export const NEWS_CATEGORIES = [
-  { id: 'tech', name: 'Tech & AI', description: 'AI, software, computing & gadgets' },
-  { id: 'business', name: 'Business & Finance', description: 'Markets, economy, banking & commerce' },
-  { id: 'world', name: 'World News', description: 'Global headlines & international events' },
-  { id: 'startups', name: 'Startups & Africa', description: 'African tech, VC funding & innovation' },
-  { id: 'science', name: 'Science & Space', description: 'Science breakthroughs, health & space' },
-  { id: 'education', name: 'Education', description: 'Learning, schools, universities & skills' },
-  { id: 'research', name: 'Research & Academia', description: 'Academic papers, studies & scientific research' },
-  { id: 'crypto', name: 'Crypto & Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
-  { id: 'entertainment', name: 'Entertainment', description: 'Movies, gaming, music & culture' },
+  { id: 'tech', name: 'Tech', description: 'AI, software, computing & gadgets' },
+  { id: 'business', name: ' Busines',description: 'Markets, economy, banking & commerce' },
+  { id: 'world', name: 'Universal', description: 'Global headlines & international events' },
+  { id: 'startups', name: ' Startups ', description: 'African tech, VC funding & innovation' },
+  { id: 'science', name: ' Science', description: 'Science breakthroughs, health & space' },
+  { id: 'education', name: ' Education', description: 'Learning, schools, universities & skills' },
+  { id: 'research', name: ' Research ', description: 'Academic papers, studies & scientific research' },
+  { id: 'crypto', name: ' Web3', description: 'Bitcoin, Ethereum, DeFi & blockchain' },
+  { id: 'entertainment', name: ' Entertainment', description: 'Movies, gaming, music & culture' },
   { id: 'sports', name: 'Sports', description: 'Global football, athletics & tournaments' },
-  { id: 'credits', name: 'Credits', description: 'AI credits, software credits & startup resources' },
-  { id: 'geopolitics', name: 'War & Geopolitics', description: 'War, defense analysis & geopolitical intelligence' },
-  { id: 'psychology', name: 'Psychology & Science', description: 'Psychology, cognitive science & research studies' },
-  { id: 'jokes', name: 'Jokes & Humor', description: 'Humor, jokes, satire & fun' },
-  { id: 'economics', name: 'Economics & Stats', description: 'Country economic data, macro stats & indicators' },
-  { id: 'intl_news', name: 'Intl News', description: 'Major international news providers & reporting' },
-  { id: 'aggregators', name: 'News Aggregators', description: 'News aggregators, feed readers & media monitoring' },
-  { id: 'family', name: '‍‍ Relationships & Family', description: 'Relationships, parenting, family dynamics & social research' },
-  { id: 'nature', name: 'Nature & Wildlife', description: 'Nature, wildlife, biodiversity & conservation' },
-  { id: 'curiosity', name: 'Amazing Facts & Curiosity', description: 'Fascinating discoveries, trivia, mysteries & general knowledge' },
-  { id: 'wealth', name: 'Wealth & Billionaires', description: 'Billionaires, wealth intelligence, inequality & family offices' },
-  { id: 'disaster', name: 'Disaster & Emergencies', description: 'Disaster monitoring, humanitarian relief & emergency response' }
+  { id: 'credits', name: ' Credits', description: 'AI credits, software credits & startup resources' },
+  { id: 'geopolitics', name: 'Geopolitics', description: 'War, defense analysis & geopolitical intelligence' },
+  { id: 'psychology', name: ' Psychology ', description: 'Psychology, cognitive science & research studies' },
+  { id: 'jokes', name: ' Jokes ', description: 'Humor, jokes, satire & fun' },
+  { id: 'economics', name: ' Economics', description: 'Country economic data, macro stats & indicators' },
+  { id: 'intl_news', name: ' Intl', description: 'Major international news providers & reporting' },
+  { id: 'aggregators', name: ' News', description: 'News aggregators, feed readers & media monitoring' },
+  { id: 'family', name: ' Relationships' , description: 'Relationships, parenting, family dynamics & social research' },
+  { id: 'nature', name: ' Nature', description: 'Nature, wildlife, biodiversity & conservation' },
+  { id: 'curiosity', name: ' Facts ', description: 'Fascinating discoveries, trivia, mysteries & general knowledge' },
+  { id: 'wealth', name: ' Wealth ', description: 'Billionaires, wealth intelligence, inequality & family offices' },
+  { id: 'disaster', name: ' Disaster ', description: 'Disaster monitoring, humanitarian relief & emergency response' }
 ];
 
 /**
@@ -518,7 +518,10 @@ function parseRSS(xmlString) {
         // Extract title (handle CDATA)
         const titleMatch = itemContent.match(/<title><!\[CDATA\[([^\]]*)\]\]><\/title>/i) ||
                            itemContent.match(/<title>([^<]*)<\/title>/i);
-        const title = titleMatch ? titleMatch[1].trim() : '';
+        let title = titleMatch ? titleMatch[1].trim() : '';
+        if (title) {
+          title = decodeHTMLEntities(title);
+        }
         
         // Extract link
         const linkMatch = itemContent.match(/<link>([^<]*)<\/link>/i);
@@ -882,7 +885,7 @@ export function getPlatformById(platformId) {
 
 const OWNER_CHAT_ID = 685669468;
 
-const OWNER_STRUCTURE = ` Hybrid: [Name]
+const OWNER_STRUCTURE = `🟢 Hybrid: [Name]
 
 Value [5+ lines insight]
 
@@ -915,7 +918,33 @@ export async function translateWithGoogle(text, targetLang = 'am') {
   }
 }
 
-export function cleanEthiopicPunctuation(text) {
+/**
+ * Robust HTML entity decoder
+ */
+export function decodeHTMLEntities(str) {
+  if (!str) return '';
+  return str
+    .replace(/&#8217;|&#x2019;|’/g, "'")
+    .replace(/&#8216;|&#x2018;|‘/g, "'")
+    .replace(/&#8220;|&#8221;|&#x201C;|&#x201D;|&ldquo;|&rdquo;/g, '"')
+    .replace(/&#8211;|&#8212;|&ndash;|&mdash;/g, '-')
+    .replace(/&#8230;|&hellip;/g, '...')
+    .replace(/&amp;#038;|&#038;|&#38;|&amp;/g, '&')
+    .replace(/&quot;|&#34;/g, '"')
+    .replace(/&#39;|&#x27;/g, "'")
+    .replace(/&lt;|&#60;/g, '<')
+    .replace(/&gt;|&#62;/g, '>')
+    .replace(/&nbsp;|&#160;/g, ' ')
+    .replace(/&#(\d+);/g, (m, dec) => {
+      try {
+        return String.fromCharCode(dec);
+      } catch (_) {
+        return m;
+      }
+    });
+}
+
+function cleanEthiopicPunctuation(text) {
   if (!text) return '';
   return text
     .replace(/፤/g, '፣')
@@ -949,14 +978,17 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     .replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '')
     .trim();
 
+  // Strip standalone media/image instructions from template (e.g., "Use its image", "[Image]", "[Content Image]")
+  clean = clean.replace(/(?:^|\n)\s*(?:\[?\s*(?:use\s+(?:its\s+)?image|image|photo|picture|content\s+image)\s*\]?:?)\s*(?:\n|$)/gi, '\n').trim();
+
   // Auto-normalize missing opening bracket if line ends with ]
   clean = clean.replace(/^([^\[\n\r]+\])/, '[$1');
   clean = clean.replace(/(?:^|\n)([^\[\n\r]+)\]/g, (m, p1) => {
     return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
   });
 
-  const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
-  const sourceLink = article.link ? `<a href="${article.link}">${article.platform || 'Source'}</a>` : '';
+  const targetChannel = isOwner ? '<b>@true_feed</b>' : (userChannelLink || '@true_feed');
+  const sourceLink = article.link ? `<a href="${article.link}">${escapeHTML(article.platform || 'Source')}</a>` : '';
 
   // 1. Channel replacement: handle [@true_feed in Bold style], [Channel], [@channel], etc.
   clean = clean.replace(/\[\s*(@[a-zA-Z0-9_]+)\s+in\s+bold(?:\s+style)?\s*\]/gi, '<b>$1</b>');
@@ -970,8 +1002,20 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   // 2. Source link replacement
   clean = clean.replace(/\[(?:Source\s*link|Source|Link|ምንጭ|የምንጭ\s*ሊንክ)\]/gi, sourceLink);
 
-  const rawTitle = (article.title || '').replace(/<[^>]*>/g, '').trim();
-  const rawDesc = (article.description || article.content || '').replace(/<[^>]*>/g, '').trim().substring(0, 500);
+  const rawTitle = decodeHTMLEntities((article.title || '').replace(/<[^>]*>/g, '').trim());
+  let rawDesc = decodeHTMLEntities((article.description || article.content || '').replace(/<[^>]*>/g, '').trim());
+
+  // Clean sentence/word truncation instead of cutting mid-word
+  if (rawDesc.length > 500) {
+    const sub = rawDesc.substring(0, 500);
+    const lastPunct = Math.max(sub.lastIndexOf('. '), sub.lastIndexOf('? '), sub.lastIndexOf('! '));
+    if (lastPunct > 200) {
+      rawDesc = sub.substring(0, lastPunct + 1).trim();
+    } else {
+      const lastSpace = sub.lastIndexOf(' ');
+      rawDesc = (lastSpace > 200 ? sub.substring(0, lastSpace) : sub).trim() + '...';
+    }
+  }
 
   // 5. Check if structure has bracket placeholders
   const hasPlaceholders = /\[.*?\]/.test(clean);
@@ -991,6 +1035,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     } else {
       formattedTitle = rawTitle;
     }
+    formattedTitle = escapeHTML(formattedTitle);
 
     if (isBoldTitle && isItalicTitle) {
       formattedTitle = `<b><i>${formattedTitle}</i></b>`;
@@ -1010,6 +1055,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     } else {
       formattedDesc = rawDesc;
     }
+    formattedDesc = escapeHTML(formattedDesc);
 
     // Split description into sentences/points for bullet points
     const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
@@ -1018,7 +1064,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
       const t = (shouldTranslate || isAmharicDesc)
         ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i], langToUse), useDots)
         : rawSentences[i];
-      points.push(t);
+      points.push(escapeHTML(t));
     }
     if (points.length === 0 && formattedDesc) {
       points.push(formattedDesc);
@@ -1044,74 +1090,83 @@ async function generateFallbackContent(article, structure, userChannelLink, show
 
     // Clean any remaining unreplaced bracket placeholders
     clean = clean.replace(/\[.*?\]/g, '').trim();
+  } else {
+    // 6. If structure is a sample post (no brackets)
+    const isAmharicStructure = /(?:አማርኛ|ዜና|መረጃ)/.test(clean);
+    const shouldTranslateSample = (targetLang && targetLang !== 'en') || isAmharicStructure;
+    const sampleLang = (targetLang && targetLang !== 'en') ? targetLang : 'am';
 
-    return clean;
-  }
+    let sampleTitle = shouldTranslateSample
+      ? cleanAmharicPunctuation(await translateWithGoogle(rawTitle, sampleLang), useDots)
+      : rawTitle;
+    sampleTitle = escapeHTML(sampleTitle);
 
-  // 6. If structure is a sample post (no brackets)
-  const isAmharicStructure = /(?:አማርኛ|ዜና|መረጃ)/.test(clean);
-  const shouldTranslateSample = (targetLang && targetLang !== 'en') || isAmharicStructure;
-  const sampleLang = (targetLang && targetLang !== 'en') ? targetLang : 'am';
+    let sampleDesc = shouldTranslateSample
+      ? cleanAmharicPunctuation(await translateWithGoogle(rawDesc, sampleLang), useDots)
+      : rawDesc;
+    sampleDesc = escapeHTML(sampleDesc);
 
-  const sampleTitle = shouldTranslateSample
-    ? cleanAmharicPunctuation(await translateWithGoogle(rawTitle, sampleLang), useDots)
-    : rawTitle;
-  const sampleDesc = shouldTranslateSample
-    ? cleanAmharicPunctuation(await translateWithGoogle(rawDesc, sampleLang), useDots)
-    : rawDesc;
-  const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
-  const samplePoints = [];
-  for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
-    const t = shouldTranslateSample
-      ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i], sampleLang), useDots)
-      : rawSentences[i];
-    samplePoints.push(t);
-  }
-
-  const lines = clean.split('\n');
-  const resultLines = [];
-  let titlePlaced = false;
-  let pIdx = 0;
-
-  for (let line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) {
-      resultLines.push('');
-      continue;
+    const rawSentences = rawDesc.split(/(?<=[.!?])\s+/).filter(s => s.length > 10);
+    const samplePoints = [];
+    for (let i = 0; i < Math.min(rawSentences.length, 4); i++) {
+      const t = shouldTranslateSample
+        ? cleanAmharicPunctuation(await translateWithGoogle(rawSentences[i], sampleLang), useDots)
+        : rawSentences[i];
+      samplePoints.push(escapeHTML(t));
     }
 
-    if (trimmed.startsWith('@')) {
-      resultLines.push(targetChannel);
-      continue;
-    }
+    const lines = clean.split('\n');
+    const resultLines = [];
+    let titlePlaced = false;
+    let pIdx = 0;
 
-    // Bullet line
-    const bulletMatch = trimmed.match(/^([•\-\*])\s*(.*)$/);
-    if (bulletMatch) {
-      const bulletChar = bulletMatch[1];
-      const pointText = samplePoints[pIdx] || samplePoints[0] || sampleDesc;
-      pIdx++;
-      resultLines.push(`${bulletChar} ${pointText}`);
-      continue;
-    }
-
-    // Title line (first non-empty line)
-    if (!titlePlaced) {
-      const emojiMatch = trimmed.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])\s*(.*)$/);
-      if (emojiMatch) {
-        resultLines.push(`${emojiMatch[1]} ${sampleTitle}`);
-      } else {
-        resultLines.push(sampleTitle);
+    for (let line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) {
+        resultLines.push('');
+        continue;
       }
-      titlePlaced = true;
-      continue;
+
+      if (trimmed.startsWith('@')) {
+        resultLines.push(targetChannel);
+        continue;
+      }
+
+      // Bullet line
+      const bulletMatch = trimmed.match(/^([•\-\*🔹▪️▫️🔸♦️])\s*(.*)$/);
+      if (bulletMatch) {
+        const bulletChar = bulletMatch[1];
+        const pointText = samplePoints[pIdx] || samplePoints[0] || sampleDesc;
+        pIdx++;
+        resultLines.push(`${bulletChar} ${pointText}`);
+        continue;
+      }
+
+      // Title line (first non-empty line)
+      if (!titlePlaced) {
+        const emojiMatch = trimmed.match(/^([\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF])\s*(.*)$/);
+        if (emojiMatch) {
+          resultLines.push(`${emojiMatch[1]} ${sampleTitle}`);
+        } else {
+          resultLines.push(sampleTitle);
+        }
+        titlePlaced = true;
+        continue;
+      }
+
+      // Body / summary line
+      resultLines.push(sampleDesc);
     }
 
-    // Body / summary line
-    resultLines.push(sampleDesc);
+    clean = resultLines.join('\n');
   }
 
-  return resultLines.join('\n');
+  // Ensure user channel handle is appended at the bottom if not already included
+  if (targetChannel && !clean.includes(targetChannel) && !clean.includes(userChannelLink)) {
+    clean += `\n\n${targetChannel}`;
+  }
+
+  return clean;
 }
 
 /**
@@ -1140,19 +1195,19 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
 
     // Get user's content structure if userId is provided
     if (user) {
-      console.log(' Fetching user for userId:', userId);
-      console.log(' User found, database ID:', user.id);
+      console.log('🔍 Fetching user for userId:', userId);
+      console.log('✅ User found, database ID:', user.id);
       const customStructure = await getContentStructure(user.id);
-      console.log(' Custom structure query result:', customStructure);
+      console.log('🔍 Custom structure query result:', customStructure);
       if (customStructure && customStructure.structure_template) {
         structure = customStructure.structure_template;
-        console.log(' Using USER custom structure for news translation:', userId);
-        console.log(' Structure content:', structure);
+        console.log('✅ Using USER custom structure for news translation:', userId);
+        console.log('📋 Structure content:', structure);
       } else {
-        console.log('No custom structure found for user:', user.id);
+        console.log('ℹ️ No custom structure found for user:', user.id);
       }
     } else {
-      console.log('No user found for userId:', userId);
+      console.log('ℹ️ No user found for userId:', userId);
     }
 
     // If user is guest or has no custom structure
@@ -1162,14 +1217,17 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
     } else if (!structure) {
       if (isOwner) {
         structure = OWNER_STRUCTURE;
-        console.log(' Using OWNER structure for news translation');
+        console.log('👑 Using OWNER structure for news translation');
       } else {
         structure = DEFAULT_USER_STRUCTURE;
-        console.log('Using DEFAULT structure for news translation');
+        console.log('ℹ️ Using DEFAULT structure for news translation');
       }
     }
 
     let cleanStructure = structure.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
+
+    // Strip standalone media/image instructions from template (e.g., "Use its image", "[Image]", "[Content Image]")
+    cleanStructure = cleanStructure.replace(/(?:^|\n)\s*(?:\[?\s*(?:use\s+(?:its\s+)?image|image|photo|picture|content\s+image)\s*\]?:?)\s*(?:\n|$)/gi, '\n').trim();
 
     // Auto-normalize missing brackets in template (e.g. "Bold Headline ]" -> "[Bold Headline]")
     cleanStructure = cleanStructure.replace(/^([^\[\n\r]+\])/, '[$1');
@@ -1278,7 +1336,8 @@ export async function formatNewsArticle(article, userChannelLink = null, showSou
 /**
  * Helper to escape HTML characters in text segments
  */
-function escapeHTML(str) {
+export function escapeHTML(str) {
+  if (!str) return '';
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 

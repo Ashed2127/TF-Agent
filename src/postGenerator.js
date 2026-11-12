@@ -2,7 +2,7 @@ const { getRecentPosts } = require('./postParser');
 
 async function generateInsightfulPost() {
   try {
-    console.log(' Generating insightful post based on previous posts...');
+    console.log('Generating insightful post based on previous posts...');
     
     const recentPosts = getRecentPosts(5);
     const postsContext = recentPosts.length > 0 
@@ -65,19 +65,19 @@ Generate the post in Amharic. Keep it short, insightful, and conversational. Max
       throw new Error('Empty response from OpenRouter');
     }
     
-    console.log(` Insightful post generated successfully`);
+    console.log(`Insightful post generated successfully`);
     
     return { content };
     
   } catch (error) {
-    console.error(' Error generating insightful post:', error.message);
+    console.error('Error generating insightful post:', error.message);
     throw new Error(`Failed to generate insightful post: ${error.message}`);
   }
 }
 
 async function generateJoke() {
   try {
-    console.log(' Generating joke based on True Feed writing style...');
+    console.log('Generating joke based on True Feed writing style...');
     
     const recentPosts = getRecentPosts(5);
     const postsContext = recentPosts.length > 0 
@@ -133,12 +133,12 @@ Generate the joke in Amharic. Keep it short and funny. Maximum 6 lines.`;
       throw new Error('Empty response from OpenRouter');
     }
     
-    console.log(` Joke generated successfully`);
+    console.log(`Joke generated successfully`);
     
     return { content };
     
   } catch (error) {
-    console.error(' Error generating joke:', error.message);
+    console.error('Error generating joke:', error.message);
     throw new Error(`Failed to generate joke: ${error.message}`);
   }
 }

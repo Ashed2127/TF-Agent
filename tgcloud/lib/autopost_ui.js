@@ -8,10 +8,7 @@ export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = f
 
   const keyboard = [
     [
-      { text: 'Setup Repetitive Content', callback_data: `${isUpdate ? 'ap_up_rep' : 'ap_st_rep'}_${channelId}_0.01666667` }
-    ],
-    [
-      { text: '1 min', callback_data: `${prefix}_${channelId}_0.01666667` },
+      { text: '⏱️ 1 min', callback_data: `${prefix}_${channelId}_0.01666667` },
       { text: '2 hr', callback_data: `${prefix}_${channelId}_2` }
     ],
     [
@@ -19,16 +16,16 @@ export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = f
       { text: '7 hr', callback_data: `${prefix}_${channelId}_7` }
     ],
     [
-      { text: 'Custom Interval', callback_data: `${customPrefix}_${channelId}` }
+      { text: '⚙️ Custom Interval', callback_data: `${customPrefix}_${channelId}` }
     ],
     [
-      { text: 'Back', callback_data: isUpdate ? 'auto_post' : 'ap_sel_chn' }
+      { text: '« Back', callback_data: isUpdate ? 'auto_post' : 'ap_sel_chn' }
     ]
   ];
 
   await api.sendMessage({
     chat_id: chatId,
-    text: `<b>Auto Post Interval</b>\n\nChannel: <code>${channelId}</code>\n\nChoose how often you want new content to be automatically posted:`,
+    text: `⏱️ <b>Auto Post Interval</b>\n\nChannel: <code>${channelId}</code>\n\nChoose how often you want new content to be automatically posted:`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
@@ -61,18 +58,14 @@ export async function showAutoPostCategoryPicker(chatId, channelId, intervalHour
   if (customSources && customSources.length > 0) {
     keyboard.push([
       { 
-        text: `My Sources (${customSources.length})`, 
+        text: `⭐ My Sources (${customSources.length})`, 
         callback_data: `${actionPrefix}_${channelId}_${intervalHours}_custom` 
       }
     ]);
   }
 
   keyboard.push([
-    { text: 'Repetitive Custom Content', callback_data: `${isUpdate ? 'ap_up_rep' : 'ap_st_rep'}_${channelId}_${intervalHours}` }
-  ]);
-
-  keyboard.push([
-    { text: 'All News Platforms', callback_data: `${actionPrefix}_${channelId}_${intervalHours}_all` }
+    { text: '🌐 All News Platforms', callback_data: `${actionPrefix}_${channelId}_${intervalHours}_all` }
   ]);
 
   keyboard.push([
@@ -81,7 +74,7 @@ export async function showAutoPostCategoryPicker(chatId, channelId, intervalHour
 
   await api.sendMessage({
     chat_id: chatId,
-    text: ` <b>Select Content Source Category:</b>\n\nChoose the category of platforms for your automated posts:`,
+    text: `📡 <b>Select Content Source Category:</b>\n\nChoose the category of platforms for your automated posts:`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
@@ -97,7 +90,7 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
     const customSources = await getCustomSources(userId);
     platforms = customSources.map(s => ({
       id: `custom_${s.id}`,
-      name: `${s.source_name}`
+      name: `⭐ ${s.source_name}`
     }));
   } else if (catId === 'all') {
     platforms = NEWS_PLATFORMS;
@@ -122,7 +115,7 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
   }
 
   keyboard.push([
-    { text: 'Back to Categories', callback_data: `${isUpdate ? 'ap_up_back' : 'ap_st_back'}_${channelId}_${intervalHours}` },
+    { text: '« Back to Categories', callback_data: `${isUpdate ? 'ap_up_back' : 'ap_st_back'}_${channelId}_${intervalHours}` },
     { text: 'Cancel', callback_data: 'auto_post' }
   ]);
 
@@ -131,7 +124,7 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
 
   await api.sendMessage({
     chat_id: chatId,
-    text: ` <b>${catName}</b>\n\nSelect the platform to generate and auto-post content from:`,
+    text: `📰 <b>${catName}</b>\n\nSelect the platform to generate and auto-post content from:`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
@@ -143,21 +136,56 @@ export async function showAutoPostLanguagePicker(chatId, channelId, intervalHour
   const prefix = isUpdate ? 'ap_up_lang' : 'ap_st_lang';
   const keyboard = [
     [
-      { text: 'አማርኛ (Amharic)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_am` },
-      { text: 'ትግርኛ (Tigrinya)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_ti` }
+      { text: '🇪🇹 አማርኛ (Amharic)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_am` },
+      { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_ti` }
     ],
     [
-      { text: 'Afaan Oromoo', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_om` },
-      { text: 'English (Original)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_en` }
+      { text: '🇪🇹 Afaan Oromoo', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_om` },
+      { text: '🇬🇧 English (Original)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_en` }
     ],
     [
-      { text: 'Back to Auto Post', callback_data: 'auto_post' }
+      { text: '« Back to Auto Post', callback_data: 'auto_post' }
     ]
   ];
 
   await api.sendMessage({
     chat_id: chatId,
-    text: ` <b>Select Translation Language:</b>\n\nChoose the target language for auto-posted articles:`,
+    text: `🌐 <b>Select Translation Language:</b>\n\nChoose the target language for auto-posted articles:`,
+    parse_mode: 'HTML',
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  });
+}
+
+export async function showRepetitiveIntervalPicker(chatId, channelId, isUpdate = false) {
+  const customPrefix = isUpdate ? 'custom_rep_task_update' : 'custom_rep_task_setup';
+  const actionPrefix = isUpdate ? 'rep_up_ivl' : 'rep_st_ivl';
+
+  const keyboard = [
+    [
+      { text: '⏱️ 1 min', callback_data: `${actionPrefix}_${channelId}_0.01666667` },
+      { text: '30 min', callback_data: `${actionPrefix}_${channelId}_0.5` }
+    ],
+    [
+      { text: '1 hr', callback_data: `${actionPrefix}_${channelId}_1` },
+      { text: '2 hr', callback_data: `${actionPrefix}_${channelId}_2` }
+    ],
+    [
+      { text: '4 hr', callback_data: `${actionPrefix}_${channelId}_4` },
+      { text: '8 hr', callback_data: `${actionPrefix}_${channelId}_8` }
+    ],
+    [
+      { text: '⚙️ Custom Interval', callback_data: `${customPrefix}_${channelId}` }
+    ],
+    [
+      { text: '« Back', callback_data: isUpdate ? 'repetitive_task' : 'rep_sel_chn' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `⏱️ <b>Repetitive Task Interval</b>\n\nChannel: <code>${channelId}</code>\n\nChoose how often you want this repetitive message or reminder to be posted:`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard

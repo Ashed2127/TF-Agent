@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, getRepetitiveTaskSchedule, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata, checkBotAdminStatus } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
@@ -45,7 +45,7 @@ export default async function (message, ctx) {
         } else {
           await api.sendMessage({
             chat_id: message.chat.id,
-            text: 'Could not extract channel information from selection. Please try again or send your channel username (e.g., @yourchannel) or link instead.',
+            text: '⚠️ Could not extract channel information from selection. Please try again or send your channel username (e.g., @yourchannel) or link instead.',
           });
           return;
         }
@@ -87,7 +87,7 @@ export default async function (message, ctx) {
     if (userId === OWNER_CHAT_ID) {
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: 'TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
+        text: '🌱 TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
         reply_markup: {
           inline_keyboard: [
             [
@@ -103,8 +103,8 @@ export default async function (message, ctx) {
               { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
             ],
             [
-              { text: 'Creator Rankings', callback_data: 'view_rankings' },
-              { text: 'Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+              { text: '🏆 Creator Rankings', callback_data: 'view_rankings' },
+              { text: '🌟 Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
             ]
           ]
         }
@@ -121,7 +121,7 @@ export default async function (message, ctx) {
   if ((message.text === '/users' || message.text === '/manage' || message.text === '/manage_users') && userId === OWNER_CHAT_ID) {
     const allUsers = await getAllUsers();
     const activeCount = allUsers.filter(u => u.onboarding_step === 'completed').length;
-    let text = `<b>User Management (${allUsers.length} total, ${activeCount} active):</b>\n\n`;
+    let text = `👥 <b>User Management (${allUsers.length} total, ${activeCount} active):</b>\n\n`;
 
     const keyboard = [];
     allUsers.slice(0, 15).forEach(u => {
@@ -150,7 +150,7 @@ export default async function (message, ctx) {
     try {
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: 'Testing idea generation...',
+        text: '🧪 Testing idea generation...',
       });
 
       const user = await getUserByTelegramId(userId);
@@ -160,14 +160,14 @@ export default async function (message, ctx) {
 
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: `Test successful!\n\nTopic: ${idea.topic}\nCategory: ${idea.category}\n\n${idea.content}`,
+        text: `✅ Test successful!\n\nTopic: ${idea.topic}\nCategory: ${idea.category}\n\n${idea.content}`,
         parse_mode: 'Markdown',
       });
     } catch (error) {
       console.error('Test error:', error);
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: ` Test failed: ${error.message}`,
+        text: `❌ Test failed: ${error.message}`,
       });
     }
     return;
@@ -191,7 +191,7 @@ export default async function (message, ctx) {
     if (rawQuery) {
       const loading = await api.sendMessage({
         chat_id: message.chat.id,
-        text: `Translating directly to ${langInfo.name}...`,
+        text: `🔄 Translating directly to ${langInfo.name}...`,
       });
       try {
         const translated = await directTranslateToLanguage(rawQuery, targetLang);
@@ -201,7 +201,7 @@ export default async function (message, ctx) {
         await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: `<b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
+          text: `🌐 <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
           parse_mode: 'HTML',
           reply_markup: { inline_keyboard: keyboard }
         });
@@ -209,14 +209,14 @@ export default async function (message, ctx) {
         await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: `Translation failed: ${err.message}`,
+          text: `❌ Translation failed: ${err.message}`,
         });
       }
       return;
     } else {
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '<b>Direct Translation</b>\n\nChoose your target language for direct translation:',
+        text: '🌐 <b>Direct Translation</b>\n\nChoose your target language for direct translation:',
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
@@ -367,7 +367,7 @@ export default async function (message, ctx) {
         console.error('Error sending preview:', sendError);
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: 'Error sending preview. Please try again.',
+          text: '❌ Error sending preview. Please try again.',
         });
       }
       return;
@@ -505,7 +505,7 @@ export default async function (message, ctx) {
         await clearPendingChannelAdd(userId);
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: ` Channel link updated to: ${newChannelName || newChannelId}`,
+          text: `✅ Channel link updated to: ${newChannelName || newChannelId}`,
           reply_markup: {
             inline_keyboard: [
               [{ text: 'Settings', callback_data: 'settings' }]
@@ -516,7 +516,7 @@ export default async function (message, ctx) {
       } else {
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: 'Invalid channel format. Please send a valid channel (e.g., @mychannel or https://t.me/mychannel)',
+          text: '❌ Invalid channel format. Please send a valid channel (e.g., @mychannel or https://t.me/mychannel)',
           reply_markup: {
             inline_keyboard: [
               [{ text: 'Settings', callback_data: 'settings' }]
@@ -537,7 +537,7 @@ export default async function (message, ctx) {
       await clearPendingChannelAdd(userId);
       const loading = await api.sendMessage({
         chat_id: message.chat.id,
-        text: ` Translating directly to ${langInfo.name}...`,
+        text: `🔄 Translating directly to ${langInfo.name}...`,
       });
       try {
         const photoId = (message.photo && message.photo.length > 0)
@@ -553,14 +553,14 @@ export default async function (message, ctx) {
           await api.sendPhoto({
             chat_id: message.chat.id,
             photo: photoId,
-            caption: ` <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
+            caption: `🌐 <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: keyboard }
           });
         } else {
           await api.sendMessage({
             chat_id: message.chat.id,
-            text: ` <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
+            text: `🌐 <b>Direct Translation (${langInfo.name}):</b>\n\n${translated}`,
             parse_mode: 'HTML',
             reply_markup: { inline_keyboard: keyboard }
           });
@@ -569,7 +569,7 @@ export default async function (message, ctx) {
         await api.deleteMessage({ chat_id: message.chat.id, message_id: loading.message_id });
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: ` Translation failed: ${err.message}`,
+          text: `❌ Translation failed: ${err.message}`,
         });
       }
       return;
@@ -585,14 +585,14 @@ export default async function (message, ctx) {
         return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
       });
 
-      console.log(' Saving content structure for user:', user.id);
-      console.log(' Normalized structure text:', structureText);
+      console.log('💾 Saving content structure for user:', user.id);
+      console.log('📝 Normalized structure text:', structureText);
       const savedStructure = await saveContentStructure(user.id, structureText);
-      console.log(' Saved structure result:', savedStructure);
+      console.log('✅ Saved structure result:', savedStructure);
       await clearPendingChannelAdd(userId);
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '<b>Content structure saved!</b>\n\nThe AI will now strictly follow your exact structure, styling, and placeholders.',
+        text: '✅ <b>Content structure saved!</b>\n\nThe AI will now strictly follow your exact structure, styling, and placeholders.',
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
@@ -629,7 +629,7 @@ export default async function (message, ctx) {
       if (!parsedHours || parsedHours <= 0) {
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: `<b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>1m</code> (1 minute)\n• <code>30m</code> (30 minutes)\n• <code>2h</code> or <code>4hr</code> (hours)\n• <code>7 hours</code>\n• <code>2</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
+          text: `⚠️ <b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>1m</code> (1 minute)\n• <code>30m</code> (30 minutes)\n• <code>2h</code> or <code>4hr</code> (hours)\n• <code>7 hours</code>\n• <code>2</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
@@ -646,23 +646,81 @@ export default async function (message, ctx) {
       return;
     }
 
-    // Handle repetitive content input
-    if (pendingChannel && (pendingChannel.channelId.startsWith('waiting_rep_content_setup_') || pendingChannel.channelId.startsWith('waiting_rep_content_update_'))) {
-      const isSetup = pendingChannel.channelId.startsWith('waiting_rep_content_setup_');
-      const prefix = isSetup ? 'waiting_rep_content_setup_' : 'waiting_rep_content_update_';
-      const parts = pendingChannel.channelId.replace(prefix, '').split('_');
-      const channelId = parts[0];
-      const intervalHours = parseFloat(parts[1]);
+    // Handle custom repetitive task interval input
+    if (pendingChannel && (pendingChannel.channelId.startsWith('waiting_custom_reptask_setup_') || pendingChannel.channelId.startsWith('waiting_custom_reptask_update_'))) {
+      const isSetup = pendingChannel.channelId.startsWith('waiting_custom_reptask_setup_');
+      const channelId = isSetup
+        ? pendingChannel.channelId.replace('waiting_custom_reptask_setup_', '')
+        : pendingChannel.channelId.replace('waiting_custom_reptask_update_', '');
       const text = incomingText.trim();
 
       if (['cancel', 'abort', 'stop', 'back'].includes(text.toLowerCase())) {
         await clearPendingChannelAdd(userId);
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: 'Repetitive content setup cancelled.',
+          text: 'Repetitive task configuration cancelled.',
           reply_markup: {
             inline_keyboard: [
-              [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+              [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      const parsedHours = parseIntervalInput(text);
+      if (!parsedHours || parsedHours <= 0) {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `⚠️ <b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>1m</code> (1 minute)\n• <code>30m</code> (30 minutes)\n• <code>2h</code> or <code>4hr</code> (hours)\n• <code>7 hours</code>\n• <code>2</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Cancel', callback_data: 'repetitive_task' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      await clearPendingChannelAdd(userId);
+      const stateKey = isSetup
+        ? `waiting_rep_content_setup_${channelId}_${parsedHours}`
+        : `waiting_rep_content_update_${channelId}_${parsedHours}`;
+      await setPendingChannelAdd(userId, stateKey);
+
+      const intervalText = formatIntervalDisplay(parsedHours);
+      await api.sendMessage({
+        chat_id: message.chat.id,
+        text: `🔁 <b>Setup Repetitive Task Content</b>\n\nChannel: <code>${channelId}</code>\nInterval: <b>Every ${intervalText}</b>\n\nPlease send the exact message or announcement text you want the bot to post repetitively based on this interval.\n\n<i>You can include emojis, custom formatting, and links. Send 'cancel' to abort.</i>`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Cancel', callback_data: 'repetitive_task' }]
+          ]
+        }
+      });
+      return;
+    }
+
+    // Handle repetitive content input
+    if (pendingChannel && (pendingChannel.channelId.startsWith('waiting_rep_content_setup_') || pendingChannel.channelId.startsWith('waiting_rep_content_update_'))) {
+      const isSetup = pendingChannel.channelId.startsWith('waiting_rep_content_setup_');
+      const prefix = isSetup ? 'waiting_rep_content_setup_' : 'waiting_rep_content_update_';
+      const raw = pendingChannel.channelId.replace(prefix, '');
+      const lastUnder = raw.lastIndexOf('_');
+      const channelId = lastUnder !== -1 ? raw.substring(0, lastUnder) : raw;
+      const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
+      const text = incomingText.trim();
+
+      if (['cancel', 'abort', 'stop', 'back'].includes(text.toLowerCase())) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Repetitive task setup cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
             ]
           }
         });
@@ -672,9 +730,9 @@ export default async function (message, ctx) {
       await clearPendingChannelAdd(userId);
 
       const user = await getUserByTelegramId(userId);
-      const existingSchedule = await getAutoPostSchedule(user.id);
+      const existingRepSchedule = await getRepetitiveTaskSchedule(user.id);
 
-      if (isSetup || !existingSchedule) {
+      if (isSetup || !existingRepSchedule) {
         await createAutoPostSchedule(
           user.id,
           channelId,
@@ -686,7 +744,7 @@ export default async function (message, ctx) {
         );
       } else {
         await updateAutoPostSchedule(
-          existingSchedule.id,
+          existingRepSchedule.id,
           channelId,
           intervalHours,
           1,
@@ -700,11 +758,11 @@ export default async function (message, ctx) {
       const intervalText = formatIntervalDisplay(intervalHours);
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: ` <b>Repetitive Auto Post Configured!</b>\n\n <b>Channel:</b> <code>${channelId}</code>\n <b>Interval:</b> Every ${intervalText}\n <b>Mode:</b> Repetitive Task\n\n<b>Scheduled Content:</b>\n<i>${text.substring(0, 200)}</i>\n\nYour repetitive task will automatically run and post to your channel every ${intervalText}!`,
+        text: `✅ <b>Repetitive Task Configured!</b>\n\n📢 <b>Channel:</b> <code>${channelId}</code>\n⏱️ <b>Interval:</b> Every ${intervalText}\n🔁 <b>Mode:</b> Repetitive Task\n\n<b>Scheduled Content:</b>\n<i>${text.substring(0, 200)}</i>\n\nYour repetitive task will automatically run and post simultaneously with your auto posts!`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'View Auto Post Settings', callback_data: 'auto_post' }],
+            [{ text: 'View Repetitive Task Settings', callback_data: 'repetitive_task' }],
             [{ text: 'Back to Settings', callback_data: 'settings' }]
           ]
         }
@@ -723,7 +781,7 @@ export default async function (message, ctx) {
           await deleteUser(targetUserId);
           await api.sendMessage({
             chat_id: message.chat.id,
-            text: ` Permanently deleted ${pendingChannel.channelName || `User #${targetUserId}`} and all associated records from the database.`,
+            text: `✅ Permanently deleted ${pendingChannel.channelName || `User #${targetUserId}`} and all associated records from the database.`,
             reply_markup: {
               inline_keyboard: [
                 [{ text: 'Back to Users List', callback_data: 'owner_manage_users' }]
@@ -733,7 +791,7 @@ export default async function (message, ctx) {
         } catch (err) {
           await api.sendMessage({
             chat_id: message.chat.id,
-            text: ` Error deleting user: ${err.message}`,
+            text: `❌ Error deleting user: ${err.message}`,
             reply_markup: {
               inline_keyboard: [
                 [{ text: 'Back to Users List', callback_data: 'owner_manage_users' }]
@@ -746,7 +804,7 @@ export default async function (message, ctx) {
         await clearPendingChannelAdd(userId);
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: 'User deletion cancelled.',
+          text: '❌ User deletion cancelled.',
           reply_markup: {
             inline_keyboard: [
               [{ text: 'Back to User', callback_data: `admin_user_${targetUserId}` }]
@@ -757,7 +815,7 @@ export default async function (message, ctx) {
       } else {
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: `To confirm deletion of ${pendingChannel.channelName || `User #${targetUserId}`}, you must type <b>Delete</b>.\n\nOr click Cancel below to keep the user:`,
+          text: `⚠️ To confirm deletion of ${pendingChannel.channelName || `User #${targetUserId}`}, you must type <b>Delete</b>.\n\nOr click Cancel below to keep the user:`,
           parse_mode: 'HTML',
           reply_markup: {
             inline_keyboard: [
@@ -780,7 +838,7 @@ export default async function (message, ctx) {
         await clearPendingChannelAdd(userId);
         await api.sendMessage({
           chat_id: message.chat.id,
-          text: 'Channel addition cancelled.',
+          text: '❌ Channel addition cancelled.',
           reply_markup: {
             inline_keyboard: [
               [{ text: 'Settings', callback_data: 'settings' }]
@@ -853,7 +911,7 @@ async function showMainMenu(chatId, isOwner = false) {
       { text: 'Settings', callback_data: 'settings' }
     ],
     [
-      { text: 'Creator Rankings', callback_data: 'view_rankings' }
+      { text: '🏆 Creator Rankings', callback_data: 'view_rankings' }
     ],
     [
       { text: 'Refresh', callback_data: 'refresh_menu' }
@@ -868,13 +926,13 @@ async function showMainMenu(chatId, isOwner = false) {
     keyboard.splice(3, 0, [
       { text: 'Analytics Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/' } }
     ], [
-      { text: 'Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
+      { text: '🌟 Open Rank Dashboard', web_app: { url: 'https://app8909892200.tgcloud.ai/rank.html' } }
     ]);
   }
 
   await api.sendMessage({
     chat_id: chatId,
-    text: 'True Feed Content Creator\n\nWhat would you like to do?',
+    text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -884,7 +942,7 @@ async function showMainMenu(chatId, isOwner = false) {
 async function showUserTypeChoice(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: 'Welcome to True Feed!\n\nChoose how you want to use the bot:',
+    text: '🎉 Welcome to True Feed!\n\nChoose how you want to use the bot:',
     reply_markup: {
       inline_keyboard: [
         [
@@ -922,7 +980,7 @@ async function showChannelIdInstructions(chatId) {
   // Offer both the interactive Telegram Chat Picker button AND manual username/link/forward input
   await api.sendMessage({
     chat_id: chatId,
-    text: '<b>Step 2: Connect Your Channel or Group</b>\n\nTap the <b>" Choose Channel / Group"</b> button below to select your channel directly from your list, or send your channel username (e.g. <code>@yourchannel</code>), link, or forward a message.',
+    text: '📝 <b>Step 2: Connect Your Channel or Group</b>\n\nTap the <b>"📢 Choose Channel / Group"</b> button below to select your channel directly from your list, or send your channel username (e.g. <code>@yourchannel</code>), link, or forward a message.',
     parse_mode: 'HTML',
     reply_markup: {
       keyboard: [
@@ -965,9 +1023,9 @@ async function showAddBotAdminInstructions(chatId, channelId = null, channelName
   // Format channel details clearly
   let channelInfoText = '';
   if (channelName && channelId && channelName !== channelId) {
-    channelInfoText = ` <b>Channel:</b> ${channelName} (${channelId})\n\n`;
+    channelInfoText = `📢 <b>Channel:</b> ${channelName} (${channelId})\n\n`;
   } else if (channelId || channelName) {
-    channelInfoText = ` <b>Channel:</b> ${channelName || channelId}\n\n`;
+    channelInfoText = `📢 <b>Channel:</b> ${channelName || channelId}\n\n`;
   }
 
   // Create direct link to the channel if it's public (has @username)
@@ -981,28 +1039,28 @@ async function showAddBotAdminInstructions(chatId, channelId = null, channelName
   // Add direct channel link button (if public channel)
   if (channelUrl) {
     inlineKeyboard.push([
-      { text: 'Open Channel', url: channelUrl }
+      { text: '🔗 Open Channel', url: channelUrl }
     ]);
   }
 
   inlineKeyboard.push([
-    { text: 'Done', callback_data: 'bot_admin_added' }
+    { text: '✅ Done', callback_data: 'bot_admin_added' }
   ]);
   inlineKeyboard.push([
     { text: 'Change Channel', callback_data: 'change_channel' }
   ]);
 
   const botTag = botUsername ? `@${botUsername}` : 'this bot';
-  let instructions = ` <b>Channel Selected!</b>\n\n${channelInfoText} <b>Step 3: Add Bot as Admin</b>\n\n`;
+  let instructions = `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Step 3: Add Bot as Admin</b>\n\n`;
 
   if (channelUrl) {
-    instructions += `1. Tap <b>" Open Channel"</b> to go to your channel\n`;
+    instructions += `1. Tap <b>"🔗 Open Channel"</b> to go to your channel\n`;
     instructions += `2. Add ${botTag} as admin with <b>Post Messages</b> permission\n\n`;
   } else {
     instructions += `Add ${botTag} as admin to your channel with <b>Post Messages</b> permission.\n\n`;
   }
 
-  instructions += `Once done, click <b>" Done"</b>:`;
+  instructions += `Once done, click <b>"✅ Done"</b>:`;
 
   await api.sendMessage({
     chat_id: chatId,
@@ -1019,7 +1077,7 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
   if (!user || !user.channel_id) {
     await api.sendMessage({
       chat_id: chatId,
-      text: 'Channel ID not found. Please provide your channel first.',
+      text: '❌ Channel ID not found. Please provide your channel first.',
       reply_markup: {
         inline_keyboard: [
           [{ text: 'Provide Channel', callback_data: 'change_channel' }]
@@ -1042,7 +1100,7 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
 
     const keyboardRows = [];
     if (addBotUrl) {
-      keyboardRows.push([{ text: 'Add Bot as Admin Automatically', url: addBotUrl }]);
+      keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
     }
     keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
     keyboardRows.push([{ text: 'Change Channel', callback_data: 'change_channel' }]);
@@ -1050,12 +1108,12 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
     const errText = error?.description || error?.message || '';
     let detailMsg = '';
     if (errText.includes('chat not found')) {
-      detailMsg = `\n\nTelegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${channelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
     }
 
     await api.sendMessage({
       chat_id: chatId,
-      text: ` The bot is not yet an administrator in <b>${channelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce added, click <b>"Done"</b>:`,
+      text: `❌ The bot is not yet an administrator in <b>${channelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce added, click <b>"Done"</b>:`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: keyboardRows
@@ -1106,7 +1164,7 @@ async function showCategorySelection(chatId) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: 'Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
+    text: '📂 Step 4: Select Content Categories\n\nChoose the types of content you want to generate:',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -1123,9 +1181,9 @@ async function showAddChannelBotAdminInstructions(chatId, channelId = null, chan
   // Format channel details clearly
   let channelInfoText = '';
   if (channelName && channelId && channelName !== channelId) {
-    channelInfoText = ` <b>Channel:</b> ${channelName} (${channelId})\n\n`;
+    channelInfoText = `📢 <b>Channel:</b> ${channelName} (${channelId})\n\n`;
   } else if (channelId || channelName) {
-    channelInfoText = ` <b>Channel:</b> ${channelName || channelId}\n\n`;
+    channelInfoText = `📢 <b>Channel:</b> ${channelName || channelId}\n\n`;
   }
 
   // Create direct link to the channel if it's public (has @username)
@@ -1139,25 +1197,25 @@ async function showAddChannelBotAdminInstructions(chatId, channelId = null, chan
   // Add direct channel link button (if public channel)
   if (channelUrl) {
     inlineKeyboard.push([
-      { text: 'Open Channel', url: channelUrl }
+      { text: '🔗 Open Channel', url: channelUrl }
     ]);
   }
 
   inlineKeyboard.push([
-    { text: 'Done', callback_data: 'bot_admin_added' }
+    { text: '✅ Done', callback_data: 'bot_admin_added' }
   ]);
 
   const botTag = botUsername ? `@${botUsername}` : 'this bot';
-  let instructions = ` <b>Channel Selected!</b>\n\n${channelInfoText} <b>Add Bot as Admin</b>\n\n`;
+  let instructions = `✅ <b>Channel Selected!</b>\n\n${channelInfoText}🤖 <b>Add Bot as Admin</b>\n\n`;
 
   if (channelUrl) {
-    instructions += `1. Tap <b>" Open Channel"</b> to go to your channel\n`;
+    instructions += `1. Tap <b>"🔗 Open Channel"</b> to go to your channel\n`;
     instructions += `2. Add ${botTag} as admin with <b>Post Messages</b> permission\n\n`;
   } else {
     instructions += `Add ${botTag} as admin to your channel with <b>Post Messages</b> permission.\n\n`;
   }
 
-  instructions += `Once added, tap <b>" Done"</b> below to continue:`;
+  instructions += `Once added, tap <b>"✅ Done"</b> below to continue:`;
 
   await api.sendMessage({
     chat_id: chatId,
@@ -1174,7 +1232,7 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
   if (!channelId) {
     await api.sendMessage({
       chat_id: chatId,
-      text: 'Channel ID not found.',
+      text: '❌ Channel ID not found.',
     });
     await clearPendingChannelAdd(user.telegram_id);
     return;
@@ -1194,19 +1252,19 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
 
     const keyboardRows = [];
     if (addBotUrl) {
-      keyboardRows.push([{ text: 'Add Bot as Admin Automatically', url: addBotUrl }]);
+      keyboardRows.push([{ text: '➕ Add Bot as Admin Automatically', url: addBotUrl }]);
     }
     keyboardRows.push([{ text: 'Done', callback_data: 'bot_admin_added' }]);
 
     const errText = error?.description || error?.message || '';
     let detailMsg = '';
     if (errText.includes('chat not found')) {
-      detailMsg = `\n\nTelegram could not find channel "${targetChannelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
+      detailMsg = `\n\n⚠️ Telegram could not find channel "${targetChannelId}".\n• If your channel is public, please make sure the username is correct (e.g., @mychannel).\n• If your channel is private, forward any post from your channel directly to this chat!`;
     }
 
     await api.sendMessage({
       chat_id: chatId,
-      text: ` The bot is not yet an administrator in <b>${targetChannelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce added, send "done" or click "Done" below to continue:`,
+      text: `❌ The bot is not yet an administrator in <b>${targetChannelId}</b>.${detailMsg}\n\nPlease make sure:\n1. Add ${botTag} to your channel\n2. Promote the bot to <b>Administrator</b> with <b>Post Messages</b> permission\n\nOnce added, send "done" or click "Done" below to continue:`,
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: keyboardRows
@@ -1231,7 +1289,7 @@ async function verifyAndAddChannel(chatId, user, channelId, channelName) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: ` Channel "${targetChannelName || targetChannelId}" has been added successfully!\n\nYou can now post content to this channel.`,
+    text: `✅ Channel "${targetChannelName || targetChannelId}" has been added successfully!\n\nYou can now post content to this channel.`,
     reply_markup: {
       inline_keyboard: [
         [
