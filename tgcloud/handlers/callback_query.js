@@ -1364,7 +1364,7 @@ export default async function (callbackQuery, ctx) {
   if (data === 'toggle_recommendations') {
     const user = await getUserByTelegramId(userId);
     const newValue = user?.recommendations_enabled === 1 ? 0 : 1;
-    const currentInterval = user?.recommendation_interval || 24;
+    const currentInterval = user?.recommendation_interval || 1440;
     await updateRecommendationSettings(userId, newValue === 1, currentInterval);
 
     await api.sendMessage({
@@ -1458,7 +1458,7 @@ export default async function (callbackQuery, ctx) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
           text: result.digest,
-          parse_mode: 'HTML',
+          parse_mode: 'Markdown',
           reply_markup: {
             inline_keyboard: [
               [

@@ -46,7 +46,7 @@ async function sendRecommendationToUser(user) {
       await api.sendMessage({
         chat_id: user.telegram_id,
         text: result.digest,
-        parse_mode: 'HTML',
+        parse_mode: 'Markdown',
       });
       console.log(`Recommendation sent to ${user.telegram_id}`);
     } else {

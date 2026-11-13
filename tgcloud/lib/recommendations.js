@@ -45,16 +45,16 @@ async function fetchArticlesForCategories(categories) {
     const platforms = platformsByCategory[categoryId] || [];
     if (platforms.length === 0) continue;
 
-    // Pick 2 random platforms from this category to get variety
+    // Pick 4 random platforms from this category to get more variety
     const shuffled = platforms.sort(() => 0.5 - Math.random());
-    const selectedPlatforms = shuffled.slice(0, 2);
+    const selectedPlatforms = shuffled.slice(0, 4);
 
     for (const platform of selectedPlatforms) {
       try {
         const categoryArticles = await fetchRSSFeed(platform.url, platform.name);
         if (Array.isArray(categoryArticles) && categoryArticles.length > 0) {
-          // Take first 3 articles from this platform
-          const selectedArticles = categoryArticles.slice(0, 3).map(article => ({
+          // Take first 5 articles from this platform for better selection pool
+          const selectedArticles = categoryArticles.slice(0, 5).map(article => ({
             ...article,
             category: categoryId,
             platform: platform.name,
@@ -78,12 +78,18 @@ async function generateAIDigest(user, articles) {
   const firstName = user.first_name || 'Friend';
   const dayOfWeek = getDayOfWeek();
 
-  // Prepare article summaries for AI with links
+  // Prepare article summaries for AI with links and enhanced context
   const articleSummaries = articles.map((article, index) => {
-    return `${index + 1}. ${article.title || 'No title'}\n   Category: ${article.category}\n   Source: ${article.platform}\n   Link: ${article.link || article.url || 'No link'}\n   ${article.description || article.snippet || ''}`;
+    const title = article.title || 'No title';
+    const description = article.description || article.snippet || '';
+    const link = article.link || article.url || 'No link';
+    const pubDate = article.pubDate || article.published || '';
+    const dateStr = pubDate ? `Published: ${pubDate}\n   ` : '';
+
+    return `${index + 1}. ${title}\n   Category: ${article.category}\n   Source: ${article.platform}\n   ${dateStr}Link: ${link}\n   ${description}`;
   }).join('\n\n');
 
-  const prompt = `You are an expert news curator. Create a personalized, engaging news digest for ${firstName}.
+  const prompt = `You are an elite news curator with exceptional taste. Create a personalized, engaging news digest for ${firstName}.
 
 Context:
 - Today is ${dayOfWeek}
@@ -92,21 +98,46 @@ Context:
 Source Articles:
 ${articleSummaries}
 
-Instructions:
-1. CRITICAL: Select ONLY the most impressive, impactful, and memorable stories - whether they're funny, sad, shocking, inspiring, or fascinating. Every story must leave a strong impression.
-2. Prioritize stories that will make the user think, feel, or remember something significant. Skip mundane or routine news.
-3. Select 5-7 stories that cover different emotions and impact levels - mix of shocking (sad/tragic), funny/humorous, inspiring/uplifting, and fascinating/mind-blowing content.
-4. Group them by region/topic (e.g., Ethiopia, Iran, Ukraine, Elsewhere)
-5. Write a warm, personalized opening: "Hey ${firstName} — happy ${dayOfWeek} ☺️ Here's what the world did while you were getting on with your week:"
-6. For each story:
-   - Write a compelling 2-3 sentence summary that captures the emotional impact
-   - Include the most important facts
-   - Add "Also worth knowing" section with 2-3 bullet points of related context
-   - At the end of each story, add the source platform as a clickable link where the platform name itself is the link. Format: "Source: [Platform Name](article_url)" - this will display as "Source: Platform Name" with Platform Name being clickable
-7. End with a warm closing like "Somewhere in there, a ${dayOfWeek}. Rest up 🥰"
-8. Keep the tone conversational, informative, and engaging
-9. Make it feel like a smart friend sharing the most impressive and memorable news
-10. IMPORTANT: Use Markdown format for links like this: [Platform Name](article_url) - the platform name should be the clickable text
+CRITICAL SELECTION CRITERIA - What Makes Content "Impressive":
+1. Emotional Impact: Stories that evoke strong feelings - shock, awe, laughter, inspiration, or deep thought
+2. Novelty: Discoveries, breakthroughs, unusual events, or things that challenge expectations
+3. Human Interest: Stories about extraordinary people, remarkable achievements, or dramatic life changes
+4. World Impact: Events affecting millions, paradigm shifts, or significant historical moments
+5. Unexpected Twists: Surprising outcomes, ironic situations, or stories with stunning revelations
+6. Visual/Descriptive Power: Stories with vivid imagery that paint mental pictures
+7. Relevance: Connection to current zeitgeist, technology, health, finance, or human progress
+
+WHAT TO AVOID:
+- Routine updates (stock tickers, minor policy changes, corporate earnings)
+- Repetitive news (same event covered multiple ways)
+- Predictable stories (expected outcomes, formulaic content)
+- Clickbait without substance (sensational titles but empty content)
+- Overly technical articles without human angle
+
+Story Selection Process:
+1. Review ALL articles and score each on "impressiveness" (1-10)
+2. Select top 5-7 stories that score highest
+3. Ensure emotional diversity: at least 1-2 inspiring, 1-2 shocking/fascinating, 1-2 humorous/heartwarming
+4. Group by region/topic for better flow (e.g., Ethiopia, Africa, Global Tech, Science, Human Stories)
+5. Prioritize stories that will be remembered hours or days later
+
+Digest Structure:
+1. Warm opening: "Hey ${firstName} — happy ${dayOfWeek} ☺️ Here's what the world did while you were getting on with your week:"
+2. For each story:
+   - **Hook line**: One sentence that grabs attention
+   - **2-3 sentence summary**: Emotionally compelling, fact-rich, paints a vivid picture
+   - **"Also worth knowing"**: 2-3 bullet points with fascinating context, stats, or related facts
+   - **Source**: "Source: [Platform Name](article_url)" - clickable platform name
+3. Warm closing: "Somewhere in there, a ${dayOfWeek}. Rest up 🥰"
+
+Tone Guidelines:
+- Conversational like a smart, well-read friend
+- Authentic enthusiasm for genuinely impressive stories
+- Appropriate gravity for serious topics
+- Never cynical or dismissive
+- Use vivid language that creates mental imagery
+
+IMPORTANT: Use Markdown format for links like this: [Platform Name](article_url) - the platform name should be the clickable text.
 
 Output ONLY the digest text, no preamble or explanation.`;
 
@@ -122,15 +153,15 @@ Output ONLY the digest text, no preamble or explanation.`;
         messages: [
           {
             role: 'system',
-            content: 'You are an expert news curator who creates engaging, personalized news digests. You select the most important and interesting stories and present them in a warm, conversational tone.'
+            content: 'You are an elite news curator with exceptional editorial judgment. You identify the most remarkable, memorable, and impactful stories from any news feed. Your selections evoke emotion, inspire curiosity, and create lasting impressions. You present stories with warmth, vividness, and authentic engagement.'
           },
           {
             role: 'user',
             content: prompt
           }
         ],
-        max_tokens: 2000,
-        temperature: 0.7
+        max_tokens: 3000,
+        temperature: 0.8
       })
     });
 
@@ -160,9 +191,16 @@ function generateFallbackDigest(user, articles) {
 
   let digest = `Hey ${firstName} — happy ${dayOfWeek} ☺️ Here's what the world did while you were getting on with your week:\n\n`;
 
-  const selectedArticles = articles.slice(0, 7);
+  // Sort articles by title length to pick potentially more substantive stories
+  const sortedArticles = [...articles].sort((a, b) => {
+    const aLen = (a.title || '').length;
+    const bLen = (b.title || '').length;
+    return bLen - aLen; // Longer titles might indicate more substantial stories
+  });
+
+  const selectedArticles = sortedArticles.slice(0, 7);
   selectedArticles.forEach((article, index) => {
-    digest += `${article.title || 'No title'}\n`;
+    digest += `**${article.title || 'No title'}**\n`;
     digest += `${article.description || article.snippet || ''}\n`;
     const link = article.link || article.url;
     if (link) {
@@ -254,8 +292,14 @@ export async function getDailyRecommendations(telegramId, forceRefresh = false) 
     };
   }
 
+  // Cap articles at 40 to avoid overwhelming the AI while maintaining variety
+  const maxArticles = 40;
+  const cappedArticles = articles.length > maxArticles
+    ? articles.slice(0, maxArticles)
+    : articles;
+
   // Generate AI digest
-  const digest = await generateAIDigest(user, articles);
+  const digest = await generateAIDigest(user, cappedArticles);
 
   // Save to database
   await db.insert(dailyRecommendations)
@@ -263,7 +307,7 @@ export async function getDailyRecommendations(telegramId, forceRefresh = false) 
       user_id: userId,
       recommendation_date: today,
       digest_content: digest,
-      raw_articles: JSON.stringify(articles.slice(0, 20)), // Store up to 20 articles
+      raw_articles: JSON.stringify(cappedArticles), // Store the articles used for this digest
       categories: JSON.stringify(categories)
     })
     .run();
