@@ -1719,7 +1719,8 @@
       else if (rankNum === 2) medalHtml = `<span style="font-size: 1.25rem;">🥈</span>`;
       else if (rankNum === 3) medalHtml = `<span style="font-size: 1.25rem;">🥉</span>`;
 
-      const chName = creator.channel_name || creator.channel_id;
+      const rawChName = creator.channel_name || creator.channel_id;
+      const chName = (rawChName || '').replace(/\s+/g, '');
       const isUsername = chName && !chName.startsWith('-');
       const chDisplay = isUsername ? (chName.startsWith('@') ? chName : `@${chName}`) : chName;
       const channelDisplay = chDisplay
@@ -1729,7 +1730,7 @@
         : '<span style="color: var(--text-dim);">No channel</span>';
 
       // Subscriber count from telemetry if available
-      const subCount = (globalData?.subscriberCounts && chName) ? globalData.subscriberCounts[chName] : null;
+      const subCount = (globalData?.subscriberCounts && rawChName) ? globalData.subscriberCounts[rawChName] : null;
       const subBadge = (subCount !== null && subCount !== undefined)
         ? `<span class="sub-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> ${subCount.toLocaleString()} subs</span>`
         : '';

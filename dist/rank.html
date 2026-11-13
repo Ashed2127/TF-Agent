@@ -508,7 +508,7 @@
 
       card.style.display = 'flex';
       document.getElementById('myRankCircle').textContent = `#${myItem.rank}`;
-      const rawMyChannel = myItem.channel_name || myItem.channel_id || '';
+      const rawMyChannel = (myItem.channel_name || myItem.channel_id || '').replace(/\s+/g, '');
       const myChannel = rawMyChannel
         ? (rawMyChannel.startsWith('@') || rawMyChannel.startsWith('-') ? rawMyChannel : `@${rawMyChannel}`)
         : 'No channel';
@@ -555,7 +555,7 @@
         else if (rankNum === 2) medalHtml = `🥈`;
         else if (rankNum === 3) medalHtml = `🥉`;
 
-        const ch = c.channel_name || c.channel_id;
+        const ch = (c.channel_name || c.channel_id || '').replace(/\s+/g, '');
         const isUsername = ch && !ch.startsWith('-');
         const chDisplay = isUsername ? (ch.startsWith('@') ? ch : `@${ch}`) : ch;
         const channelHtml = chDisplay

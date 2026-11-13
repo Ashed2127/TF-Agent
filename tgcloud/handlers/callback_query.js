@@ -2602,7 +2602,7 @@ export default async function (callbackQuery, ctx) {
       const medals = ['🥇', '🥈', '🥉'];
       const medal = medals[idx] || `<b>#${idx + 1}</b>`;
       const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
-      const rawChannel = creator.channel_name || creator.channel_id || '';
+      const rawChannel = (creator.channel_name || creator.channel_id || '').replace(/\s+/g, '');
       const channelDisplay = rawChannel
         ? (rawChannel.startsWith('@') || rawChannel.startsWith('-') ? rawChannel : `@${rawChannel}`)
         : 'No channel';
