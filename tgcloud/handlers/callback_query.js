@@ -5062,7 +5062,7 @@ async function handleTranslate(callbackQuery, userId, data) {
     if (showSourceLink && article.link) {
       directFormattedText += `\n\n<a href="${article.link}">${article.platform || 'Source'}</a>`;
     }
-    if (userChannelLink) {
+    if (userChannelLink && userChannelLink.startsWith('@')) {
       directFormattedText += `\n\n${userChannelLink}`;
     }
 

@@ -1330,6 +1330,12 @@ Output the final post now:`;
 export async function formatNewsArticle(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null, targetLang = null) {
   // Generate content with AI or fallback
   const formattedContent = await generateAmharicNews(article, userChannelLink, showSourceLink, useDotPunctuation, userId, targetLang);
+
+  // Ensure the creator's channel username is displayed below the content
+  const link = (userChannelLink || '').trim();
+  if (link.startsWith('@') && formattedContent && !formattedContent.includes(link)) {
+    return `${formattedContent.trimEnd()}\n\n${link}`;
+  }
   return formattedContent;
 }
 

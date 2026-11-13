@@ -40,7 +40,7 @@ export async function processSingleAutoPost(schedule) {
   // Handle Repetitive Content mode
   if (schedule.post_mode === 'repetitive' && schedule.repetitive_content) {
     let repContent = schedule.repetitive_content;
-    if (userChannelLink && !repContent.includes(userChannelLink)) {
+    if (userChannelLink && userChannelLink.startsWith('@') && !repContent.includes(userChannelLink)) {
       repContent += '\n\n📢 ' + userChannelLink;
     }
     const lines = repContent.split('\n');
