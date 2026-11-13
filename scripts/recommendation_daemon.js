@@ -33,8 +33,9 @@ function triggerRecommendationCheck() {
       return;
     }
     const combined = `${stdout}\n${stderr}`;
-    // Log if any recommendations were processed
-    if (combined.includes('processed:') && !combined.includes('processed: 0') && !combined.includes('processed:0')) {
+    // Log if any recommendations were processed (endpoint returns JSON like {"processed":2})
+    const match = combined.match(/"processed"\s*:\s*(\d+)/);
+    if (match && parseInt(match[1], 10) > 0) {
       console.log(`[Recommendation Runner ${new Date().toISOString()}] Successfully processed recommendations! Output:`, stdout.trim());
     }
   });
