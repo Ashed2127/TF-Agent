@@ -83,7 +83,7 @@ async function showMainMenu(chatId, isOwner = false) {
 async function showGuestMenu(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: ' TF Guest Mode\n\nBrowse and translate news - no channel required!',
+    text: ' TF Guest Mode\n\n',
     reply_markup: {
       inline_keyboard: [
         [
@@ -2602,11 +2602,10 @@ export default async function (callbackQuery, ctx) {
       const medals = ['🥇', '🥈', '🥉'];
       const medal = medals[idx] || `<b>#${idx + 1}</b>`;
       const isYou = creator.telegram_id === callerId ? ' <i>(You)</i>' : '';
-      const creatorName = creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || creator.username || creator.channel_name || `User #${creator.id}`;
-      const channelDisplay = creator.channel_id || creator.channel_name || 'No channel';
+      const channelDisplay = creator.channel_name || creator.channel_id || 'No channel';
 
-      rankText += `${medal} <b>${creatorName}</b>${isYou}\n`;
-      rankText += `   Channel: <b>${channelDisplay}</b> | Posts: <b>${creator.total_posts}</b>\n\n`;
+      rankText += `${medal} <b>${channelDisplay}</b>${isYou}\n`;
+      rankText += `   Posts: <b>${creator.total_posts}</b>\n\n`;
     });
 
     const myRankItem = rankings.find(r => r.telegram_id === callerId);

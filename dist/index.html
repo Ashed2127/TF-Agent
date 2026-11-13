@@ -1184,7 +1184,7 @@
 
           <!-- Rank Search -->
           <div class="search-input-wrap">
-            <input type="text" id="rankSearchInput" class="search-input" placeholder="Search creators by username, channel, or ID..." oninput="handleRankSearch(this.value)">
+            <input type="text" id="rankSearchInput" class="search-input" placeholder="Search by channel or ID..." oninput="handleRankSearch(this.value)">
           </div>
 
           <div id="creatorsRankList" class="item-list"></div>
@@ -1719,8 +1719,6 @@
       else if (rankNum === 2) medalHtml = `<span style="font-size: 1.25rem;">🥈</span>`;
       else if (rankNum === 3) medalHtml = `<span style="font-size: 1.25rem;">🥉</span>`;
 
-      const userName = escapeHtml(creator.first_name || (creator.display_name && !creator.display_name.startsWith('pending_channel:') ? creator.display_name : null) || creator.username || creator.channel_name || `User #${creator.id}`);
-      const userUname = creator.username ? `<span style="font-size: 0.76rem; color: var(--green-neon); font-weight: 600; margin-left: 4px;">@${escapeHtml(creator.username)}</span>` : '';
       const chName = creator.channel_name || creator.channel_id;
       const channelDisplay = chName
         ? (chName.startsWith('@')
@@ -1734,8 +1732,6 @@
         ? `<span class="sub-badge"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg> ${subCount.toLocaleString()} subs</span>`
         : '';
 
-      const lastActiveStr = creator.last_active_at ? formatTimeAgo(creator.last_active_at) : 'Inactive';
-
       return `
         <div class="list-item" style="display: flex; flex-direction: column; gap: 8px;">
           <div class="item-top">
@@ -1743,20 +1739,16 @@
               <div style="min-width: 32px; display: flex; align-items: center; justify-content: center;">${medalHtml}</div>
               <div>
                 <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-white);">
-                  ${userName} ${userUname}
-                  <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: normal; margin-left: 4px;">(TG: ${creator.telegram_id})</span>
+                  ${channelDisplay}
                 </div>
                 <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                  Channel: ${channelDisplay} ${subBadge}
+                  ${subBadge}
                 </div>
               </div>
             </div>
           </div>
           <div class="item-badges" style="margin-top: 2px;">
             <span class="badge badge-blue"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> ${creator.total_posts || 0} posts</span>
-            <span class="badge badge-purple"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> ${creator.activities_count || 0} actions</span>
-            ${creator.has_active_schedule ? '<span class="badge badge-green">⏱️ AutoPost Active</span>' : ''}
-            <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">Last active: ${lastActiveStr}</span>
           </div>
         </div>
       `;
@@ -1786,14 +1778,9 @@
 
       if (rankSearchTerm) {
         list = list.filter(c => {
-          const name = (c.display_name || '').toLowerCase();
-          const uname = (c.username || '').toLowerCase();
           const ch = (c.channel_name || c.channel_id || '').toLowerCase();
           const tgId = String(c.telegram_id);
-          return name.includes(rankSearchTerm) ||
-                 uname.includes(rankSearchTerm) ||
-                 ch.includes(rankSearchTerm) ||
-                 tgId.includes(rankSearchTerm);
+          return ch.includes(rankSearchTerm) || tgId.includes(rankSearchTerm);
         });
       }
 

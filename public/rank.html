@@ -392,7 +392,7 @@
         <div id="myRankCircle" class="user-rank-circle">#1</div>
         <div>
           <div style="font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--green-neon); font-weight: 700;">Your Position</div>
-          <div id="myRankName" style="font-size: 1.1rem; font-weight: 800; color: #fff;">@username</div>
+          <div id="myRankName" style="font-size: 1.1rem; font-weight: 800; color: #fff;">Channel</div>
           <div id="myRankChannel" style="font-size: 0.78rem; color: var(--text-muted);">Channel: @channel</div>
         </div>
       </div>
@@ -418,7 +418,7 @@
         <span class="badge badge-amber" id="totalRankedBadge">0 Creators</span>
       </div>
 
-      <input type="text" id="searchInput" class="search-input" placeholder="Search creators by username, channel, or ID..." oninput="handleSearch(this.value)">
+      <input type="text" id="searchInput" class="search-input" placeholder="Search by channel or ID..." oninput="handleSearch(this.value)">
 
       <div id="loadingBox" class="loading-state">
         <div class="spinner"></div>
@@ -508,9 +508,12 @@
 
       card.style.display = 'flex';
       document.getElementById('myRankCircle').textContent = `#${myItem.rank}`;
-      const myName = myItem.first_name || (myItem.display_name && !myItem.display_name.startsWith('pending_channel:') ? myItem.display_name : null) || myItem.channel_name || 'You';
-      document.getElementById('myRankName').textContent = myName;
-      document.getElementById('myRankChannel').textContent = `Channel: ${myItem.channel_name || myItem.channel_id || 'None'}`;
+      const myChannel = myItem.channel_name || myItem.channel_id || 'No channel';
+      document.getElementById('myRankName').textContent = myChannel;
+      const mySubs = (myItem.subscribers !== null && myItem.subscribers !== undefined)
+        ? `${myItem.subscribers.toLocaleString()} subscribers`
+        : 'Content Creator';
+      document.getElementById('myRankChannel').textContent = mySubs;
       document.getElementById('myRankPosts').textContent = myItem.total_posts || 0;
       document.getElementById('myRankActions').textContent = myItem.activities_count || 0;
     }
@@ -530,14 +533,9 @@
 
       if (searchTerm) {
         list = list.filter(c => {
-          const name = (c.display_name || '').toLowerCase();
-          const uname = (c.username || '').toLowerCase();
           const ch = (c.channel_name || c.channel_id || '').toLowerCase();
           const tgId = String(c.telegram_id);
-          return name.includes(searchTerm) ||
-                 uname.includes(searchTerm) ||
-                 ch.includes(searchTerm) ||
-                 tgId.includes(searchTerm);
+          return ch.includes(searchTerm) || tgId.includes(searchTerm);
         });
       }
 
@@ -554,8 +552,7 @@
         else if (rankNum === 2) medalHtml = `🥈`;
         else if (rankNum === 3) medalHtml = `🥉`;
 
-        const displayName = escapeHtml(c.first_name || (c.display_name && !c.display_name.startsWith('pending_channel:') ? c.display_name : null) || c.username || c.channel_name || `User #${c.id}`);
-        const ch = c.channel_id || c.channel_name;
+        const ch = c.channel_name || c.channel_id;
         const channelHtml = ch
           ? (ch.startsWith('@')
               ? `<a href="https://t.me/${ch.substring(1)}" target="_blank" class="channel-link">${escapeHtml(ch)}</a>`
@@ -573,22 +570,17 @@
                 <div class="rank-num-wrap">${medalHtml}</div>
                 <div>
                   <div class="creator-name">
-                    ${displayName}
+                    ${channelHtml}
                     ${isYou ? '<span class="you-pill">You</span>' : ''}
                   </div>
                   <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
-                    Channel: ${channelHtml} ${subBadge}
+                    ${subBadge}
                   </div>
                 </div>
               </div>
             </div>
             <div class="item-badges">
               <span class="badge badge-blue">📝 ${c.total_posts || 0} posts</span>
-              <span class="badge badge-green">⚡ ${c.activities_count || 0} activities</span>
-              ${c.has_active_schedule ? '<span class="badge badge-amber">⏱️ AutoPost On</span>' : ''}
-              <span style="font-size: 0.72rem; color: var(--text-dim); margin-left: auto;">
-                ${c.last_active_at ? formatTimeAgo(c.last_active_at) : 'Inactive'}
-              </span>
             </div>
           </div>
         `;
