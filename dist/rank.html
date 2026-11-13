@@ -508,7 +508,10 @@
 
       card.style.display = 'flex';
       document.getElementById('myRankCircle').textContent = `#${myItem.rank}`;
-      const myChannel = myItem.channel_name || myItem.channel_id || 'No channel';
+      const rawMyChannel = myItem.channel_name || myItem.channel_id || '';
+      const myChannel = rawMyChannel
+        ? (rawMyChannel.startsWith('@') || rawMyChannel.startsWith('-') ? rawMyChannel : `@${rawMyChannel}`)
+        : 'No channel';
       document.getElementById('myRankName').textContent = myChannel;
       const mySubs = (myItem.subscribers !== null && myItem.subscribers !== undefined)
         ? `${myItem.subscribers.toLocaleString()} subscribers`
@@ -553,10 +556,12 @@
         else if (rankNum === 3) medalHtml = `🥉`;
 
         const ch = c.channel_name || c.channel_id;
-        const channelHtml = ch
-          ? (ch.startsWith('@')
-              ? `<a href="https://t.me/${ch.substring(1)}" target="_blank" class="channel-link">${escapeHtml(ch)}</a>`
-              : `<span class="channel-link">${escapeHtml(ch)}</span>`)
+        const isUsername = ch && !ch.startsWith('-');
+        const chDisplay = isUsername ? (ch.startsWith('@') ? ch : `@${ch}`) : ch;
+        const channelHtml = chDisplay
+          ? (isUsername
+              ? `<a href="https://t.me/${chDisplay.substring(1)}" target="_blank" class="channel-link">${escapeHtml(chDisplay)}</a>`
+              : `<span class="channel-link">${escapeHtml(chDisplay)}</span>`)
           : '<span style="color: var(--text-dim);">No channel</span>';
 
         const subBadge = (c.subscribers !== null && c.subscribers !== undefined)
