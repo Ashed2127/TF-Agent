@@ -87,7 +87,7 @@ export default async function (message, ctx) {
     if (userId === OWNER_CHAT_ID) {
       await api.sendMessage({
         chat_id: message.chat.id,
-        text: '🌱 TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
+        text: '🌱 TF Agent እንኳን ደህና መጡ!\n\nይህ Bot TF ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
         reply_markup: {
           inline_keyboard: [
             [
@@ -932,7 +932,7 @@ async function showMainMenu(chatId, isOwner = false) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: '🌱 True Feed Content Creator\n\nWhat would you like to do?',
+    text: '🌱 TF Content Creator\n\nWhat would you like to do?',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -942,7 +942,7 @@ async function showMainMenu(chatId, isOwner = false) {
 async function showUserTypeChoice(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: '🎉 Welcome to True Feed!\n\nChoose how you want to use the bot:',
+    text: '🎉 Welcome to TF\n\nChoose how you want to use the bot:',
     reply_markup: {
       inline_keyboard: [
         [

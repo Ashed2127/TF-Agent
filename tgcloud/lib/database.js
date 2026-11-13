@@ -1163,22 +1163,18 @@ export async function getCreatorsRanking() {
     }
   });
 
-  // Calculate score and rank
+  // Rank creators by total posts, then activity count
   const ranked = Array.from(userStats.values()).map(creator => {
     const totalPosts = Math.max(creator.posts_count, creator.verified_posts);
-    // Score formula: (posts * 10) + (activities * 2) + (active schedule ? 15 : 0)
-    const score = (totalPosts * 10) + (creator.activities_count * 2) + (creator.has_active_schedule ? 15 : 0);
 
     return {
       ...creator,
-      total_posts: totalPosts,
-      score
+      total_posts: totalPosts
     };
   });
 
-  // Sort descending by score, then posts, then activities
+  // Sort descending by posts, then activities
   ranked.sort((a, b) => {
-    if (b.score !== a.score) return b.score - a.score;
     if (b.total_posts !== a.total_posts) return b.total_posts - a.total_posts;
     return b.activities_count - a.activities_count;
   });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Creator Rankings & Leaderboard — True Feed</title>
+  <title>Creator Rankings & Leaderboard — TF</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -318,22 +318,6 @@
       text-decoration: underline;
     }
 
-    .score-badge {
-      font-size: 1.25rem;
-      font-weight: 800;
-      font-family: 'JetBrains Mono', monospace;
-      color: var(--green-neon);
-      display: flex;
-      align-items: baseline;
-      gap: 2px;
-    }
-
-    .score-badge small {
-      font-size: 0.72rem;
-      color: var(--text-dim);
-      font-weight: 500;
-    }
-
     .item-badges {
       display: flex;
       flex-wrap: wrap;
@@ -413,10 +397,6 @@
         </div>
       </div>
       <div class="user-highlight-stats">
-        <div class="stat-pill">
-          <span class="val" id="myRankScore">0</span>
-          <span class="lbl">Score</span>
-        </div>
         <div class="stat-pill">
           <span class="val" id="myRankPosts">0</span>
           <span class="lbl">Posts</span>
@@ -531,7 +511,6 @@
       const myName = myItem.first_name || (myItem.display_name && !myItem.display_name.startsWith('pending_channel:') ? myItem.display_name : null) || myItem.channel_name || 'You';
       document.getElementById('myRankName').textContent = myName;
       document.getElementById('myRankChannel').textContent = `Channel: ${myItem.channel_name || myItem.channel_id || 'None'}`;
-      document.getElementById('myRankScore').textContent = myItem.score || 0;
       document.getElementById('myRankPosts').textContent = myItem.total_posts || 0;
       document.getElementById('myRankActions').textContent = myItem.activities_count || 0;
     }
@@ -601,9 +580,6 @@
                     Channel: ${channelHtml} ${subBadge}
                   </div>
                 </div>
-              </div>
-              <div class="score-badge">
-                ${c.score || 0}<small>pts</small>
               </div>
             </div>
             <div class="item-badges">

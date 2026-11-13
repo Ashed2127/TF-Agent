@@ -38,7 +38,7 @@ export function normalizeChannelId(input) {
     return `@${username}`;
   }
 
-  // Bare username or title with two/more words (e.g., 'True Feed' -> '@TrueFeed', 'my channel' -> '@mychannel')
+  // Bare username or title with two/more words (e.g., 'TF' -> '@TrueFeed', 'my channel' -> '@mychannel')
   const noSpaces = str.replace(/\s+/g, '');
   if (/^[a-zA-Z0-9_]{3,}$/.test(noSpaces)) {
     return `@${noSpaces}`;
@@ -70,7 +70,7 @@ export function formatChannelHandle(channel) {
   // Strip path/query parameters
   str = str.split(/[/?#]/)[0];
 
-  // Remove any spaces if username has two or more words (e.g. 'true feed' -> 'truefeed')
+  // Remove any spaces if username has two or more words (e.g. 'TF' -> 'truefeed')
   str = str.replace(/\s+/g, '');
 
   return str ? `@${str}` : null;

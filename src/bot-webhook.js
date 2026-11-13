@@ -228,7 +228,7 @@ bot.start((ctx) => {
   console.log('Start command received from:', ctx.from?.id);
   ctx.reply(
     ' TF Agent እንኳን ደህና መጡ!\n\n' +
-    'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
+    'ይህ Bot TF ቻናልዎን ያስተዳድራል።\n' +
     'ከታች ያሉትን አማራጮች ይጫኑ።',
     {
       reply_markup: {
@@ -293,7 +293,7 @@ bot.action('back', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.reply(
       ' TF Agent እንኳን ደህና መጡ!\n\n' +
-      'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
+      'ይህ Bot TF ቻናልዎን ያስተዳድራል።\n' +
       'ከታች ያሉትን አማራጮች ይጫኑ።',
       {
         reply_markup: {

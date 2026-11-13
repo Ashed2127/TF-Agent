@@ -21,7 +21,7 @@ CRITICAL CONSTRAINTS:
 - Maximum 10 lines total
 - Maximum 3-4 sentences
 - Keep it concise and impactful
-- Write in True Feed channel style (same as previous posts)
+- Write in TF channel style (same as previous posts)
 - No jokes included - just serious insight
 - Must maintain context and writing style from previous posts
 - Focus on recommendations and asking for suggestions
@@ -77,20 +77,20 @@ Generate the post in Amharic. Keep it short, insightful, and conversational. Max
 
 async function generateJoke() {
   try {
-    console.log('Generating joke based on True Feed writing style...');
+    console.log('Generating joke based on TF writing style...');
     
     const recentPosts = getRecentPosts(5);
     const postsContext = recentPosts.length > 0 
       ? recentPosts.map((post, index) => `Post ${index + 1}: ${post.substring(0, 150)}...`).join('\n\n')
       : 'No previous posts available';
     
-    const prompt = `Generate a SHORT funny joke in Amharic that matches the True Feed channel writing style and is related to business/entrepreneurship/startups.
+    const prompt = `Generate a SHORT funny joke in Amharic that matches the TF channel writing style and is related to business/entrepreneurship/startups.
 
 CRITICAL CONSTRAINTS:
 - Maximum 6 lines total
 - Maximum 2-3 sentences
 - Must be genuinely funny and unexpected
-- Follow True Feed channel tone and style
+- Follow TF channel tone and style
 - Related to business, entrepreneurship, or startups
 - Make it witty and clever
 

@@ -1,1 +1,1 @@
-A serverless Telegram Bot & Mini App for True Feed that scrapes global news across 10 categories, generates faithful Amharic translations using AI, and automatically publishes formatted content to Telegram channels,.
+A serverless Telegram Bot & Mini App for TF that scrapes global news across 10 categories, generates faithful Amharic translations using AI, and automatically publishes formatted content to Telegram channels,.

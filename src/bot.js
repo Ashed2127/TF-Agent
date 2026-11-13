@@ -228,7 +228,7 @@ bot.start((ctx) => {
   console.log('Start command received from:', ctx.from?.id);
   ctx.reply(
     ' TF Agent እንኳን ደህና መጡ!\n\n' +
-    'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
+    'ይህ Bot TF ቻናልዎን ያስተዳድራል።\n' +
     'ከታች ያሉትን አማራጮች ይጫኑ።',
     {
       reply_markup: {
@@ -293,7 +293,7 @@ bot.action('back', async (ctx) => {
     await ctx.answerCbQuery();
     await ctx.reply(
       ' TF Agent እንኳን ደህና መጡ!\n\n' +
-      'ይህ Bot True Feed ቻናልዎን ያስተዳድራል።\n' +
+      'ይህ Bot TF ቻናልዎን ያስተዳድራል።\n' +
       'ከታች ያሉትን አማራጮች ይጫኑ።',
       {
         reply_markup: {
@@ -908,13 +908,13 @@ bot.action(/approve_news_(.+)/, async (ctx) => {
     }
 
     if (posted) {
-      console.log(` Posted news article [${id}] to True Feed`);
+      console.log(` Posted news article [${id}] to TF`);
       // Try to edit the message, if it fails (e.g., photo message), send a new one
       try {
-        await ctx.editMessageText(' Posted to True Feed!');
+        await ctx.editMessageText(' Posted to TF');
       } catch (editError) {
         console.error('Error editing message:', editError.message);
-        await ctx.reply(' Posted to True Feed!');
+        await ctx.reply(' Posted to TF');
       }
 
       // Move to next article
@@ -1039,10 +1039,10 @@ bot.on('photo', async (ctx) => {
 
     await markPosted(id);
 
-    console.log(` Posted idea [${id}] with image to True Feed`);
+    console.log(` Posted idea [${id}] with image to TF`);
 
     await ctx.reply(
-      ' True Feed ላይ ተለቀቀ!\n\n' + idea.content,
+      ' TF ላይ ተለቀቀ!\n\n' + idea.content,
       { parse_mode: 'HTML' }
     );
 
@@ -1084,10 +1084,10 @@ bot.action(/post_no_image_(.+)/, async (ctx) => {
     await bot.telegram.sendMessage(TRUE_FEED_CHANNEL_ID, idea.content, { parse_mode: 'HTML' });
     await markPosted(id);
 
-    console.log(` Posted idea [${id}] to True Feed (no image)`);
+    console.log(` Posted idea [${id}] to TF (no image)`);
 
     await ctx.editMessageText(
-      ' True Feed ላይ ተለቀቀ!\n\n' + idea.content,
+      ' TF ላይ ተለቀቀ!\n\n' + idea.content,
       { parse_mode: 'HTML' }
     );
 

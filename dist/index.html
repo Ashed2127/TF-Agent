@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>True Feed Admin Console</title>
+  <title>TF Admin Console</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -876,7 +876,7 @@
       <div class="brand-wrap">
         <div class="brand-logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg></div>
         <div class="brand-meta">
-          <h1>True Feed</h1>
+          <h1>TF</h1>
           <p>Control & Telemetry Console</p>
         </div>
       </div>
@@ -1027,7 +1027,7 @@
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber-accent)" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
                 Top Content Creators Activity Rank
               </div>
-              <div class="panel-subtitle">Real-time creator activity score based on publications, updates, and channel reach</div>
+              <div class="panel-subtitle">Real-time creator activity based on publications, updates, and channel reach</div>
             </div>
             <button class="btn-action" onclick="switchTab('rank')">Full Leaderboard &rarr;</button>
           </div>
@@ -1749,11 +1749,6 @@
                 <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">
                   Channel: ${channelDisplay} ${subBadge}
                 </div>
-              </div>
-            </div>
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-              <div style="font-size: 1.15rem; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: var(--green-neon);">
-                ${creator.score || 0} <span style="font-size: 0.72rem; color: var(--text-dim); font-weight: 500;">pts</span>
               </div>
             </div>
           </div>

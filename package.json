@@ -1,7 +1,7 @@
 {
   "name": "tf-agent",
   "version": "1.0.0",
-  "description": "True Feed Agent - Telegram bot for generating Amharic business ideas",
+  "description": "TF Agent - Telegram bot for generating Amharic business ideas",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -70,7 +70,7 @@ async function showMainMenu(chatId, isOwner = false) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: 'True Feed Content Creator\n\nWhat would you like to do?',
+    text: 'TF Content Creator\n\nWhat would you like to do?',
     reply_markup: {
       inline_keyboard: keyboard
     }
@@ -83,7 +83,7 @@ async function showMainMenu(chatId, isOwner = false) {
 async function showGuestMenu(chatId) {
   await api.sendMessage({
     chat_id: chatId,
-    text: ' True Feed Guest Mode\n\nBrowse and translate news - no channel required!',
+    text: ' TF Guest Mode\n\nBrowse and translate news - no channel required!',
     reply_markup: {
       inline_keyboard: [
         [
@@ -469,11 +469,11 @@ export default async function (callbackQuery, ctx) {
     await updateUserOnboardingStep(userId, 'join_channel');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: 'User Mode Selected!\n\nTo get started, please join our True Feed channel first:',
+      text: 'User Mode Selected!\n\nTo get started, please join our TF channel first:',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: 'Join True Feed Channel', url: 'https://t.me/true_feed' }
+            { text: 'Join TF Channel', url: 'https://t.me/true_feed' }
           ],
           [
             { text: 'I\'ve Joined', callback_data: 'check_join' }
@@ -518,7 +518,7 @@ export default async function (callbackQuery, ctx) {
   if (data === 'refresh_user_type') {
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ' Welcome to True Feed!\n\nChoose how you want to use the bot:',
+      text: ' Welcome to TF',
       reply_markup: {
         inline_keyboard: [
           [
@@ -551,11 +551,11 @@ export default async function (callbackQuery, ctx) {
     await updateUserOnboardingStep(userId, 'join_channel');
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: ' Switching to User Mode...\n\nTo get started, please join our True Feed channel first:',
+      text: ' Switching to User Mode...\n\nTo get started, please join our TF channel first:',
       reply_markup: {
         inline_keyboard: [
           [
-            { text: 'Join True Feed Channel', url: 'https://t.me/true_feed' }
+            { text: 'Join TF Channel', url: 'https://t.me/true_feed' }
           ],
           [
             { text: 'I\'ve Joined', callback_data: 'check_join' }
@@ -2606,14 +2606,13 @@ export default async function (callbackQuery, ctx) {
       const channelDisplay = creator.channel_id || creator.channel_name || 'No channel';
 
       rankText += `${medal} <b>${creatorName}</b>${isYou}\n`;
-      rankText += `   Channel: <b>${channelDisplay}</b> | Posts: <b>${creator.total_posts}</b> | Score: <b>${creator.score}</b> pts\n\n`;
+      rankText += `   Channel: <b>${channelDisplay}</b> | Posts: <b>${creator.total_posts}</b>\n\n`;
     });
 
     const myRankItem = rankings.find(r => r.telegram_id === callerId);
     if (myRankItem) {
       rankText += `━━━━━━━━━━━━━━━━━━━━\n`;
       rankText += `👤 <b>Your Rank:</b> #${myRankItem.rank} of ${rankings.length}\n`;
-      rankText += `📊 <b>Your Score:</b> ${myRankItem.score} pts\n`;
       rankText += `📝 <b>Total Posts:</b> ${myRankItem.total_posts}\n`;
     }
 
@@ -2984,7 +2983,7 @@ export default async function (callbackQuery, ctx) {
     if (isOwner) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ' TF Agent እንኳን ደህና መጡ!\n\nይህ Bot True Feed ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
+        text: ' TF Agent እንኳን ደህና መጡ!\n\nይህ Bot TF ቻናልዎን ያስተዳድራል።\nከታች ያሉትን አማራጮች ይጫኑ።',
         reply_markup: {
           inline_keyboard: [
             [
@@ -3006,7 +3005,7 @@ export default async function (callbackQuery, ctx) {
       // Show user/guest mode choice for non-owner users
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ' Welcome to True Feed!\n\nChoose how you want to use the bot:',
+        text: ' Welcome to TF\n\nChoose how you want to use the bot:',
         reply_markup: {
           inline_keyboard: [
             [
@@ -3319,7 +3318,7 @@ export default async function (callbackQuery, ctx) {
       const reactionKeyboard = createdPost ? buildPostReactionKeyboard(createdPost.id) : null;
       const postMarkup = reactionKeyboard ? { inline_keyboard: reactionKeyboard } : undefined;
 
-      // Post to the True Feed channel with interactive funny sticker reactions
+      // Post to the TF channel with interactive funny sticker reactions
       if (article.image) {
         try {
           await api.sendPhoto({
@@ -3607,7 +3606,7 @@ export default async function (callbackQuery, ctx) {
         return;
       }
       
-      // Post to the True Feed channel
+      // Post to the TF channel
       await api.sendMessage({
         chat_id: TRUE_FEED_CHANNEL_ID,
         text: idea.content,
@@ -3675,7 +3674,7 @@ export default async function (callbackQuery, ctx) {
 
 async function handleCheckJoin(callbackQuery, userId) {
   try {
-    // Check if user is a member of True Feed channel
+    // Check if user is a member of TF channel
     const chatMember = await api.getChatMember({
       chat_id: TRUE_FEED_CHANNEL_ID,
       user_id: userId
@@ -3684,11 +3683,11 @@ async function handleCheckJoin(callbackQuery, userId) {
     if (chatMember.status === 'left' || chatMember.status === 'kicked') {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: ' You haven\'t joined the True Feed channel yet. Please join first:',
+        text: ' You haven\'t joined the TF channel yet. Please join first:',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Join True Feed Channel', url: 'https://t.me/true_feed' }
+              { text: 'Join TF Channel', url: 'https://t.me/true_feed' }
             ],
             [
               { text: 'I\'ve Joined', callback_data: 'check_join' }

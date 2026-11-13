@@ -8,7 +8,7 @@ Go to your Vercel project dashboard and add these environment variables:
 
 - `TELEGRAM_BOT_TOKEN` - Your Telegram bot token from BotFather
 - `OWNER_CHAT_ID` - Your Telegram chat ID (the only user authorized to use the bot)
-- `TRUE_FEED_CHANNEL_ID` - Your True Feed channel ID (optional)
+- `TRUE_FEED_CHANNEL_ID` - Your TF channel ID (optional)
 - `OPENROUTER_API_KEY` - Your OpenRouter API key for AI generation
 - `MONGODB_URI` - Your MongoDB connection string
 - `GIPHY_API_KEY` - Your Giphy API key (optional, for GIF features)
