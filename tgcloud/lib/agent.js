@@ -1,5 +1,6 @@
 import { fetch } from 'sdk';
 import { getPreviousTopics, getNextCategory, saveIdea, getContentStructure, getUserByTelegramId, getUserById } from './database.js';
+import { formatChannelHandle } from './channel.js';
 import { OPENROUTER_API_KEY } from './secrets.js';
 
 const OWNER_CHAT_ID = 685669468;
@@ -14,9 +15,7 @@ Value [5+ lines insight]
 // Default user structure (fallback if no custom structure set)
 const DEFAULT_USER_STRUCTURE = `🟢 Hybrid: [Name]
 
-Value [5+ lines insight]
-
-@true_feed`;
+Value [5+ lines insight]`;
 
 function buildPrompt(previousTopics, category, structure) {
   const previousTopicsList = previousTopics.length > 0
@@ -95,6 +94,11 @@ export async function generateIdea(userId = null) {
         console.log('👑 Using default OWNER structure for user:', userId);
       } else {
         structure = DEFAULT_USER_STRUCTURE;
+        // Append the user's own channel handle (never @true_feed — owner-only)
+        const userLink = user ? formatChannelHandle(user.channel_name || user.channel_id) : null;
+        if (userLink && userLink.startsWith('@')) {
+          structure += `\n\n${userLink}`;
+        }
         console.log('ℹ️ Using DEFAULT USER structure for user:', userId);
       }
     }

@@ -987,7 +987,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
     return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
   });
 
-  const targetChannel = isOwner ? '<b>@true_feed</b>' : (userChannelLink || '@true_feed');
+  const targetChannel = isOwner ? '<b>@true_feed</b>' : (userChannelLink || '');
   const sourceLink = article.link ? `<a href="${article.link}">${escapeHTML(article.platform || 'Source')}</a>` : '';
 
   // 1. Channel replacement: handle [@true_feed in Bold style], [Channel], [@channel], etc.
@@ -1235,7 +1235,7 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
       return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
     });
 
-    const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '@true_feed');
+    const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '');
 
     const langName = targetLang === 'ti' ? 'Tigrinya' : (targetLang === 'om' ? 'Afaan Oromo' : (targetLang === 'en' ? 'English' : 'Amharic'));
 
