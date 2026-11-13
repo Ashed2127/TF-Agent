@@ -38,14 +38,23 @@ export async function checkAndTriggerDueRecommendations() {
 /**
  * Send a recommendation to a specific user
  */
-async function sendRecommendationToUser(user) {
+export async function sendRecommendationToUser(user) {
   try {
     const result = await getDailyRecommendations(user.telegram_id);
 
     if (result.digest) {
+      // Telegram message limit is 4096 characters
+      const MAX_LENGTH = 4096;
+      let message = result.digest;
+
+      if (message.length > MAX_LENGTH) {
+        console.log(`Message too long (${message.length} chars), truncating to ${MAX_LENGTH}`);
+        message = message.substring(0, MAX_LENGTH - 50) + '\n\n[Message truncated...]';
+      }
+
       await api.sendMessage({
         chat_id: user.telegram_id,
-        text: result.digest,
+        text: message,
         parse_mode: 'Markdown',
       });
       console.log(`Recommendation sent to ${user.telegram_id}`);

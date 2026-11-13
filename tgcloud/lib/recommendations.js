@@ -45,16 +45,16 @@ async function fetchArticlesForCategories(categories) {
     const platforms = platformsByCategory[categoryId] || [];
     if (platforms.length === 0) continue;
 
-    // Pick 4 random platforms from this category to get more variety
+    // Pick 2 random platforms from this category for variety
     const shuffled = platforms.sort(() => 0.5 - Math.random());
-    const selectedPlatforms = shuffled.slice(0, 4);
+    const selectedPlatforms = shuffled.slice(0, 2);
 
     for (const platform of selectedPlatforms) {
       try {
         const categoryArticles = await fetchRSSFeed(platform.url, platform.name);
         if (Array.isArray(categoryArticles) && categoryArticles.length > 0) {
-          // Take first 5 articles from this platform for better selection pool
-          const selectedArticles = categoryArticles.slice(0, 5).map(article => ({
+          // Take first 3 articles from this platform
+          const selectedArticles = categoryArticles.slice(0, 3).map(article => ({
             ...article,
             category: categoryId,
             platform: platform.name,
@@ -116,8 +116,8 @@ WHAT TO AVOID:
 
 Story Selection Process:
 1. Review ALL articles and score each on "impressiveness" (1-10)
-2. Select top 5-7 stories that score highest
-3. Ensure emotional diversity: at least 1-2 inspiring, 1-2 shocking/fascinating, 1-2 humorous/heartwarming
+2. Select top 3 stories that score highest
+3. Ensure emotional diversity: mix of inspiring, shocking/fascinating, and humorous/heartwarming
 4. Group by region/topic for better flow (e.g., Ethiopia, Africa, Global Tech, Science, Human Stories)
 5. Prioritize stories that will be remembered hours or days later
 
@@ -160,8 +160,8 @@ Output ONLY the digest text, no preamble or explanation.`;
             content: prompt
           }
         ],
-        max_tokens: 3000,
-        temperature: 0.8
+        max_tokens: 2000,
+        temperature: 0.75
       })
     });
 
@@ -198,7 +198,7 @@ function generateFallbackDigest(user, articles) {
     return bLen - aLen; // Longer titles might indicate more substantial stories
   });
 
-  const selectedArticles = sortedArticles.slice(0, 7);
+  const selectedArticles = sortedArticles.slice(0, 3);
   selectedArticles.forEach((article, index) => {
     digest += `**${article.title || 'No title'}**\n`;
     digest += `${article.description || article.snippet || ''}\n`;
@@ -292,8 +292,8 @@ export async function getDailyRecommendations(telegramId, forceRefresh = false) 
     };
   }
 
-  // Cap articles at 40 to avoid overwhelming the AI while maintaining variety
-  const maxArticles = 40;
+  // Cap articles at 20 to avoid overwhelming the AI while maintaining variety
+  const maxArticles = 20;
   const cappedArticles = articles.length > maxArticles
     ? articles.slice(0, maxArticles)
     : articles;
