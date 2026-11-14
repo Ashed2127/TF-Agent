@@ -5,7 +5,7 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, getRepetitiveTaskSchedule, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, getRepetitiveTaskSchedule, getAutoPostScheduleById, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata, checkBotAdminStatus } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
@@ -683,6 +683,29 @@ export default async function (message, ctx) {
         return;
       }
 
+      // 'task<id>' targets a specific repetitive schedule for interval-only update
+      if (channelId.startsWith('task')) {
+        const scheduleId = parseInt(channelId.replace('task', ''), 10);
+        const user = await getUserByTelegramId(userId);
+        const sched = await getAutoPostScheduleById(scheduleId);
+        await clearPendingChannelAdd(userId);
+        if (sched && sched.user_id === user.id && sched.post_mode === 'repetitive') {
+          await updateAutoPostSchedule(sched.id, undefined, parsedHours, true);
+          const intervalText = formatIntervalDisplay(parsedHours);
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: `✅ <b>Repetitive task #${sched.id} interval updated!</b>\n\nNew interval: Every ${intervalText}`,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+              ]
+            }
+          });
+        }
+        return;
+      }
+
       await clearPendingChannelAdd(userId);
       const stateKey = isSetup
         ? `waiting_rep_content_setup_${channelId}_${parsedHours}`
@@ -700,6 +723,45 @@ export default async function (message, ctx) {
           ]
         }
       });
+      return;
+    }
+
+    // Handle editing content of a specific repetitive task
+    if (pendingChannel && pendingChannel.channelId.startsWith('waiting_rep_edit_')) {
+      const scheduleId = parseInt(pendingChannel.channelId.replace('waiting_rep_edit_', ''), 10);
+      const text = incomingText.trim();
+
+      if (['cancel', 'abort', 'stop', 'back'].includes(text.toLowerCase())) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Edit cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      await clearPendingChannelAdd(userId);
+      const user = await getUserByTelegramId(userId);
+      const sched = await getAutoPostScheduleById(scheduleId);
+
+      if (sched && sched.user_id === user.id && sched.post_mode === 'repetitive') {
+        await updateAutoPostSchedule(sched.id, undefined, undefined, undefined, undefined, undefined, 'repetitive', text);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `✅ <b>Repetitive task #${sched.id} content updated!</b>\n\nChannel: <code>${sched.channel_id}</code>\n\n<b>New Content:</b>\n<i>${text.substring(0, 200)}</i>`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+            ]
+          }
+        });
+      }
       return;
     }
 
@@ -730,9 +792,32 @@ export default async function (message, ctx) {
       await clearPendingChannelAdd(userId);
 
       const user = await getUserByTelegramId(userId);
-      const existingRepSchedule = await getRepetitiveTaskSchedule(user.id);
 
-      if (isSetup || !existingRepSchedule) {
+      // 'task<id>' in the channel slot targets a specific repetitive schedule
+      if (!isSetup && channelId.startsWith('task')) {
+        const scheduleId = parseInt(channelId.replace('task', ''), 10);
+        const sched = await getAutoPostScheduleById(scheduleId);
+        if (sched && sched.user_id === user.id && sched.post_mode === 'repetitive') {
+          await updateAutoPostSchedule(sched.id, undefined, intervalHours, true, undefined, undefined, 'repetitive', text);
+          const intervalText = formatIntervalDisplay(intervalHours);
+          await api.sendMessage({
+            chat_id: message.chat.id,
+            text: `✅ <b>Repetitive Task #${sched.id} Updated!</b>\n\n📢 <b>Channel:</b> <code>${sched.channel_id}</code>\n⏱️ <b>Interval:</b> Every ${intervalText}\n🔁 <b>Mode:</b> Repetitive Task\n\n<b>Scheduled Content:</b>\n<i>${text.substring(0, 200)}</i>`,
+            parse_mode: 'HTML',
+            reply_markup: {
+              inline_keyboard: [
+                [{ text: 'View Repetitive Tasks', callback_data: 'repetitive_task' }],
+                [{ text: 'Back to Settings', callback_data: 'settings' }]
+              ]
+            }
+          });
+        }
+        return;
+      }
+
+      if (isSetup) {
+        // Always create a NEW repetitive schedule so users can run multiple
+        // tasks across different channels and content
         await createAutoPostSchedule(
           user.id,
           channelId,
@@ -743,16 +828,29 @@ export default async function (message, ctx) {
           text
         );
       } else {
-        await updateAutoPostSchedule(
-          existingRepSchedule.id,
-          channelId,
-          intervalHours,
-          1,
-          'repetitive',
-          'custom',
-          'repetitive',
-          text
-        );
+        const existingRepSchedule = await getRepetitiveTaskSchedule(user.id);
+        if (existingRepSchedule) {
+          await updateAutoPostSchedule(
+            existingRepSchedule.id,
+            channelId,
+            intervalHours,
+            1,
+            'repetitive',
+            'custom',
+            'repetitive',
+            text
+          );
+        } else {
+          await createAutoPostSchedule(
+            user.id,
+            channelId,
+            intervalHours,
+            'repetitive',
+            'custom',
+            'repetitive',
+            text
+          );
+        }
       }
 
       const intervalText = formatIntervalDisplay(intervalHours);

@@ -1,6 +1,7 @@
 import { api } from 'sdk';
 import { NEWS_CATEGORIES, NEWS_PLATFORMS } from './news.js';
-import { getCustomSources, getAutoPostSchedule } from './database.js';
+import { getCustomSources, getAutoPostSchedule, getUserByTelegramId, createAutoPostSchedule, updateAutoPostSchedule } from './database.js';
+import { parseAutoPostPlatforms } from './autopost_platforms.js';
 
 export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = false) {
   const prefix = isUpdate ? 'update_auto_post' : 'setup_auto_post';
@@ -74,7 +75,7 @@ export async function showAutoPostCategoryPicker(chatId, channelId, intervalHour
 
   await api.sendMessage({
     chat_id: chatId,
-    text: `📡 <b>Select Content Source Category:</b>\n\nChoose the category of platforms for your automated posts:`,
+    text: `📡 <b>Select Content Source Category:</b>\n\nChoose the category of platforms for your automated posts. You can pick multiple platforms across categories:`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
@@ -82,8 +83,32 @@ export async function showAutoPostCategoryPicker(chatId, channelId, intervalHour
   });
 }
 
+// Ensures a news auto-post schedule row exists and matches the chosen
+// channel/interval. The schedule row itself stores the selected platforms,
+// so multi-select state survives across picker screens without extra state.
+async function ensureAutoPostSchedule(userId, channelId, intervalHours) {
+  let schedule = await getAutoPostSchedule(userId, 'news');
+  if (!schedule) {
+    const user = await getUserByTelegramId(userId);
+    if (!user) return null;
+    schedule = await createAutoPostSchedule(user.id, channelId, intervalHours, null, null, 'news', null);
+    await updateAutoPostSchedule(schedule.id, undefined, undefined, false);
+    return schedule;
+  }
+
+  const sameChannel = schedule.channel_id === channelId;
+  const sameInterval = Math.abs(Number(schedule.interval_hours) - Number(intervalHours)) < 1e-9;
+  if (!sameChannel || !sameInterval) {
+    schedule = await updateAutoPostSchedule(schedule.id, channelId, intervalHours, undefined) || schedule;
+  }
+  return schedule;
+}
+
 export async function showAutoPostPlatformPicker(chatId, userId, channelId, intervalHours, catId, isUpdate = false) {
-  const actionPrefix = isUpdate ? 'ap_up_plat' : 'ap_st_plat';
+  const schedule = await ensureAutoPostSchedule(userId, channelId, intervalHours);
+  if (!schedule) return;
+
+  const selected = new Set(parseAutoPostPlatforms(schedule.source_platform));
   let platforms = [];
 
   if (catId === 'custom') {
@@ -101,22 +126,28 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
   const keyboard = [];
   for (let i = 0; i < platforms.length; i += 2) {
     const row = [];
+    const p1 = platforms[i];
     row.push({
-      text: platforms[i].name,
-      callback_data: `${actionPrefix}_${channelId}_${intervalHours}_${platforms[i].id}`
+      text: `${selected.has(p1.id) ? '✅ ' : ''}${p1.name}`,
+      callback_data: `ap_ptog_${catId}:${p1.id}`
     });
     if (i + 1 < platforms.length) {
+      const p2 = platforms[i + 1];
       row.push({
-        text: platforms[i + 1].name,
-        callback_data: `${actionPrefix}_${channelId}_${intervalHours}_${platforms[i + 1].id}`
+        text: `${selected.has(p2.id) ? '✅ ' : ''}${p2.name}`,
+        callback_data: `ap_ptog_${catId}:${p2.id}`
       });
     }
     keyboard.push(row);
   }
 
   keyboard.push([
+    { text: `✅ Done (${selected.size} selected)`, callback_data: 'ap_pdone' }
+  ]);
+
+  keyboard.push([
     { text: '« Back to Categories', callback_data: `${isUpdate ? 'ap_up_back' : 'ap_st_back'}_${channelId}_${intervalHours}` },
-    { text: 'Cancel', callback_data: 'auto_post' }
+    { text: 'Cancel', callback_data: 'ap_cancel' }
   ]);
 
   const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
@@ -124,7 +155,7 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
 
   await api.sendMessage({
     chat_id: chatId,
-    text: `📰 <b>${catName}</b>\n\nSelect the platform to generate and auto-post content from:`,
+    text: `📰 <b>${catName}</b>\n\nTap platforms to select or deselect them. You can add platforms from multiple categories — selected: <b>${selected.size}</b>`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard
@@ -132,16 +163,18 @@ export async function showAutoPostPlatformPicker(chatId, userId, channelId, inte
   });
 }
 
-export async function showAutoPostLanguagePicker(chatId, channelId, intervalHours, platformId, isUpdate = false) {
-  const prefix = isUpdate ? 'ap_up_lang' : 'ap_st_lang';
+export async function showAutoPostLanguagePicker(chatId, isUpdate = false) {
+  const schedule = await getAutoPostSchedule(chatId, 'news');
+  const selectedCount = schedule ? parseAutoPostPlatforms(schedule.source_platform).length : 0;
+
   const keyboard = [
     [
-      { text: '🇪🇹 አማርኛ (Amharic)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_am` },
-      { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_ti` }
+      { text: '🇪🇹 አማርኛ (Amharic)', callback_data: 'ap_nlang_am' },
+      { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: 'ap_nlang_ti' }
     ],
     [
-      { text: '🇪🇹 Afaan Oromoo', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_om` },
-      { text: '🇬🇧 English (Original)', callback_data: `${prefix}_${channelId}_${intervalHours}_${platformId}_en` }
+      { text: '🇪🇹 Afaan Oromoo', callback_data: 'ap_nlang_om' },
+      { text: '🇬🇧 English (Original)', callback_data: 'ap_nlang_en' }
     ],
     [
       { text: '« Back to Auto Post', callback_data: 'auto_post' }
@@ -150,7 +183,7 @@ export async function showAutoPostLanguagePicker(chatId, channelId, intervalHour
 
   await api.sendMessage({
     chat_id: chatId,
-    text: `🌐 <b>Select Translation Language:</b>\n\nChoose the target language for auto-posted articles:`,
+    text: `🌐 <b>Select Translation Language:</b>\n\nChoose the target language for auto-posted articles. Selected sources: <b>${selectedCount}</b>`,
     parse_mode: 'HTML',
     reply_markup: {
       inline_keyboard: keyboard

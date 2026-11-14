@@ -2,7 +2,8 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, getRepetitiveTaskSchedule, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, getRepetitiveTaskSchedule, getRepetitiveTaskSchedules, getAutoPostScheduleById, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
+import { parseAutoPostPlatforms, serializeAutoPostPlatforms } from '../lib/autopost_platforms.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed, getPlatformById, formatNewsArticle, translateToAmharic, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
@@ -103,6 +104,27 @@ async function showGuestMenu(chatId) {
         ]
       ]
     }
+  });
+}
+
+/**
+ * Helper to show the channel picker used when adding a repetitive task
+ */
+async function showRepChannelPicker(chatId, telegramUserId) {
+  const user = await getUserByTelegramId(telegramUserId);
+  const userChannels = await getUserChannels(user.id);
+  const keyboard = userChannels.map(c => [{
+    text: `📢 ${c.channel_name || c.channel_id}`,
+    callback_data: `rep_pick_chn_${c.channel_id}`
+  }]);
+  keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+  keyboard.push([{ text: 'Back', callback_data: 'repetitive_task' }]);
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `🔁 <b>Select Channel for Repetitive Task</b>\n\nChoose the channel where you want your repetitive announcement or message posted periodically:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
   });
 }
 
@@ -1225,10 +1247,13 @@ export default async function (callbackQuery, ctx) {
     // Get content structure, auto post, and repetitive task status
     const contentStructure = await getContentStructure(user.id);
     const autoPostSchedule = await getAutoPostSchedule(user.id, 'news');
-    const repetitiveSchedule = await getRepetitiveTaskSchedule(user.id);
+    const repetitiveSchedules = await getRepetitiveTaskSchedules(user.id);
+    const repetitiveSchedule = repetitiveSchedules[0] || null;
     const contentStructureStatus = contentStructure ? 'Set' : 'Not set';
     const autoPostStatus = autoPostSchedule ? (autoPostSchedule.is_active === 1 ? 'Active' : 'Paused') : 'Not set';
-    const repetitiveStatus = repetitiveSchedule ? (repetitiveSchedule.is_active === 1 ? 'Active' : 'Paused') : 'Not set';
+    const repetitiveStatus = repetitiveSchedule
+      ? `${repetitiveSchedules.length} task${repetitiveSchedules.length === 1 ? '' : 's'} (${repetitiveSchedules.filter(s => s.is_active === 1).length} active)`
+      : 'Not set';
 
     // Get recommendation settings
     const recommendationsEnabled = user?.recommendations_enabled === 1 ? 'Enabled' : 'Disabled';
@@ -1637,7 +1662,11 @@ export default async function (callbackQuery, ctx) {
   // Handle auto post button
   if (data === 'auto_post') {
     const user = await getUserByTelegramId(userId);
-    const autoPostSchedule = await getAutoPostSchedule(user.id, 'news');
+    let autoPostSchedule = await getAutoPostSchedule(user.id, 'news');
+    // A schedule without a target language is an unfinished setup draft
+    if (autoPostSchedule && !autoPostSchedule.target_lang) {
+      autoPostSchedule = null;
+    }
     const userChannels = await getUserChannels(user.id);
     const isOwner = userId === OWNER_CHAT_ID;
 
@@ -1648,16 +1677,18 @@ export default async function (callbackQuery, ctx) {
       const channelName = channel ? channel.channel_name || channel.channel_id : autoPostSchedule.channel_id;
 
       let platformName = 'General News (TechCrunch)';
-      if (autoPostSchedule.source_platform) {
-        if (autoPostSchedule.source_platform.startsWith('custom_')) {
-          const customId = parseInt(autoPostSchedule.source_platform.replace('custom_', ''), 10);
-          const customs = await getCustomSources(user.id);
-          const match = customs.find(c => c.id === customId);
-          platformName = match ? `⭐ ${match.source_name}` : autoPostSchedule.source_platform;
-        } else {
-          const match = getPlatformById(autoPostSchedule.source_platform);
-          platformName = match ? match.name : autoPostSchedule.source_platform;
-        }
+      const sourceIds = parseAutoPostPlatforms(autoPostSchedule.source_platform);
+      if (sourceIds.length > 0) {
+        const customs = sourceIds.some(id => id.startsWith('custom_')) ? await getCustomSources(user.id) : [];
+        platformName = sourceIds.map(pid => {
+          if (pid.startsWith('custom_')) {
+            const customId = parseInt(pid.replace('custom_', ''), 10);
+            const match = customs.find(c => c.id === customId);
+            return match ? `⭐ ${match.source_name}` : pid;
+          }
+          const match = getPlatformById(pid);
+          return match ? match.name : pid;
+        }).join(' + ');
       }
 
       let langName = 'Amharic';
@@ -1679,7 +1710,7 @@ export default async function (callbackQuery, ctx) {
               { text: '⏱️ Change Interval', callback_data: 'edit_auto_post' }
             ],
             [
-              { text: '📡 Change Platform', callback_data: 'edit_auto_post_platform' },
+              { text: '📡 Add/Change Platforms', callback_data: 'edit_auto_post_platform' },
               { text: '🌐 Change Language', callback_data: 'edit_auto_post_lang' }
             ],
             [
@@ -1892,26 +1923,7 @@ export default async function (callbackQuery, ctx) {
 
   // Direct change of language from Auto Post settings
   if (data === 'edit_auto_post_lang' || data.startsWith('edit_auto_post_lang_')) {
-    const user = await getUserByTelegramId(userId);
-    const schedule = await getAutoPostSchedule(user.id, 'news');
-    if (data === 'edit_auto_post_lang' && schedule) {
-      await showAutoPostLanguagePicker(callbackQuery.message.chat.id, schedule.channel_id, schedule.interval_hours, schedule.source_platform || 'techcrunch', true);
-      return;
-    }
-    const raw = data.replace('edit_auto_post_lang_', '');
-    const parts = raw.split('_');
-    const intervalIdx = parts.findIndex(p => !isNaN(Number(p)) && Number(p) > 0 && !p.startsWith('-'));
-    let channelId, intervalHours, platformId;
-    if (intervalIdx !== -1) {
-      channelId = parts.slice(0, intervalIdx).join('_');
-      intervalHours = parseFloat(parts[intervalIdx]);
-      platformId = parts.slice(intervalIdx + 1).join('_') || 'techcrunch';
-    } else {
-      channelId = schedule ? schedule.channel_id : parts[0];
-      intervalHours = schedule ? schedule.interval_hours : (parseFloat(parts[1]) || 2);
-      platformId = schedule ? schedule.source_platform : (parts.slice(2).join('_') || 'techcrunch');
-    }
-    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, true);
+    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, true);
     return;
   }
 
@@ -2009,7 +2021,15 @@ export default async function (callbackQuery, ctx) {
       intervalHours = parseFloat(parts[1]) || 2;
       platformId = parts.slice(2).join('_');
     }
-    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, false);
+    const user = await getUserByTelegramId(userId);
+    let schedule = await getAutoPostSchedule(user.id, 'news');
+    if (schedule) {
+      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, undefined, platformId, undefined, 'news');
+    } else {
+      schedule = await createAutoPostSchedule(user.id, channelId, intervalHours, platformId, null, 'news', null);
+      await updateAutoPostSchedule(schedule.id, undefined, undefined, false);
+    }
+    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, false);
     return;
   }
 
@@ -2028,7 +2048,12 @@ export default async function (callbackQuery, ctx) {
       intervalHours = parseFloat(parts[1]) || 2;
       platformId = parts.slice(2).join('_');
     }
-    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, channelId, intervalHours, platformId, true);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (schedule) {
+      await updateAutoPostSchedule(schedule.id, channelId, intervalHours, undefined, platformId, undefined, 'news');
+    }
+    await showAutoPostLanguagePicker(callbackQuery.message.chat.id, true);
     return;
   }
 
@@ -2122,6 +2147,117 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
+  // Toggle a platform selection in the multi-source auto post picker
+  if (data.startsWith('ap_ptog_')) {
+    const raw = data.replace('ap_ptog_', '');
+    const sepIdx = raw.indexOf(':');
+    const catId = sepIdx !== -1 ? raw.substring(0, sepIdx) : raw;
+    const platformId = sepIdx !== -1 ? raw.substring(sepIdx + 1) : raw;
+
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (schedule && platformId) {
+      const selected = parseAutoPostPlatforms(schedule.source_platform);
+      const idx = selected.indexOf(platformId);
+      if (idx >= 0) selected.splice(idx, 1);
+      else selected.push(platformId);
+      await updateAutoPostSchedule(schedule.id, undefined, undefined, undefined, serializeAutoPostPlatforms(selected), undefined, 'news');
+      await showAutoPostPlatformPicker(callbackQuery.message.chat.id, userId, schedule.channel_id, schedule.interval_hours, catId, !!schedule.target_lang);
+    }
+    return;
+  }
+
+  // Done selecting platforms -> forward to Language picker
+  if (data === 'ap_pdone') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (schedule) {
+      const count = parseAutoPostPlatforms(schedule.source_platform).length;
+      if (count === 0) {
+        await api.answerCallbackQuery({
+          callback_query_id: callbackQuery.id,
+          text: 'Please select at least one platform first',
+          show_alert: true
+        });
+        return;
+      }
+      await showAutoPostLanguagePicker(callbackQuery.message.chat.id, !!schedule.target_lang);
+    }
+    return;
+  }
+
+  // Language selected via the schedule-driven picker -> save/finalize schedule
+  if (data.startsWith('ap_nlang_')) {
+    const targetLang = data.replace('ap_nlang_', '');
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (!schedule) return;
+
+    const platforms = parseAutoPostPlatforms(schedule.source_platform);
+    const sourcePlatform = platforms.length > 0 ? serializeAutoPostPlatforms(platforms) : null;
+    const completingSetup = !schedule.target_lang;
+
+    await updateAutoPostSchedule(
+      schedule.id,
+      undefined,
+      undefined,
+      true,
+      sourcePlatform,
+      targetLang,
+      'news'
+    );
+
+    const customs = platforms.some(id => id.startsWith('custom_')) ? await getCustomSources(user.id) : [];
+    const platformName = platforms.length > 0
+      ? platforms.map(pid => {
+          if (pid.startsWith('custom_')) {
+            const customId = parseInt(pid.replace('custom_', ''), 10);
+            const match = customs.find(c => c.id === customId);
+            return match ? `⭐ ${match.source_name}` : pid;
+          }
+          const match = getPlatformById(pid);
+          return match ? match.name : pid;
+        }).join(' + ')
+      : 'General News (TechCrunch)';
+
+    const intervalText = formatIntervalDisplay(schedule.interval_hours);
+    let langName = 'Amharic';
+    if (targetLang === 'ti') langName = 'Tigrinya';
+    else if (targetLang === 'om') langName = 'Afaan Oromo';
+    else if (targetLang === 'en') langName = 'English (Original)';
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `✅ <b>Auto post ${completingSetup ? 'enabled' : 'updated'}!</b>\n\nChannel: <code>${schedule.channel_id}</code>\nPlatform Source: <b>${platformName}</b>\nLanguage: <b>${langName}</b>\nInterval: Every ${intervalText}\n\nThe bot will automatically generate, translate, and post content based on your schedule.`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+        ]
+      }
+    });
+    return;
+  }
+
+  // Cancel platform selection — removes unfinished setup drafts only
+  if (data === 'ap_cancel') {
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostSchedule(user.id, 'news');
+    if (schedule && !schedule.target_lang) {
+      await deleteAutoPostSchedule(schedule.id);
+    }
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: 'Auto post setup cancelled.',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Back to Settings', callback_data: 'settings' }]
+        ]
+      }
+    });
+    return;
+  }
+
   // Handle toggle auto post
   if (data === 'toggle_auto_post') {
     const user = await getUserByTelegramId(userId);
@@ -2176,50 +2312,13 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle Repetitive Task main menu button
+  // Handle Repetitive Task main menu button — lists all repetitive tasks
   if (data === 'repetitive_task') {
     const user = await getUserByTelegramId(userId);
-    const repSchedule = await getRepetitiveTaskSchedule(user.id);
+    const repSchedules = await getRepetitiveTaskSchedules(user.id);
     const userChannels = await getUserChannels(user.id);
 
-    if (repSchedule) {
-      const intervalText = formatIntervalDisplay(repSchedule.interval_hours);
-      const statusText = repSchedule.is_active === 1 ? 'Active' : 'Paused';
-      const channel = userChannels.find(c => c.channel_id === repSchedule.channel_id);
-      const channelName = channel ? channel.channel_name || channel.channel_id : repSchedule.channel_id;
-
-      let snippet = '';
-      if (repSchedule.repetitive_content) {
-        const cleanRep = repSchedule.repetitive_content.substring(0, 150);
-        snippet = `\n\n<b>Current Repetitive Message:</b>\n<i>${cleanRep}${repSchedule.repetitive_content.length > 150 ? '...' : ''}</i>`;
-      }
-
-      await api.sendMessage({
-        chat_id: callbackQuery.message.chat.id,
-        text: `🔁 <b>Repetitive Task Settings</b>\n\n<b>Status:</b> ${statusText}\n<b>Channel:</b> <code>${channelName}</code>\n<b>Interval:</b> Every ${intervalText}${snippet}\n\n<i>This task runs simultaneously and independently from your Auto Post news schedule!</i>`,
-        parse_mode: 'HTML',
-        reply_markup: {
-          inline_keyboard: [
-            [
-              { text: repSchedule.is_active === 1 ? '⏸️ Pause Task' : '▶️ Resume Task', callback_data: 'toggle_rep_task' }
-            ],
-            [
-              { text: '📢 Change Channel', callback_data: 'rep_sel_chn_edit' },
-              { text: '⏱️ Change Interval', callback_data: 'edit_rep_task_interval' }
-            ],
-            [
-              { text: '✏️ Edit Message Content', callback_data: `edit_rep_content_${repSchedule.channel_id}_${repSchedule.interval_hours}` }
-            ],
-            [
-              { text: '🗑️ Delete Repetitive Task', callback_data: 'delete_rep_task' }
-            ],
-            [
-              { text: '« Back to Settings', callback_data: 'settings' }
-            ]
-          ]
-        }
-      });
-    } else {
+    if (repSchedules.length === 0) {
       if (userChannels.length === 0) {
         await api.sendMessage({
           chat_id: callbackQuery.message.chat.id,
@@ -2233,25 +2332,161 @@ export default async function (callbackQuery, ctx) {
           }
         });
       } else {
-        let keyboard = [];
-        for (const channel of userChannels) {
-          const cName = channel.channel_name || channel.channel_id;
-          keyboard.push([
-            { text: `📢 ${cName}`, callback_data: `rep_pick_chn_${channel.channel_id}` }
-          ]);
-        }
-        keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
-        keyboard.push([{ text: 'Back', callback_data: 'settings' }]);
-
-        await api.sendMessage({
-          chat_id: callbackQuery.message.chat.id,
-          text: `🔁 <b>Select Channel for Repetitive Task</b>\n\nChoose the channel where you want your repetitive announcement or message posted periodically:`,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
-          }
-        });
+        await showRepChannelPicker(callbackQuery.message.chat.id, userId);
       }
+    } else {
+      const keyboard = [
+        [{ text: '➕ Add Repetitive Task', callback_data: 'rep_add' }]
+      ];
+      for (const s of repSchedules) {
+        const channel = userChannels.find(c => c.channel_id === s.channel_id);
+        const channelName = channel ? channel.channel_name || channel.channel_id : s.channel_id;
+        const intervalText = formatIntervalDisplay(s.interval_hours);
+        const statusText = s.is_active === 1 ? 'Active' : 'Paused';
+        keyboard.push([
+          { text: `📢 ${channelName} • ${intervalText} • ${statusText}`, callback_data: `rep_view_${s.id}` }
+        ]);
+        keyboard.push([
+          { text: s.is_active === 1 ? '⏸️ Pause' : '▶️ Resume', callback_data: `rep_toggle_${s.id}` },
+          { text: '⏱️ Interval', callback_data: `rep_ivl_${s.id}` },
+          { text: '📢 Channel', callback_data: `rep_ch_${s.id}` }
+        ]);
+        keyboard.push([
+          { text: '✏️ Edit Content', callback_data: `rep_edit_${s.id}` },
+          { text: '🗑️ Delete', callback_data: `rep_delete_${s.id}` }
+        ]);
+      }
+      keyboard.push([{ text: '« Back to Settings', callback_data: 'settings' }]);
+
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `🔁 <b>Repetitive Tasks</b>\n\nYou have <b>${repSchedules.length}</b> repetitive task${repSchedules.length === 1 ? '' : 's'}. Tap a task to view its message, or add another task for a different channel/content.`,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+    }
+    return;
+  }
+
+  // Add another repetitive task -> channel picker
+  if (data === 'rep_add') {
+    await showRepChannelPicker(callbackQuery.message.chat.id, userId);
+    return;
+  }
+
+  // View a repetitive task's stored content
+  if (data.startsWith('rep_view_')) {
+    const scheduleId = parseInt(data.replace('rep_view_', ''), 10);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive') {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `🔁 <b>Repetitive Task #${schedule.id}</b>\n\nChannel: <code>${schedule.channel_id}</code>\nInterval: Every ${formatIntervalDisplay(schedule.interval_hours)}\nStatus: ${schedule.is_active === 1 ? 'Active' : 'Paused'}\n\n<b>Content:</b>\n${schedule.repetitive_content || '(empty)'}`
+      });
+    }
+    return;
+  }
+
+  // Toggle pause/resume for a specific repetitive task
+  if (data.startsWith('rep_toggle_')) {
+    const scheduleId = parseInt(data.replace('rep_toggle_', ''), 10);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive') {
+      const updated = await toggleAutoPostSchedule(schedule.id);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Repetitive task #${schedule.id} ${updated.is_active === 1 ? 'resumed' : 'paused'}.`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'repetitive_task' }]] }
+      });
+    }
+    return;
+  }
+
+  // Delete a specific repetitive task
+  if (data.startsWith('rep_delete_')) {
+    const scheduleId = parseInt(data.replace('rep_delete_', ''), 10);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive') {
+      await deleteAutoPostSchedule(schedule.id);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `Repetitive task #${schedule.id} deleted.`,
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'repetitive_task' }]] }
+      });
+    }
+    return;
+  }
+
+  // Change interval for a specific repetitive task
+  if (data.startsWith('rep_ivl_')) {
+    const scheduleId = parseInt(data.replace('rep_ivl_', ''), 10);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive') {
+      // 'task<id>' in the channel slot lets rep_up_ivl_ target this schedule
+      await showRepetitiveIntervalPicker(callbackQuery.message.chat.id, `task${schedule.id}`, true);
+    }
+    return;
+  }
+
+  // Edit content for a specific repetitive task -> prompt for new text
+  if (data.startsWith('rep_edit_')) {
+    const scheduleId = parseInt(data.replace('rep_edit_', ''), 10);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive') {
+      await setPendingChannelAdd(userId, `waiting_rep_edit_${schedule.id}`);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✏️ <b>Edit Repetitive Task #${schedule.id} Content</b>\n\nChannel: <code>${schedule.channel_id}</code>\n\nSend the new message text to post repetitively. Send 'cancel' to abort.`,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: 'Cancel', callback_data: 'repetitive_task' }]] }
+      });
+    }
+    return;
+  }
+
+  // Change channel for a specific repetitive task -> channel picker
+  if (data.startsWith('rep_ch_')) {
+    const scheduleId = parseInt(data.replace('rep_ch_', ''), 10);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive') {
+      const userChannels = await getUserChannels(user.id);
+      const keyboard = userChannels.map(c => [{
+        text: `${c.channel_id === schedule.channel_id ? '✅ ' : '📢 '}${c.channel_name || c.channel_id}`,
+        callback_data: `rep_chset_${schedule.id}_${c.channel_id}`
+      }]);
+      keyboard.push([{ text: '« Back', callback_data: 'repetitive_task' }]);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `📢 <b>Change Channel — Task #${schedule.id}</b>\n\nSelect the channel this repetitive task should post to:`,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: keyboard }
+      });
+    }
+    return;
+  }
+
+  // Set channel for a specific repetitive task
+  if (data.startsWith('rep_chset_')) {
+    const raw = data.replace('rep_chset_', '');
+    const firstUnder = raw.indexOf('_');
+    const scheduleId = parseInt(raw.substring(0, firstUnder), 10);
+    const channelId = raw.substring(firstUnder + 1);
+    const user = await getUserByTelegramId(userId);
+    const schedule = await getAutoPostScheduleById(scheduleId);
+    if (schedule && schedule.user_id === user.id && schedule.post_mode === 'repetitive' && channelId) {
+      await updateAutoPostSchedule(schedule.id, channelId, undefined, undefined);
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `✅ Task #${schedule.id} channel updated to <code>${channelId}</code>.`,
+        parse_mode: 'HTML',
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'repetitive_task' }]] }
+      });
     }
     return;
   }
@@ -2347,6 +2582,28 @@ export default async function (callbackQuery, ctx) {
     const intervalHours = lastUnder !== -1 ? parseFloat(raw.substring(lastUnder + 1)) : 2;
 
     const user = await getUserByTelegramId(userId);
+
+    // 'task<id>' targets a specific repetitive schedule — update its interval directly
+    if (isUpdate && channelId.startsWith('task')) {
+      const scheduleId = parseInt(channelId.replace('task', ''), 10);
+      const sched = await getAutoPostScheduleById(scheduleId);
+      if (sched && sched.user_id === user.id && sched.post_mode === 'repetitive') {
+        await updateAutoPostSchedule(sched.id, undefined, intervalHours, true);
+        const intervalText = formatIntervalDisplay(intervalHours);
+        await api.sendMessage({
+          chat_id: callbackQuery.message.chat.id,
+          text: `✅ <b>Repetitive task #${sched.id} interval updated!</b>\n\nNew interval: Every ${intervalText}`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Repetitive Task', callback_data: 'repetitive_task' }]
+            ]
+          }
+        });
+      }
+      return;
+    }
+
     const existingRepSchedule = await getRepetitiveTaskSchedule(user.id);
 
     // If updating interval and content already exists, just update interval

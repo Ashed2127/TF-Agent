@@ -20,6 +20,7 @@ import {
 } from './news.js';
 import { formatChannelHandle } from './channel.js';
 import { generateIdea } from './agent.js';
+import { parseAutoPostPlatforms } from './autopost_platforms.js';
 
 export async function processSingleAutoPost(schedule) {
   let user = await getUserById(schedule.user_id);
@@ -34,7 +35,6 @@ export async function processSingleAutoPost(schedule) {
   const showSourceLink = user?.show_source_link === 1;
   const useDotPunctuation = user?.use_dot_punctuation === 1;
 
-  let platformId = schedule.source_platform;
   let articleToPost = null;
   let platformObj = null;
 
@@ -91,29 +91,39 @@ export async function processSingleAutoPost(schedule) {
     };
   }
 
-  // If a source platform is chosen, fetch its news
-  if (platformId) {
-    if (platformId.startsWith('custom_')) {
-      const customId = parseInt(platformId.replace('custom_', ''), 10);
-      const userCustoms = await getCustomSources(user.id);
-      const match = userCustoms.find(c => c.id === customId);
-      if (match) {
-        platformObj = {
-          id: platformId,
-          name: match.source_name,
-          url: match.source_url,
-          isCustom: true
-        };
+  // Resolve all selected source platforms (supports comma-separated multi-source)
+  const platformIds = parseAutoPostPlatforms(schedule.source_platform);
+  const platformObjs = [];
+  if (platformIds.length > 0) {
+    let userCustoms = null;
+    for (const pid of platformIds) {
+      if (pid.startsWith('custom_')) {
+        if (!userCustoms) userCustoms = await getCustomSources(user.id);
+        const customId = parseInt(pid.replace('custom_', ''), 10);
+        const match = userCustoms.find(c => c.id === customId);
+        if (match) {
+          platformObjs.push({
+            id: pid,
+            name: match.source_name,
+            url: match.source_url,
+            isCustom: true
+          });
+        }
+      } else {
+        const match = getPlatformById(pid);
+        if (match) {
+          platformObjs.push({ ...match, id: pid });
+        }
       }
-    } else {
-      platformObj = getPlatformById(platformId);
     }
   }
 
   // If no platform or default, pick a top news platform (like techcrunch or bbcworld)
-  if (!platformObj) {
-    platformObj = getPlatformById('techcrunch') || NEWS_PLATFORMS[0];
+  if (platformObjs.length === 0) {
+    const fallback = getPlatformById('techcrunch') || NEWS_PLATFORMS[0];
+    if (fallback) platformObjs.push({ ...fallback, id: fallback.id });
   }
+  platformObj = platformObjs[0] || null;
 
   // Helper to normalize strings for robust duplicate matching
   function normalizeKey(str) {
@@ -127,69 +137,70 @@ export async function processSingleAutoPost(schedule) {
       .replace(/[^a-z0-9]/g, '');
   }
 
-  // Fetch feed and find a strictly fresh, unposted article
-  if (platformObj && platformObj.url) {
+  // Build the set of already-posted URLs/titles once for all candidate sources
+  const userRecentPosts = await getUserPosts(user.id);
+  const postedUrlKeys = new Set();
+  const postedTitleKeys = new Set();
+
+  for (const p of userRecentPosts) {
+    // Track posted URL links - check <a href="..."> and raw URLs
+    const linkMatches = (p.content || '').match(/href=["']([^"']+)["']/gi) || [];
+    for (const lm of linkMatches) {
+      const m = lm.match(/href=["']([^"']+)["']/i);
+      if (m && m[1]) postedUrlKeys.add(normalizeKey(m[1]));
+    }
+    const rawUrlMatches = (p.content || '').match(/https?:\/\/[^\s<>"')]+/gi) || [];
+    for (const u of rawUrlMatches) {
+      postedUrlKeys.add(normalizeKey(u));
+    }
+
+    // Track posted article titles (headline is first line in post content)
+    const firstLine = (p.content || '').split('\n').find(l => l.trim().length > 0) || '';
+    if (firstLine) {
+      postedTitleKeys.add(normalizeKey(firstLine));
+    }
+  }
+
+  const isFreshArticle = (a) => {
+    const urlKey = normalizeKey(a.link);
+    const titleKey = normalizeKey(a.title);
+    return !(urlKey && postedUrlKeys.has(urlKey)) && !(titleKey && postedTitleKeys.has(titleKey));
+  };
+
+  // Fetch every selected platform and pick the first strictly fresh article
+  const candidates = [];
+  for (const p of platformObjs) {
+    if (!p || !p.url) continue;
     try {
-      const articles = await fetchRSSFeed(platformObj.url, platformObj.name);
-      if (articles && articles.length > 0) {
-        const userRecentPosts = await getUserPosts(user.id);
-        const postedUrlKeys = new Set();
-        const postedTitleKeys = new Set();
-
-        for (const p of userRecentPosts) {
-          // Track posted URL links - check <a href="..."> and raw URLs
-          const linkMatches = (p.content || '').match(/href=["']([^"']+)["']/gi) || [];
-          for (const lm of linkMatches) {
-            const m = lm.match(/href=["']([^"']+)["']/i);
-            if (m && m[1]) postedUrlKeys.add(normalizeKey(m[1]));
-          }
-          const rawUrlMatches = (p.content || '').match(/https?:\/\/[^\s<>"')]+/gi) || [];
-          for (const u of rawUrlMatches) {
-            postedUrlKeys.add(normalizeKey(u));
-          }
-
-          // Track posted article titles (headline is first line in post content)
-          const firstLine = (p.content || '').split('\n').find(l => l.trim().length > 0) || '';
-          if (firstLine) {
-            postedTitleKeys.add(normalizeKey(firstLine));
-          }
-        }
-
-        // Find the first article that hasn't been posted yet (by URL and by title)
-        articleToPost = articles.find(a => {
-          const urlKey = normalizeKey(a.link);
-          const titleKey = normalizeKey(a.title);
-
-          const isUrlPosted = urlKey && postedUrlKeys.has(urlKey);
-          const isTitlePosted = titleKey && postedTitleKeys.has(titleKey);
-
-          return !isUrlPosted && !isTitlePosted;
-        });
-
-        if (!articleToPost) {
-          console.log(`All ${articles.length} articles from ${platformObj.name} have already been posted. Trying adjacent platforms...`);
-          // Try other platforms in same category or top platforms to find fresh content
-          for (const altPlat of NEWS_PLATFORMS) {
-            if (altPlat.id === platformObj.id || !altPlat.url) continue;
-            try {
-              const altArticles = await fetchRSSFeed(altPlat.url, altPlat.name);
-              const freshAlt = altArticles.find(a => {
-                const urlKey = normalizeKey(a.link);
-                const titleKey = normalizeKey(a.title);
-                return !postedUrlKeys.has(urlKey) && !postedTitleKeys.has(titleKey);
-              });
-              if (freshAlt) {
-                articleToPost = freshAlt;
-                platformObj = altPlat;
-                console.log(`Found fresh alternative article from ${altPlat.name}: ${freshAlt.title}`);
-                break;
-              }
-            } catch (_) {}
-          }
-        }
+      const articles = await fetchRSSFeed(p.url, p.name);
+      for (const a of articles || []) {
+        candidates.push({ article: a, platform: p });
       }
     } catch (e) {
-      console.error(`Error fetching platform articles for ${platformObj.name}:`, e.message);
+      console.error(`Error fetching platform articles for ${p.name}:`, e.message);
+    }
+  }
+
+  const chosen = candidates.find(c => isFreshArticle(c.article));
+  if (chosen) {
+    articleToPost = chosen.article;
+    platformObj = chosen.platform;
+  } else if (candidates.length > 0) {
+    console.log(`All ${candidates.length} articles from selected platforms have already been posted. Trying adjacent platforms...`);
+    // Try other platforms to find fresh content
+    const selectedIds = new Set(platformObjs.map(p => p.id));
+    for (const altPlat of NEWS_PLATFORMS) {
+      if (selectedIds.has(altPlat.id) || !altPlat.url) continue;
+      try {
+        const altArticles = await fetchRSSFeed(altPlat.url, altPlat.name);
+        const freshAlt = (altArticles || []).find(a => isFreshArticle(a));
+        if (freshAlt) {
+          articleToPost = freshAlt;
+          platformObj = altPlat;
+          console.log(`Found fresh alternative article from ${altPlat.name}: ${freshAlt.title}`);
+          break;
+        }
+      } catch (_) {}
     }
   }
 

@@ -891,6 +891,20 @@ export async function getRepetitiveTaskSchedule(userId) {
   return await getAutoPostSchedule(userId, 'repetitive');
 }
 
+export async function getRepetitiveTaskSchedules(userId) {
+  const all = await getUserAutoPostSchedules(userId);
+  return all.filter(s => s.post_mode === 'repetitive');
+}
+
+export async function getAutoPostScheduleById(scheduleId) {
+  const result = await db.select()
+    .from(autoPostSchedules)
+    .where(eq(autoPostSchedules.id, scheduleId))
+    .limit(1)
+    .all();
+  return result[0] || null;
+}
+
 export async function getUserAutoPostSchedules(userId) {
   let result = await db.select()
     .from(autoPostSchedules)
