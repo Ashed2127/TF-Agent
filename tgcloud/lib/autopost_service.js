@@ -1,6 +1,7 @@
 import { api } from 'sdk';
 import {
   getDueAutoPostSchedules,
+  claimAutoPostSchedule,
   updateAutoPostLastPosted,
   updateAutoPostSchedule,
   getUserById,
@@ -357,14 +358,12 @@ export async function checkAndTriggerDueAutoPosts() {
   let count = 0;
   for (const schedule of dueSchedules) {
     try {
-      await processSingleAutoPost(schedule);
+      const claimedSchedule = await claimAutoPostSchedule(schedule);
+      if (!claimedSchedule) continue;
+      await processSingleAutoPost(claimedSchedule);
       count++;
     } catch (err) {
       console.error(`AutoPost failed for schedule ${schedule.id}:`, err.message);
-      // Advance next_post_at so failing schedule does not lock into an infinite crash loop
-      try {
-        await updateAutoPostLastPosted(schedule.id);
-      } catch (_) {}
 
       // If channel is invalid or bot was removed, pause schedule to avoid spamming Bot API
       const errMsg = (err.message || '').toLowerCase();

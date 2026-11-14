@@ -969,7 +969,19 @@ export async function updateAutoPostLastPosted(scheduleId) {
   const now = Math.floor(Date.now() / 1000);
   const rawInterval = schedule[0].interval_hours;
   const intervalHours = (rawInterval && !isNaN(rawInterval) && Number(rawInterval) > 0) ? Number(rawInterval) : 2;
-  const nextPostAt = Math.round(now + (intervalHours * 3600));
+  const computedNextPostAt = Math.round(now + (intervalHours * 3600));
+
+  const rawNextPostAt = schedule[0].next_post_at;
+  let existingNextPostAt = null;
+  if (rawNextPostAt) {
+    if (rawNextPostAt instanceof Date) {
+      existingNextPostAt = Math.floor(rawNextPostAt.getTime() / 1000);
+    } else {
+      const numericNext = Number(rawNextPostAt);
+      existingNextPostAt = numericNext > 1e12 ? Math.floor(numericNext / 1000) : Math.floor(numericNext);
+    }
+  }
+  const nextPostAt = existingNextPostAt && existingNextPostAt > now ? existingNextPostAt : computedNextPostAt;
 
   const [updated] = await db.update(autoPostSchedules)
     .set({
@@ -991,6 +1003,24 @@ export async function getDueAutoPostSchedules() {
       sql`(${autoPostSchedules.next_post_at} IS NULL OR ${autoPostSchedules.next_post_at} <= ${now})`
     ))
     .all();
+}
+
+export async function claimAutoPostSchedule(schedule) {
+  const now = Math.floor(Date.now() / 1000);
+  const rawInterval = schedule.interval_hours;
+  const intervalHours = (rawInterval && !isNaN(rawInterval) && Number(rawInterval) > 0) ? Number(rawInterval) : 2;
+  const nextPostAt = Math.round(now + (intervalHours * 3600));
+
+  const [claimed] = await db.update(autoPostSchedules)
+    .set({ next_post_at: nextPostAt })
+    .where(and(
+      eq(autoPostSchedules.id, schedule.id),
+      eq(autoPostSchedules.is_active, 1),
+      sql`(${autoPostSchedules.next_post_at} IS NULL OR ${autoPostSchedules.next_post_at} <= ${now})`
+    ))
+    .returning()
+    .run();
+  return claimed || null;
 }
 
 // Post Interactions (Reactions) Functions
