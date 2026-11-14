@@ -5,11 +5,11 @@
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
-import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, getRepetitiveTaskSchedule, getAutoPostScheduleById, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
+import { savePendingEdit, getPendingEdit, deletePendingEdit, getOrCreateUser, getUserByTelegramId, updateUserChannelId, updateUserTestChannelId, updateUserOnboardingStep, updateUserDisplayName, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, addCustomSource, updateUserType, addUserChannel, getUserChannels, migrateUserChannels, removeDuplicateChannels, getPendingChannelAdd, setPendingChannelAdd, clearPendingChannelAdd, saveContentStructure, getAllUsers, deleteUser, getUserById, createAutoPostSchedule, getAutoPostSchedule, getAutoPostSchedules, getRepetitiveTaskSchedule, getAutoPostScheduleById, updateAutoPostSchedule, recordUserActivity } from '../lib/database.js';
 import { formatEditedNewsText, NEWS_CATEGORIES, directTranslateToAmharic, directTranslateToLanguage, SUPPORTED_LANGUAGES } from '../lib/news.js';
 import { extractChannelFromMessage, normalizeChannelId, parseIntervalInput, formatIntervalDisplay, resolveChannelMetadata, checkBotAdminStatus } from '../lib/channel.js';
 import { checkAndTriggerDueAutoPosts } from '../lib/autopost_service.js';
-import { showAutoPostCategoryPicker, showScheduleCategoryPicker } from '../lib/autopost_ui.js';
+import { showAutoPostCategoryPicker, showScheduleCategoryPicker, showGroupCategoryPicker } from '../lib/autopost_ui.js';
 import { checkAndTriggerDueRecommendations } from '../lib/recommendation_service.js';
 
 const OWNER_CHAT_ID = 685669468; // Your chat ID
@@ -723,6 +723,50 @@ export default async function (message, ctx) {
           ]
         }
       });
+      return;
+    }
+
+    // Handle custom interval input for a multi-channel auto post group
+    if (pendingChannel && pendingChannel.channelId === 'waiting_groupautopost') {
+      const text = incomingText.trim();
+
+      if (['cancel', 'abort', 'stop', 'back'].includes(text.toLowerCase())) {
+        await clearPendingChannelAdd(userId);
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: 'Auto post setup cancelled.',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Back to Auto Post', callback_data: 'auto_post' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      const parsedHours = parseIntervalInput(text);
+      if (!parsedHours || parsedHours <= 0) {
+        await api.sendMessage({
+          chat_id: message.chat.id,
+          text: `⚠️ <b>Invalid time format.</b>\n\nPlease enter a valid interval, for example:\n• <code>1m</code> (1 minute)\n• <code>30m</code> (30 minutes)\n• <code>2h</code> or <code>4hr</code> (hours)\n• <code>7 hours</code>\n• <code>2</code> (hours)\n\n<i>Or send 'cancel' to abort.</i>`,
+          parse_mode: 'HTML',
+          reply_markup: {
+            inline_keyboard: [
+              [{ text: 'Cancel', callback_data: 'auto_post' }]
+            ]
+          }
+        });
+        return;
+      }
+
+      await clearPendingChannelAdd(userId);
+      const user = await getUserByTelegramId(userId);
+      const allSchedules = await getAutoPostSchedules(user.id, 'news');
+      const drafts = allSchedules.filter(s => !s.target_lang);
+      for (const d of drafts) {
+        await updateAutoPostSchedule(d.id, undefined, parsedHours, undefined);
+      }
+      await showGroupCategoryPicker(message.chat.id, drafts.length);
       return;
     }
 

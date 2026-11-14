@@ -1,6 +1,6 @@
 import { api } from 'sdk';
 import { NEWS_CATEGORIES, NEWS_PLATFORMS } from './news.js';
-import { getCustomSources, getAutoPostSchedule, getUserByTelegramId, getUserChannels, createAutoPostSchedule, updateAutoPostSchedule } from './database.js';
+import { getCustomSources, getAutoPostSchedule, getAutoPostSchedules, getUserByTelegramId, getUserChannels, createAutoPostSchedule, updateAutoPostSchedule } from './database.js';
 import { parseAutoPostPlatforms } from './autopost_platforms.js';
 
 export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = false) {
@@ -198,33 +198,38 @@ export async function showAutoPostLanguagePicker(chatId, isUpdate = false) {
 export async function showAutoPostAddChannelPicker(chatId, userId) {
   const user = await getUserByTelegramId(userId);
   const userChannels = user ? await getUserChannels(user.id) : [];
+  const schedules = user ? await getAutoPostSchedules(user.id, 'news') : [];
+  // Draft schedules (unfinished setup) act as the multi-select state
+  const drafts = new Set(schedules.filter(s => !s.target_lang).map(s => s.channel_id));
+
   const keyboard = userChannels.map(c => [{
-    text: `📢 ${c.channel_name || c.channel_id}`,
-    callback_data: `ap_newchn_${c.channel_id}`
+    text: `${drafts.has(c.channel_id) ? '✅ ' : '📢 '}${c.channel_name || c.channel_id}`,
+    callback_data: `ap_nch_${c.channel_id}`
   }]);
+  keyboard.push([{ text: `✅ Done (${drafts.size} selected)`, callback_data: 'ap_ndone' }]);
   keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
   keyboard.push([{ text: '« Back', callback_data: 'auto_post' }]);
 
   await api.sendMessage({
     chat_id: chatId,
-    text: `📢 <b>Add Auto Post — Select Channel</b>\n\nChoose the channel for this new auto post schedule. You can run auto posts on multiple channels at once:`,
+    text: `📢 <b>Add Auto Post — Select Channels</b>\n\nTap channels to select or deselect them — you can auto post to multiple channels at once. Selected: <b>${drafts.size}</b>`,
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   });
 }
 
-export async function showNewAutoPostIntervalPicker(chatId, channelId) {
+export async function showGroupAutoPostIntervalPicker(chatId, count) {
   const keyboard = [
     [
-      { text: '⏱️ 1 min', callback_data: `ap_nivl_${channelId}_0.01666667` },
-      { text: '2 hr', callback_data: `ap_nivl_${channelId}_2` }
+      { text: '⏱️ 1 min', callback_data: 'ap_givl_0.01666667' },
+      { text: '2 hr', callback_data: 'ap_givl_2' }
     ],
     [
-      { text: '4 hr', callback_data: `ap_nivl_${channelId}_4` },
-      { text: '7 hr', callback_data: `ap_nivl_${channelId}_7` }
+      { text: '4 hr', callback_data: 'ap_givl_4' },
+      { text: '7 hr', callback_data: 'ap_givl_7' }
     ],
     [
-      { text: '⚙️ Custom Interval', callback_data: `ap_nci_${channelId}` }
+      { text: '⚙️ Custom Interval', callback_data: 'ap_gci' }
     ],
     [
       { text: '« Back', callback_data: 'auto_post' }
@@ -233,7 +238,103 @@ export async function showNewAutoPostIntervalPicker(chatId, channelId) {
 
   await api.sendMessage({
     chat_id: chatId,
-    text: `⏱️ <b>Auto Post Interval</b>\n\nChannel: <code>${channelId}</code>\n\nChoose how often you want new content to be automatically posted:`,
+    text: `⏱️ <b>Auto Post Interval</b>\n\nThis interval will apply to all <b>${count}</b> selected channel${count === 1 ? '' : 's'}.\n\nChoose how often new content should be automatically posted:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showGroupCategoryPicker(chatId, count) {
+  const keyboard = [];
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+    const row = [];
+    row.push({ text: NEWS_CATEGORIES[i].name, callback_data: `ap_gcat_${NEWS_CATEGORIES[i].id}` });
+    if (i + 1 < NEWS_CATEGORIES.length) {
+      row.push({ text: NEWS_CATEGORIES[i + 1].name, callback_data: `ap_gcat_${NEWS_CATEGORIES[i + 1].id}` });
+    }
+    keyboard.push(row);
+  }
+  keyboard.push([{ text: '🌐 All News Platforms', callback_data: 'ap_gcat_all' }]);
+  keyboard.push([
+    { text: '« Back', callback_data: 'auto_post' },
+    { text: 'Cancel', callback_data: 'ap_gcancel' }
+  ]);
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `📡 <b>Select Content Source Category:</b>\n\nApplies to all <b>${count}</b> selected channels. Choose a category, then pick one or more platforms — you can add platforms across categories:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showGroupPlatformPicker(chatId, userId, catId, selectedIds) {
+  const selected = new Set(selectedIds || []);
+  let platforms = [];
+
+  if (catId === 'custom') {
+    const user = await getUserByTelegramId(userId);
+    const customSources = user ? await getCustomSources(user.id) : [];
+    platforms = customSources.map(s => ({ id: `custom_${s.id}`, name: `⭐ ${s.source_name}` }));
+  } else if (catId === 'all') {
+    platforms = NEWS_PLATFORMS;
+  } else {
+    platforms = NEWS_PLATFORMS.filter(p => p.category === catId);
+  }
+
+  const keyboard = [];
+  for (let i = 0; i < platforms.length; i += 2) {
+    const row = [];
+    const p1 = platforms[i];
+    row.push({
+      text: `${selected.has(p1.id) ? '✅ ' : ''}${p1.name}`,
+      callback_data: `ap_gtog_${catId}:${p1.id}`
+    });
+    if (i + 1 < platforms.length) {
+      const p2 = platforms[i + 1];
+      row.push({
+        text: `${selected.has(p2.id) ? '✅ ' : ''}${p2.name}`,
+        callback_data: `ap_gtog_${catId}:${p2.id}`
+      });
+    }
+    keyboard.push(row);
+  }
+
+  keyboard.push([{ text: `✅ Done (${selected.size} selected)`, callback_data: 'ap_gpdone' }]);
+  keyboard.push([
+    { text: '« Back to Categories', callback_data: 'ap_gcatback' },
+    { text: 'Cancel', callback_data: 'ap_gcancel' }
+  ]);
+
+  const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
+  const catName = catObj ? catObj.name : (catId === 'custom' ? 'My Sources' : 'All Platforms');
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `📰 <b>${catName}</b>\n\nTap platforms to select or deselect them — the same sources apply to every selected channel. Selected: <b>${selected.size}</b>`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showGroupLanguagePicker(chatId, count) {
+  const keyboard = [
+    [
+      { text: '🇪🇹 አማርኛ (Amharic)', callback_data: 'ap_glang_am' },
+      { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: 'ap_glang_ti' }
+    ],
+    [
+      { text: '🇪🇹 Afaan Oromoo', callback_data: 'ap_glang_om' },
+      { text: '🇬🇧 English (Original)', callback_data: 'ap_glang_en' }
+    ],
+    [
+      { text: '« Back', callback_data: 'auto_post' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `🌐 <b>Select Translation Language:</b>\n\nApplies to all <b>${count}</b> selected channels.`,
     parse_mode: 'HTML',
     reply_markup: { inline_keyboard: keyboard }
   });
