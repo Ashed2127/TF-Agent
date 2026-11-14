@@ -1716,30 +1716,7 @@ export default async function (callbackQuery, ctx) {
           }
         });
       } else {
-        // Show list of channels for user to select which channel to auto-post to
-        let keyboard = [];
-        for (const channel of userChannels) {
-          const cName = channel.channel_name || channel.channel_id;
-          keyboard.push([
-            { text: `📢 ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
-          ]);
-        }
-
-        keyboard.push([
-          { text: '➕ Add Channel', callback_data: 'add_channel' }
-        ]);
-        keyboard.push([
-          { text: 'Back', callback_data: 'settings' }
-        ]);
-
-        await api.sendMessage({
-          chat_id: callbackQuery.message.chat.id,
-          text: `📢 <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
-          parse_mode: 'HTML',
-          reply_markup: {
-            inline_keyboard: keyboard
-          }
-        });
+        await showAutoPostAddChannelPicker(callbackQuery.message.chat.id, userId);
       }
     }
     return;
@@ -1749,24 +1726,21 @@ export default async function (callbackQuery, ctx) {
   if (data === 'ap_sel_chn') {
     const user = await getUserByTelegramId(userId);
     const userChannels = await getUserChannels(user.id);
-    let keyboard = [];
-    for (const channel of userChannels) {
-      const cName = channel.channel_name || channel.channel_id;
-      keyboard.push([
-        { text: `📢 ${cName}`, callback_data: `ap_pick_chn_${channel.channel_id}` }
-      ]);
+    if (userChannels.length === 0) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: `📢 <b>Select Channel for Auto Post</b>\n\nYou need to add a channel first.`,
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: '➕ Add Channel', callback_data: 'add_channel' }],
+            [{ text: 'Back', callback_data: 'settings' }]
+          ]
+        }
+      });
+      return;
     }
-    keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
-    keyboard.push([{ text: 'Back', callback_data: 'settings' }]);
-
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: `📢 <b>Select Channel for Auto Post</b>\n\nChoose the channel where you want the bot to automatically generate and post content:`,
-      parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: keyboard
-      }
-    });
+    await showAutoPostAddChannelPicker(callbackQuery.message.chat.id, userId);
     return;
   }
 
