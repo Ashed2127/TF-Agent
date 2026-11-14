@@ -52,11 +52,20 @@ export async function sendRecommendationToUser(user) {
         message = message.substring(0, MAX_LENGTH - 50) + '\n\n[Message truncated...]';
       }
 
-      await api.sendMessage({
-        chat_id: user.telegram_id,
-        text: message,
-        parse_mode: 'Markdown',
-      });
+      try {
+        await api.sendMessage({
+          chat_id: user.telegram_id,
+          text: message,
+          parse_mode: 'Markdown',
+        });
+      } catch (mdErr) {
+        // Digest may contain characters that break Markdown parsing — retry plain
+        console.warn(`Markdown send failed for ${user.telegram_id}, retrying plain text:`, mdErr.message);
+        await api.sendMessage({
+          chat_id: user.telegram_id,
+          text: message,
+        });
+      }
       console.log(`Recommendation sent to ${user.telegram_id}`);
     } else {
       console.log(`No digest generated for ${user.telegram_id}: ${result.message}`);

@@ -261,7 +261,9 @@ export async function getDailyRecommendations(telegramId, forceRefresh = false) 
       .all();
 
     if (existing.length > 0) {
-      // Return cached recommendations
+      // Return cached recommendations — still count this as a delivery so the
+      // user isn't considered "due" again on the next check
+      await updateLastRecommendationTime(telegramId);
       const cached = existing[0];
       return {
         digest: cached.digest_content,
@@ -340,8 +342,20 @@ export async function isUserDueForRecommendation(telegramId) {
     return true; // Never received a recommendation
   }
 
+  // last_recommendation_at may come back as a Date, an ISO string, seconds,
+  // or milliseconds depending on the driver — normalize to unix seconds.
+  let lastTs = Number(lastRecommendation);
+  if (Number.isNaN(lastTs)) {
+    lastTs = Math.floor(new Date(lastRecommendation).getTime() / 1000);
+  } else if (lastTs > 1e12) {
+    lastTs = Math.floor(lastTs / 1000);
+  }
+  if (Number.isNaN(lastTs)) {
+    return true; // Unparseable timestamp — treat as due rather than never
+  }
+
   const now = Math.floor(Date.now() / 1000);
-  const minutesSinceLast = (now - Number(lastRecommendation)) / 60;
+  const minutesSinceLast = (now - lastTs) / 60;
 
   return minutesSinceLast >= intervalMinutes;
 }
