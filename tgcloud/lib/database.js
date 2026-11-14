@@ -891,6 +891,11 @@ export async function getRepetitiveTaskSchedule(userId) {
   return await getAutoPostSchedule(userId, 'repetitive');
 }
 
+export async function getAutoPostSchedules(userId, postMode = 'news') {
+  const all = await getUserAutoPostSchedules(userId);
+  return all.filter(s => !postMode || s.post_mode === postMode);
+}
+
 export async function getRepetitiveTaskSchedules(userId) {
   const all = await getUserAutoPostSchedules(userId);
   return all.filter(s => s.post_mode === 'repetitive');

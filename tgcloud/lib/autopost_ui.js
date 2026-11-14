@@ -1,6 +1,6 @@
 import { api } from 'sdk';
 import { NEWS_CATEGORIES, NEWS_PLATFORMS } from './news.js';
-import { getCustomSources, getAutoPostSchedule, getUserByTelegramId, createAutoPostSchedule, updateAutoPostSchedule } from './database.js';
+import { getCustomSources, getAutoPostSchedule, getUserByTelegramId, getUserChannels, createAutoPostSchedule, updateAutoPostSchedule } from './database.js';
 import { parseAutoPostPlatforms } from './autopost_platforms.js';
 
 export async function showAutoPostIntervalPicker(chatId, channelId, isUpdate = false) {
@@ -188,6 +188,183 @@ export async function showAutoPostLanguagePicker(chatId, isUpdate = false) {
     reply_markup: {
       inline_keyboard: keyboard
     }
+  });
+}
+
+// ---- Schedule-id-driven pickers (multi-channel auto post) ----
+// Each news auto-post schedule row stores its own channel/interval/platform
+// selection, so every picker below operates on a specific schedule id.
+
+export async function showAutoPostAddChannelPicker(chatId, userId) {
+  const user = await getUserByTelegramId(userId);
+  const userChannels = user ? await getUserChannels(user.id) : [];
+  const keyboard = userChannels.map(c => [{
+    text: `📢 ${c.channel_name || c.channel_id}`,
+    callback_data: `ap_newchn_${c.channel_id}`
+  }]);
+  keyboard.push([{ text: '➕ Add Channel', callback_data: 'add_channel' }]);
+  keyboard.push([{ text: '« Back', callback_data: 'auto_post' }]);
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `📢 <b>Add Auto Post — Select Channel</b>\n\nChoose the channel for this new auto post schedule. You can run auto posts on multiple channels at once:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showNewAutoPostIntervalPicker(chatId, channelId) {
+  const keyboard = [
+    [
+      { text: '⏱️ 1 min', callback_data: `ap_nivl_${channelId}_0.01666667` },
+      { text: '2 hr', callback_data: `ap_nivl_${channelId}_2` }
+    ],
+    [
+      { text: '4 hr', callback_data: `ap_nivl_${channelId}_4` },
+      { text: '7 hr', callback_data: `ap_nivl_${channelId}_7` }
+    ],
+    [
+      { text: '⚙️ Custom Interval', callback_data: `ap_nci_${channelId}` }
+    ],
+    [
+      { text: '« Back', callback_data: 'auto_post' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `⏱️ <b>Auto Post Interval</b>\n\nChannel: <code>${channelId}</code>\n\nChoose how often you want new content to be automatically posted:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showScheduleCategoryPicker(chatId, schedule) {
+  const customSources = await getCustomSources(schedule.user_id);
+  const sid = schedule.id;
+
+  const keyboard = [];
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+    const row = [];
+    row.push({ text: NEWS_CATEGORIES[i].name, callback_data: `ap_cat_${sid}:${NEWS_CATEGORIES[i].id}` });
+    if (i + 1 < NEWS_CATEGORIES.length) {
+      row.push({ text: NEWS_CATEGORIES[i + 1].name, callback_data: `ap_cat_${sid}:${NEWS_CATEGORIES[i + 1].id}` });
+    }
+    keyboard.push(row);
+  }
+  if (customSources && customSources.length > 0) {
+    keyboard.push([{ text: `⭐ My Sources (${customSources.length})`, callback_data: `ap_cat_${sid}:custom` }]);
+  }
+  keyboard.push([{ text: '🌐 All News Platforms', callback_data: `ap_cat_${sid}:all` }]);
+  keyboard.push([{ text: '« Back to Auto Post', callback_data: 'auto_post' }]);
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `📡 <b>Select Content Source Category:</b>\n\nChannel: <code>${schedule.channel_id}</code>\nChoose a category, then pick one or more platforms. You can add platforms across categories:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showSchedulePlatformPicker(chatId, userId, schedule, catId) {
+  const sid = schedule.id;
+  const selected = new Set(parseAutoPostPlatforms(schedule.source_platform));
+  let platforms = [];
+
+  if (catId === 'custom') {
+    const customSources = await getCustomSources(schedule.user_id);
+    platforms = customSources.map(s => ({ id: `custom_${s.id}`, name: `⭐ ${s.source_name}` }));
+  } else if (catId === 'all') {
+    platforms = NEWS_PLATFORMS;
+  } else {
+    platforms = NEWS_PLATFORMS.filter(p => p.category === catId);
+  }
+
+  const keyboard = [];
+  for (let i = 0; i < platforms.length; i += 2) {
+    const row = [];
+    const p1 = platforms[i];
+    row.push({
+      text: `${selected.has(p1.id) ? '✅ ' : ''}${p1.name}`,
+      callback_data: `ap_ptog_${sid}:${catId}:${p1.id}`
+    });
+    if (i + 1 < platforms.length) {
+      const p2 = platforms[i + 1];
+      row.push({
+        text: `${selected.has(p2.id) ? '✅ ' : ''}${p2.name}`,
+        callback_data: `ap_ptog_${sid}:${catId}:${p2.id}`
+      });
+    }
+    keyboard.push(row);
+  }
+
+  keyboard.push([{ text: `✅ Done (${selected.size} selected)`, callback_data: `ap_pdone_${sid}` }]);
+  keyboard.push([
+    { text: '« Back to Categories', callback_data: `ap_bcat_${sid}` },
+    { text: 'Cancel', callback_data: `ap_pcx_${sid}` }
+  ]);
+
+  const catObj = NEWS_CATEGORIES.find(c => c.id === catId);
+  const catName = catObj ? catObj.name : (catId === 'custom' ? 'My Sources' : 'All Platforms');
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `📰 <b>${catName}</b>\n\nChannel: <code>${schedule.channel_id}</code>\nTap platforms to select or deselect them. Selected: <b>${selected.size}</b>`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showScheduleLanguagePicker(chatId, schedule) {
+  const selectedCount = parseAutoPostPlatforms(schedule.source_platform).length;
+  const sid = schedule.id;
+
+  const keyboard = [
+    [
+      { text: '🇪🇹 አማርኛ (Amharic)', callback_data: `ap_nlang_${sid}:am` },
+      { text: '🇪🇹 ትግርኛ (Tigrinya)', callback_data: `ap_nlang_${sid}:ti` }
+    ],
+    [
+      { text: '🇪🇹 Afaan Oromoo', callback_data: `ap_nlang_${sid}:om` },
+      { text: '🇬🇧 English (Original)', callback_data: `ap_nlang_${sid}:en` }
+    ],
+    [
+      { text: '« Back to Auto Post', callback_data: 'auto_post' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `🌐 <b>Select Translation Language:</b>\n\nChannel: <code>${schedule.channel_id}</code>\nSelected sources: <b>${selectedCount}</b>`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
+export async function showScheduleIntervalPicker(chatId, schedule) {
+  const sid = schedule.id;
+  const keyboard = [
+    [
+      { text: '⏱️ 1 min', callback_data: `ap_sivl_${sid}:0.01666667` },
+      { text: '2 hr', callback_data: `ap_sivl_${sid}:2` }
+    ],
+    [
+      { text: '4 hr', callback_data: `ap_sivl_${sid}:4` },
+      { text: '7 hr', callback_data: `ap_sivl_${sid}:7` }
+    ],
+    [
+      { text: '⚙️ Custom Interval', callback_data: `ap_sci_${sid}` }
+    ],
+    [
+      { text: '« Back', callback_data: 'auto_post' }
+    ]
+  ];
+
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `⏱️ <b>Change Auto Post Interval</b>\n\nChannel: <code>${schedule.channel_id}</code>\n\nChoose how often new content should be posted:`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
   });
 }
 
