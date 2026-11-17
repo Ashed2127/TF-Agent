@@ -791,7 +791,7 @@ export async function removeDuplicateChannels(userId) {
 
 // Content structure management functions
 
-export async function saveContentStructure(userId, structureTemplate) {
+export async function saveContentStructure(userId, structureTemplate, targetLang = null) {
   const existing = await db.select()
     .from(contentStructures)
     .where(eq(contentStructures.user_id, userId))
@@ -802,6 +802,7 @@ export async function saveContentStructure(userId, structureTemplate) {
     const [updated] = await db.update(contentStructures)
       .set({
         structure_template: structureTemplate,
+        target_lang: targetLang || existing[0].target_lang || 'am',
         updated_at: sql`(unixepoch())`
       })
       .where(eq(contentStructures.id, existing[0].id))
@@ -813,7 +814,8 @@ export async function saveContentStructure(userId, structureTemplate) {
   const [structure] = await db.insert(contentStructures)
     .values({
       user_id: userId,
-      structure_template: structureTemplate
+      structure_template: structureTemplate,
+      target_lang: targetLang || 'am'
     })
     .returning()
     .run();

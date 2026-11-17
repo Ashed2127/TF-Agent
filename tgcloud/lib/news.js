@@ -1,5 +1,6 @@
 import { fetch } from 'sdk';
-import { OPENROUTER_API_KEY } from './secrets.js';
+import { GEMINI_API_KEY } from './secrets.js';
+import { generateText } from './ai.js';
 import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
 
 export const SUPPORTED_LANGUAGES = {
@@ -21,53 +22,44 @@ export async function directTranslateToLanguage(text, targetLang = 'am') {
   const langConfig = SUPPORTED_LANGUAGES[targetLang] || SUPPORTED_LANGUAGES.am;
   const langName = langConfig.name;
 
-  try {
-    console.log(`Direct translating text to ${langName} (${targetLang})...`);
+  console.log(`Direct translating text to ${langName} (${targetLang})...`);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          {
-            role: 'system',
-            content: `You are an accurate, direct translator. Translate the given text directly into natural ${langName}. CRITICAL RULES:\n1. Preserve the exact meaning, structure, paragraphs, and all factual details completely intact.\n2. Do NOT summarize, modify, rewrite, expand, or omit any content.\n3. Do NOT add bullet points, commentary, titles, or headers that do not exist in the source.\n4. Output ONLY the translated ${langName} text.`
-          },
-          {
-            role: 'user',
-            content: text
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.2
-      })
-    });
+  const translatedText =
+    (await translateWithGemini(text, langName)) ||
+    (await translateWithGoogle(text, targetLang));
 
-    if (!response.ok) {
-      console.warn(`OpenRouter translation failed (${response.status}), falling back to Google Translate (${targetLang})`);
-      return await translateWithGoogle(text, targetLang);
-    }
-
-    const data = await response.json();
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      return await translateWithGoogle(text, targetLang);
-    }
-
-    const translatedText = data.choices[0].message.content.trim();
-    const finalResult = translatedText || await translateWithGoogle(text, targetLang);
-    return cleanEthiopicPunctuation(finalResult).trim();
-
-  } catch (error) {
-    console.error(`Error in directTranslateToLanguage (${targetLang}):`, error.message);
-    const fallback = await translateWithGoogle(text, targetLang);
-    return cleanEthiopicPunctuation(fallback).trim();
-  }
+  return cleanEthiopicPunctuation(translatedText || text).trim();
 }
 
+function translationSystemPrompt(langName) {
+  return `You are an accurate news translator. Translate the given text directly into natural ${langName} for Ethiopian readers. CRITICAL RULES:\n1. Preserve the exact meaning, structure, paragraphs, and all factual details completely intact.\n2. Keep Ethiopian context accurate and natural: preserve names of Ethiopian people, places, institutions, brands, currencies, dates, and cultural references correctly.\n3. Maintain the source news tone: professional, neutral, clear, and journalistic. Do not make it casual, promotional, dramatic, or opinionated.\n4. Do NOT summarize, modify, rewrite, expand, or omit any content.\n5. Do NOT add bullet points, commentary, titles, or headers that do not exist in the source.\n6. Output ONLY the translated ${langName} text.`;
+}
+
+async function translateWithGemini(text, langName) {
+  if (!GEMINI_API_KEY) return '';
+  try {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: translationSystemPrompt(langName) }] },
+        contents: [{ role: 'user', parts: [{ text }] }],
+        generationConfig: { temperature: 0.2, maxOutputTokens: 2000 }
+      })
+    });
+    if (!response.ok) {
+      console.warn(`Gemini translation failed (${response.status}), trying OpenRouter`);
+      return '';
+    }
+    const data = await response.json();
+    const parts = data?.candidates?.[0]?.content?.parts;
+    if (!Array.isArray(parts)) return '';
+    return parts.map(part => part?.text || '').join('').trim();
+  } catch (error) {
+    console.warn(`Gemini translation error: ${error.message}, trying OpenRouter`);
+    return '';
+  }
+}
 
 
 /**
@@ -1174,6 +1166,7 @@ async function generateFallbackContent(article, structure, userChannelLink, show
  */
 async function generateAmharicNews(article, userChannelLink = null, showSourceLink = true, useDotPunctuation = false, userId = null, targetLang = null) {
   let structure = null;
+  let structureTargetLang = null;
   let isOwner = false;
   try {
     // Use RSS description for context (no web scraping)
@@ -1199,6 +1192,7 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
       console.log('✅ User found, database ID:', user.id);
       const customStructure = await getContentStructure(user.id);
       console.log('🔍 Custom structure query result:', customStructure);
+      structureTargetLang = customStructure?.target_lang || null;
       if (customStructure && customStructure.structure_template) {
         structure = customStructure.structure_template;
         console.log('✅ Using USER custom structure for news translation:', userId);
@@ -1236,8 +1230,9 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
     });
 
     const targetChannel = isOwner ? '@true_feed' : (userChannelLink || '');
+    const effectiveTargetLang = targetLang || structureTargetLang || 'am';
 
-    const langName = targetLang === 'ti' ? 'Tigrinya' : (targetLang === 'om' ? 'Afaan Oromo' : (targetLang === 'en' ? 'English' : 'Amharic'));
+    const langName = effectiveTargetLang === 'ti' ? 'Tigrinya' : (effectiveTargetLang === 'om' ? 'Afaan Oromo' : (effectiveTargetLang === 'en' ? 'English' : 'Amharic'));
 
     const systemPrompt = `You are an expert translator and content generator.
 The user wants you to format the news content into their exact structure template.
@@ -1271,36 +1266,17 @@ Text: ${articleContext}
 
 Output the final post now:`;
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ],
-        max_tokens: 600,
-        temperature: 0.3
-      })
+    const content = await generateText({
+      system: systemPrompt,
+      user: userPrompt,
+      maxTokens: 600,
+      temperature: 0.3
     });
 
-    if (!response.ok) {
-      console.error('AI generation failed with status:', response.status);
-      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, targetLang);
+    if (!content) {
+      console.error('AI generation returned empty content');
+      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, effectiveTargetLang);
     }
-
-    const data = await response.json();
-
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('Invalid AI response structure');
-      return await generateFallbackContent(article, cleanStructure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, targetLang);
-    }
-
-    const content = data.choices[0].message.content.trim();
 
     // Clean traditional Amharic punctuation (፤, ።, etc.)
     let cleaned = content;
@@ -1320,7 +1296,7 @@ Output the final post now:`;
 
   } catch (error) {
     console.error('Error generating Amharic news:', error.message);
-    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, targetLang);
+    return await generateFallbackContent(article, structure, userChannelLink, showSourceLink, isOwner, useDotPunctuation, effectiveTargetLang);
   }
 }
 

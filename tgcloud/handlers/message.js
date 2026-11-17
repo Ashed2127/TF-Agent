@@ -576,7 +576,11 @@ export default async function (message, ctx) {
     }
 
     // Handle content structure input
-    if (pendingChannel && pendingChannel.channelId === 'waiting_content_structure') {
+    if (pendingChannel && (pendingChannel.channelId === 'waiting_content_structure' || pendingChannel.channelId.startsWith('waiting_content_structure_'))) {
+      const pendingLang = pendingChannel.channelId.startsWith('waiting_content_structure_')
+        ? pendingChannel.channelId.split('_').pop()
+        : null;
+      const structureLang = ['am', 'ti', 'om', 'en'].includes(pendingLang) ? pendingLang : null;
       let structureText = incomingText.replace(/^(?:Content Structure\s*|Your current structure:\s*|Current structure:\s*)+/gi, '').trim();
 
       // Normalize missing brackets (e.g. "Headline ]" -> "[Headline]")
@@ -587,7 +591,7 @@ export default async function (message, ctx) {
 
       console.log('💾 Saving content structure for user:', user.id);
       console.log('📝 Normalized structure text:', structureText);
-      const savedStructure = await saveContentStructure(user.id, structureText);
+      const savedStructure = await saveContentStructure(user.id, structureText, structureLang);
       console.log('✅ Saved structure result:', savedStructure);
       await clearPendingChannelAdd(userId);
       await api.sendMessage({

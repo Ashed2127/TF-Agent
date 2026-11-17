@@ -76,6 +76,7 @@ export const contentStructures = table('content_structures', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   user_id: integer('user_id').notNull(),
   structure_template: text('structure_template').notNull(),
+  target_lang: text('target_lang').default('am'),
   created_at: integer('created_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
   updated_at: integer('updated_at', { mode: 'timestamp' }).default(sql`(unixepoch())`),
 });

@@ -3,8 +3,7 @@ import { eq, and, sql } from 'sdk/db';
 import { dailyRecommendations } from '../schema.js';
 import { NEWS_PLATFORMS, NEWS_CATEGORIES, fetchRSSFeed } from './news.js';
 import { getUserByTelegramId, updateLastRecommendationTime } from './database.js';
-import { fetch } from 'sdk';
-import { OPENROUTER_API_KEY } from './secrets.js';
+import { generateText } from './ai.js';
 
 /**
  * Get today's date in YYYY-MM-DD format
@@ -142,39 +141,12 @@ IMPORTANT: Use Markdown format for links like this: [Platform Name](article_url)
 Output ONLY the digest text, no preamble or explanation.`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are an elite news curator with exceptional editorial judgment. You identify the most remarkable, memorable, and impactful stories from any news feed. Your selections evoke emotion, inspire curiosity, and create lasting impressions. You present stories with warmth, vividness, and authentic engagement.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 2000,
-        temperature: 0.75
-      })
+    return await generateText({
+      system: 'You are an elite news curator with exceptional editorial judgment. You identify the most remarkable, memorable, and impactful stories from any news feed. Your selections evoke emotion, inspire curiosity, and create lasting impressions. You present stories with warmth, vividness, and authentic engagement.',
+      user: prompt,
+      maxTokens: 2000,
+      temperature: 0.75
     });
-
-    if (!response.ok) {
-      throw new Error(`AI request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid AI response');
-    }
-
-    return data.choices[0].message.content.trim();
   } catch (error) {
     console.error('Error generating AI digest:', error.message);
     // Fallback: simple concatenation

@@ -1,7 +1,6 @@
-import { fetch } from 'sdk';
 import { getPreviousTopics, getNextCategory, saveIdea, getContentStructure, getUserByTelegramId, getUserById } from './database.js';
 import { formatChannelHandle } from './channel.js';
-import { OPENROUTER_API_KEY } from './secrets.js';
+import { generateText } from './ai.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -106,41 +105,15 @@ export async function generateIdea(userId = null) {
     const prompt = buildPrompt(previousTopics, category, structure);
     console.log('Prompt length:', prompt.user.length);
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash-lite',
-        messages: [
-          { role: 'system', content: prompt.system },
-          { role: 'user', content: prompt.user }
-        ],
-        max_tokens: 800,
-        temperature: 0.8
-      })
+    const content = await generateText({
+      system: prompt.system,
+      user: prompt.user,
+      maxTokens: 800,
+      temperature: 0.8
     });
 
-    console.log('API response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('API Error:', response.status, errorText);
-      throw new Error(`API request failed: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      throw new Error('Invalid API response structure');
-    }
-
-    const content = data.choices[0].message.content.trim();
-
     if (!content) {
-      throw new Error('Empty response from OpenRouter');
+      throw new Error('Empty response from AI provider');
     }
 
     // Remove HTML tags to avoid Telegram parsing issues

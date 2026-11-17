@@ -28,6 +28,35 @@ export const FUNNY_STICKER_REACTIONS = [
   { id: 'fire', emoji: '🔥', label: 'Fire', stickerUrl: 'https://cdn-icons-png.flaticon.com/512/742/742774.png' }
 ];
 
+const CONTENT_STRUCTURE_LANGUAGES = {
+  am: { name: 'Amharic', label: 'አማርኛ (Amharic)' },
+  ti: { name: 'Tigrinya', label: 'ትግርኛ (Tigrinya)' },
+  om: { name: 'Afaan Oromoo', label: 'Afaan Oromoo' },
+  en: { name: 'English', label: 'English (Original)' }
+};
+
+function contentStructureLangName(code) {
+  return CONTENT_STRUCTURE_LANGUAGES[code]?.name || 'Amharic';
+}
+
+async function showContentStructureLanguagePicker(chatId, callbackPrefix, backData, title, currentLang = null) {
+  const langButton = (code) => ({
+    text: `${currentLang === code ? '✅ ' : ''}${CONTENT_STRUCTURE_LANGUAGES[code].label}`,
+    callback_data: `${callbackPrefix}_${code}`
+  });
+  const keyboard = [
+    [langButton('am'), langButton('ti')],
+    [langButton('om'), langButton('en')],
+    [{ text: '« Back', callback_data: backData }]
+  ];
+  await api.sendMessage({
+    chat_id: chatId,
+    text: `🌐 <b>${title}</b>\n\nChoose the language for generated news posts based on this content structure.`,
+    parse_mode: 'HTML',
+    reply_markup: { inline_keyboard: keyboard }
+  });
+}
+
 /**
  * Build reaction buttons keyboard for published posts
  * Disabled by default to remove inline reaction emojis from channel posts
@@ -1249,7 +1278,9 @@ export default async function (callbackQuery, ctx) {
     const autoPostSchedules = await getAutoPostSchedules(user.id, 'news');
     const repetitiveSchedules = await getRepetitiveTaskSchedules(user.id);
     const repetitiveSchedule = repetitiveSchedules[0] || null;
-    const contentStructureStatus = contentStructure ? 'Set' : 'Not set';
+    const contentStructureStatus = contentStructure
+      ? `Set (${contentStructureLangName(contentStructure.target_lang || 'am')})`
+      : 'Not set';
     const autoPostStatus = autoPostSchedules.length === 0
       ? 'Not set'
       : `${autoPostSchedules.length} schedule${autoPostSchedules.length === 1 ? '' : 's'} (${autoPostSchedules.filter(s => s.is_active === 1).length} active)`;
@@ -1585,13 +1616,19 @@ export default async function (callbackQuery, ctx) {
   if (data === 'content_structure') {
     const user = await getUserByTelegramId(userId);
     const contentStructure = await getContentStructure(user.id);
+    const structureLang = contentStructure?.target_lang || 'am';
+    const structureLangName = contentStructureLangName(structureLang);
 
     if (contentStructure) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Content Structure\n\nYour current structure:\n\n${contentStructure.structure_template}\n\nWhat would you like to do?`,
+        text: `Content Structure\n\nLanguage: <b>${structureLangName}</b>\n\nYour current structure:\n\n${contentStructure.structure_template}\n\nWhat would you like to do?`,
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
+            [
+              { text: 'Change Language', callback_data: 'cs_change_lang' }
+            ],
             [
               { text: 'Edit Structure', callback_data: 'edit_content_structure' }
             ],
@@ -1607,7 +1644,8 @@ export default async function (callbackQuery, ctx) {
     } else {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Content Structure\n\nYou haven't set up your content structure yet.\n\nThis helps the AI understand your posting style. Send a sample post that represents your desired format and style.`,
+        text: `Content Structure\n\nYou haven't set up your content structure yet.\n\nThis helps the AI understand your posting style and language. Choose a language, then send a sample post that represents your desired format and style.`,
+        parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
@@ -1625,21 +1663,61 @@ export default async function (callbackQuery, ctx) {
 
   // Handle set content structure
   if (data === 'set_content_structure') {
-    await api.sendMessage({
-      chat_id: callbackQuery.message.chat.id,
-      text: `Set Content Structure\n\nPlease send a sample post that represents your desired format and style.\n\nThis can include:\n- Your title format\n- How you structure your content\n- Any special formatting you use\n- Your tone and style`,
-    });
-    await setPendingChannelAdd(userId, 'waiting_content_structure');
+    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_pick', 'settings', 'Set Content Structure Language');
     return;
   }
 
   // Handle edit content structure
   if (data === 'edit_content_structure') {
+    const user = await getUserByTelegramId(userId);
+    const contentStructure = await getContentStructure(user.id);
+    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_pick', 'content_structure', 'Edit Content Structure Language', contentStructure?.target_lang || 'am');
+    return;
+  }
+
+  // Language selected before setting/editing content structure -> ask for sample post
+  if (data.startsWith('cs_pick_')) {
+    const lang = data.replace('cs_pick_', '');
+    if (!CONTENT_STRUCTURE_LANGUAGES[lang]) return;
+    await setPendingChannelAdd(userId, `waiting_content_structure_${lang}`);
+    const langName = contentStructureLangName(lang);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Edit Content Structure\n\nPlease send your new content structure sample.`,
+      text: `Set Content Structure\n\nLanguage: <b>${langName}</b>\n\nPlease send a sample post that represents your desired format and style.\n\nThis can include:\n- Your title format\n- How you structure your content\n- Any special formatting you use\n- Your tone and style`,
+      parse_mode: 'HTML'
     });
-    await setPendingChannelAdd(userId, 'waiting_content_structure');
+    return;
+  }
+
+  // Change language for an existing content structure
+  if (data === 'cs_change_lang') {
+    const user = await getUserByTelegramId(userId);
+    const contentStructure = await getContentStructure(user.id);
+    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_set', 'content_structure', 'Change Content Structure Language', contentStructure?.target_lang || 'am');
+    return;
+  }
+
+  if (data.startsWith('cs_set_')) {
+    const lang = data.replace('cs_set_', '');
+    if (!CONTENT_STRUCTURE_LANGUAGES[lang]) return;
+    const user = await getUserByTelegramId(userId);
+    const contentStructure = await getContentStructure(user.id);
+    if (!contentStructure) {
+      await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_pick', 'settings', 'Set Content Structure Language');
+      return;
+    }
+    await saveContentStructure(user.id, contentStructure.structure_template, lang);
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `✅ Content structure language updated to <b>${contentStructureLangName(lang)}</b>.`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: 'Back to Content Structure', callback_data: 'content_structure' }],
+          [{ text: 'Settings', callback_data: 'settings' }]
+        ]
+      }
+    });
     return;
   }
 
