@@ -1,5 +1,5 @@
 import { db } from 'sdk';
-import { eq, desc, sql, and } from 'sdk/db';
+import { eq, desc, sql, and, isNull } from 'sdk/db';
 import { ideas, pendingEdits, users, customSources, posts, userChannels, contentStructures, autoPostSchedules, postInteractions, userActivities, dailyRecommendations } from '../schema.js';
 
 export async function saveIdea(content, topic, category) {
@@ -791,10 +791,14 @@ export async function removeDuplicateChannels(userId) {
 
 // Content structure management functions
 
-export async function saveContentStructure(userId, structureTemplate, targetLang = null) {
+function contentStructureChannelCondition(channelId) {
+  return channelId ? eq(contentStructures.channel_id, channelId) : isNull(contentStructures.channel_id);
+}
+
+export async function saveContentStructure(userId, structureTemplate, targetLang = null, channelId = null) {
   const existing = await db.select()
     .from(contentStructures)
-    .where(eq(contentStructures.user_id, userId))
+    .where(and(eq(contentStructures.user_id, userId), contentStructureChannelCondition(channelId)))
     .limit(1)
     .all();
 
@@ -815,25 +819,44 @@ export async function saveContentStructure(userId, structureTemplate, targetLang
     .values({
       user_id: userId,
       structure_template: structureTemplate,
-      target_lang: targetLang || 'am'
+      target_lang: targetLang || 'am',
+      channel_id: channelId || null
     })
     .returning()
     .run();
   return structure;
 }
 
-export async function getContentStructure(userId) {
-  const result = await db.select()
+export async function getContentStructures(userId) {
+  return await db.select()
     .from(contentStructures)
     .where(eq(contentStructures.user_id, userId))
-    .limit(1)
     .all();
-  return result[0] || null;
 }
 
-export async function deleteContentStructure(userId) {
+export async function getContentStructure(userId) {
+  const rows = await getContentStructures(userId);
+  return rows.find(row => !row.channel_id) || rows[0] || null;
+}
+
+export async function getContentStructureForChannel(userId, channelId) {
+  const rows = await getContentStructures(userId);
+  if (channelId) {
+    const exact = rows.find(row => row.channel_id === channelId);
+    if (exact) return exact;
+  }
+  return rows.find(row => !row.channel_id) || rows[0] || null;
+}
+
+export async function deleteContentStructure(userId, channelId = undefined) {
+  if (channelId === undefined) {
+    await db.delete(contentStructures)
+      .where(eq(contentStructures.user_id, userId))
+      .run();
+    return;
+  }
   await db.delete(contentStructures)
-    .where(eq(contentStructures.user_id, userId))
+    .where(and(eq(contentStructures.user_id, userId), contentStructureChannelCondition(channelId)))
     .run();
 }
 

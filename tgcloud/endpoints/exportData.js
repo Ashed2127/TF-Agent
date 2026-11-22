@@ -1,5 +1,5 @@
 import { db } from 'sdk';
-import { getAllUsers, getAllPosts, getUserChannels, getCustomSources, getContentStructure, getAutoPostSchedule } from '../lib/database.js';
+import { getAllUsers, getAllPosts, getUserChannels, getCustomSources, getContentStructures, getAutoPostSchedule } from '../lib/database.js';
 
 const OWNER_CHAT_ID = 685669468;
 
@@ -24,7 +24,8 @@ export default async function (input, ctx) {
     const detailedData = await Promise.all(users.map(async (user) => {
       const channels = await getUserChannels(user.id);
       const customSources = await getCustomSources(user.id);
-      const contentStructure = await getContentStructure(user.id);
+      const contentStructures = await getContentStructures(user.id);
+      const contentStructure = contentStructures.find(s => !s.channel_id) || contentStructures[0] || null;
       const autoPostSchedule = await getAutoPostSchedule(user.id);
 
       return {
@@ -65,9 +66,19 @@ export default async function (input, ctx) {
         content_structure: contentStructure ? {
           id: contentStructure.id,
           structure_template: contentStructure.structure_template,
+          target_lang: contentStructure.target_lang || null,
+          channel_id: contentStructure.channel_id || null,
           created_at: contentStructure.created_at ? Number(contentStructure.created_at) : null,
           updated_at: contentStructure.updated_at ? Number(contentStructure.updated_at) : null,
         } : null,
+        content_structures: contentStructures.map(s => ({
+          id: s.id,
+          structure_template: s.structure_template,
+          target_lang: s.target_lang || null,
+          channel_id: s.channel_id || null,
+          created_at: s.created_at ? Number(s.created_at) : null,
+          updated_at: s.updated_at ? Number(s.updated_at) : null,
+        })),
         auto_post_schedule: autoPostSchedule ? {
           id: autoPostSchedule.id,
           channel_id: autoPostSchedule.channel_id,

@@ -1,7 +1,8 @@
 import { fetch } from 'sdk';
 import { GEMINI_API_KEY } from './secrets.js';
 import { generateText } from './ai.js';
-import { getCustomSources, getContentStructure, getUserByTelegramId } from './database.js';
+import { getCustomSources, getContentStructures, getUserChannels, getUserByTelegramId } from './database.js';
+import { formatChannelHandle } from './channel.js';
 
 export const SUPPORTED_LANGUAGES = {
   am: { code: 'am', name: 'Amharic', label: '🇪🇹 አማርኛ (Amharic)', flag: '🇪🇹' },
@@ -32,7 +33,7 @@ export async function directTranslateToLanguage(text, targetLang = 'am') {
 }
 
 function translationSystemPrompt(langName) {
-  return `You are an accurate news translator. Translate the given text directly into natural ${langName} for Ethiopian readers. CRITICAL RULES:\n1. Preserve the exact meaning, structure, paragraphs, and all factual details completely intact.\n2. Keep Ethiopian context accurate and natural: preserve names of Ethiopian people, places, institutions, brands, currencies, dates, and cultural references correctly.\n3. Maintain the source news tone: professional, neutral, clear, and journalistic. Do not make it casual, promotional, dramatic, or opinionated.\n4. Do NOT summarize, modify, rewrite, expand, or omit any content.\n5. Do NOT add bullet points, commentary, titles, or headers that do not exist in the source.\n6. Output ONLY the translated ${langName} text.`;
+  return `You are a professional news editor localizing content for Ethiopian readers. Rewrite the given text into natural, publication-ready ${langName} news copy — not a word-for-word literal translation. CRITICAL RULES:\n1. Preserve the exact meaning, facts, names, figures, dates, and all details, but phrase them idiomatically like a real news article in ${langName}.\n2. Keep Ethiopian context accurate and natural: preserve names of Ethiopian people, places, institutions, brands, currencies, dates, and cultural references correctly.\n3. Maintain a professional, neutral, clear, credible journalistic news tone. Avoid casual wording, hype, drama, sensationalism, marketing language, and opinionated phrasing.\n4. Keep the source structure and paragraph flow unless a natural news-style phrasing requires minor adjustment. Do not summarize, expand, or omit facts.\n5. Do NOT add bullet points, commentary, titles, hashtags, or headers that do not exist in the source.\n6. Output ONLY the localized ${langName} news text.`;
 }
 
 async function translateWithGemini(text, langName) {
@@ -44,11 +45,11 @@ async function translateWithGemini(text, langName) {
       body: JSON.stringify({
         systemInstruction: { parts: [{ text: translationSystemPrompt(langName) }] },
         contents: [{ role: 'user', parts: [{ text }] }],
-        generationConfig: { temperature: 0.2, maxOutputTokens: 2000 }
+        generationConfig: { temperature: 0.35, maxOutputTokens: 2000 }
       })
     });
     if (!response.ok) {
-      console.warn(`Gemini translation failed (${response.status}), trying OpenRouter`);
+      console.warn(`Gemini translation failed (${response.status}), trying Google Translate`);
       return '';
     }
     const data = await response.json();
@@ -56,7 +57,7 @@ async function translateWithGemini(text, langName) {
     if (!Array.isArray(parts)) return '';
     return parts.map(part => part?.text || '').join('').trim();
   } catch (error) {
-    console.warn(`Gemini translation error: ${error.message}, trying OpenRouter`);
+    console.warn(`Gemini translation error: ${error.message}, trying Google Translate`);
     return '';
   }
 }
@@ -1161,6 +1162,30 @@ async function generateFallbackContent(article, structure, userChannelLink, show
   return clean;
 }
 
+function resolveContentStructureChannelId(userChannelLink, userChannels = []) {
+  const link = String(userChannelLink || '').trim();
+  if (!link || !Array.isArray(userChannels) || userChannels.length === 0) return null;
+  const match = userChannels.find(channel => {
+    return [channel.channel_id, channel.channel_name]
+      .filter(Boolean)
+      .map(value => String(value).trim())
+      .some(candidate => {
+        const formatted = formatChannelHandle(candidate);
+        return candidate === link || formatted === link || (formatted && formatted.toLowerCase() === link.toLowerCase());
+      });
+  });
+  return match?.channel_id || null;
+}
+
+function pickContentStructure(structures = [], channelId = null) {
+  if (!Array.isArray(structures) || structures.length === 0) return null;
+  if (channelId) {
+    const exact = structures.find(s => s.channel_id === channelId);
+    if (exact) return exact;
+  }
+  return structures.find(s => !s.channel_id) || structures[0] || null;
+}
+
 /**
  * Generate Amharic news content using AI
  */
@@ -1190,12 +1215,15 @@ async function generateAmharicNews(article, userChannelLink = null, showSourceLi
     if (user) {
       console.log('🔍 Fetching user for userId:', userId);
       console.log('✅ User found, database ID:', user.id);
-      const customStructure = await getContentStructure(user.id);
-      console.log('🔍 Custom structure query result:', customStructure);
+      const userChannels = await getUserChannels(user.id);
+      const contentStructures = await getContentStructures(user.id);
+      const structureChannelId = resolveContentStructureChannelId(userChannelLink, userChannels);
+      const customStructure = pickContentStructure(contentStructures, structureChannelId);
+      console.log('🔍 Content structure channel:', structureChannelId, 'structures:', contentStructures.length);
       structureTargetLang = customStructure?.target_lang || null;
       if (customStructure && customStructure.structure_template) {
         structure = customStructure.structure_template;
-        console.log('✅ Using USER custom structure for news translation:', userId);
+        console.log('✅ Using USER custom structure for news translation:', userId, 'channel:', structureChannelId || 'default');
         console.log('📋 Structure content:', structure);
       } else {
         console.log('ℹ️ No custom structure found for user:', user.id);

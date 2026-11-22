@@ -589,9 +589,10 @@ export default async function (message, ctx) {
         return (m.startsWith('\n') ? '\n[' : '[') + p1.trim() + ']';
       });
 
-      console.log('💾 Saving content structure for user:', user.id);
+      const structureChannelId = pendingChannel.channelName === 'default' ? null : (pendingChannel.channelName || null);
+      console.log('💾 Saving content structure for user:', user.id, 'channel:', structureChannelId);
       console.log('📝 Normalized structure text:', structureText);
-      const savedStructure = await saveContentStructure(user.id, structureText, structureLang);
+      const savedStructure = await saveContentStructure(user.id, structureText, structureLang, structureChannelId);
       console.log('✅ Saved structure result:', savedStructure);
       await clearPendingChannelAdd(userId);
       await api.sendMessage({
@@ -1383,16 +1384,12 @@ async function verifyAndAdvanceBotAdmin(chatId, user) {
 
 async function showCategorySelection(chatId) {
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    row.push({
-      text: NEWS_CATEGORIES[i].name,
-      callback_data: `select_category_${NEWS_CATEGORIES[i].id}`
-    });
-    if (i + 1 < NEWS_CATEGORIES.length) {
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
       row.push({
-        text: NEWS_CATEGORIES[i + 1].name,
-        callback_data: `select_category_${NEWS_CATEGORIES[i + 1].id}`
+        text: NEWS_CATEGORIES[i + j].name,
+        callback_data: `select_category_${NEWS_CATEGORIES[i + j].id}`
       });
     }
     keyboard.push(row);

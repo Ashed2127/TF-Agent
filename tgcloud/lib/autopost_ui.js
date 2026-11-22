@@ -39,16 +39,12 @@ export async function showAutoPostCategoryPicker(chatId, channelId, intervalHour
   const actionPrefix = isUpdate ? 'ap_up_cat' : 'ap_st_cat';
 
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    row.push({
-      text: NEWS_CATEGORIES[i].name,
-      callback_data: `${actionPrefix}_${channelId}_${intervalHours}_${NEWS_CATEGORIES[i].id}`
-    });
-    if (i + 1 < NEWS_CATEGORIES.length) {
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
       row.push({
-        text: NEWS_CATEGORIES[i + 1].name,
-        callback_data: `${actionPrefix}_${channelId}_${intervalHours}_${NEWS_CATEGORIES[i + 1].id}`
+        text: NEWS_CATEGORIES[i + j].name,
+        callback_data: `${actionPrefix}_${channelId}_${intervalHours}_${NEWS_CATEGORIES[i + j].id}`
       });
     }
     keyboard.push(row);
@@ -246,11 +242,10 @@ export async function showGroupAutoPostIntervalPicker(chatId, count) {
 
 export async function showGroupCategoryPicker(chatId, count) {
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    row.push({ text: NEWS_CATEGORIES[i].name, callback_data: `ap_gcat_${NEWS_CATEGORIES[i].id}` });
-    if (i + 1 < NEWS_CATEGORIES.length) {
-      row.push({ text: NEWS_CATEGORIES[i + 1].name, callback_data: `ap_gcat_${NEWS_CATEGORIES[i + 1].id}` });
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
+      row.push({ text: NEWS_CATEGORIES[i + j].name, callback_data: `ap_gcat_${NEWS_CATEGORIES[i + j].id}` });
     }
     keyboard.push(row);
   }
@@ -345,11 +340,10 @@ export async function showScheduleCategoryPicker(chatId, schedule) {
   const sid = schedule.id;
 
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    row.push({ text: NEWS_CATEGORIES[i].name, callback_data: `ap_cat_${sid}:${NEWS_CATEGORIES[i].id}` });
-    if (i + 1 < NEWS_CATEGORIES.length) {
-      row.push({ text: NEWS_CATEGORIES[i + 1].name, callback_data: `ap_cat_${sid}:${NEWS_CATEGORIES[i + 1].id}` });
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
+      row.push({ text: NEWS_CATEGORIES[i + j].name, callback_data: `ap_cat_${sid}:${NEWS_CATEGORIES[i + j].id}` });
     }
     keyboard.push(row);
   }

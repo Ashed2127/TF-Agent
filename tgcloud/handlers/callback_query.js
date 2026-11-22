@@ -2,7 +2,7 @@
 
 import { api } from 'sdk';
 import { generateIdea } from '../lib/agent.js';
-import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getAutoPostSchedule, getAutoPostSchedules, getRepetitiveTaskSchedule, getRepetitiveTaskSchedules, getAutoPostScheduleById, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
+import { markPosted, markRejected, getIdeaById, savePendingEdit, getPendingEdit, deletePendingEdit, getUserByTelegramId, getUserById, updateUserOnboardingStep, updateUserCategories, updateUserBotDisplayName, updateUserShowSourceLink, updateUserDotPunctuation, updateRecommendationSettings, getDashboardStats, getAllUsers, getAllPosts, createPost, getUserPosts, updateUserChannelId, updateUserType, addUserChannel, getUserChannels, deleteUserChannel, getUserChannelById, setPendingChannelAdd, getPendingChannelAdd, clearPendingChannelAdd, migrateUserChannels, removeDuplicateChannels, getCustomSources, deleteCustomSource, getContentStructure, getContentStructures, getAutoPostSchedule, getAutoPostSchedules, getRepetitiveTaskSchedule, getRepetitiveTaskSchedules, getAutoPostScheduleById, saveContentStructure, deleteContentStructure, createAutoPostSchedule, updateAutoPostSchedule, toggleAutoPostSchedule, deleteAutoPostSchedule, getDueAutoPostSchedules, updateAutoPostLastPosted, recordPostInteraction, getPostReactionsSummary, clearUserData, clearUserPosts, deleteUser, recordUserActivity, getCreatorsRanking } from '../lib/database.js';
 import { parseAutoPostPlatforms, serializeAutoPostPlatforms } from '../lib/autopost_platforms.js';
 import { BotApiError } from 'sdk';
 import { TRUE_FEED_CHANNEL_ID, TEST_CHANNEL_ID } from '../lib/secrets.js';
@@ -37,6 +37,24 @@ const CONTENT_STRUCTURE_LANGUAGES = {
 
 function contentStructureLangName(code) {
   return CONTENT_STRUCTURE_LANGUAGES[code]?.name || 'Amharic';
+}
+
+function contentStructureChannelForRef(userChannels, ref) {
+  if (ref === 'd') return null;
+  const idx = parseInt(ref, 10);
+  return Number.isInteger(idx) ? (userChannels[idx] || null) : null;
+}
+
+function contentStructureChannelIdForRef(userChannels, ref) {
+  return contentStructureChannelForRef(userChannels, ref)?.channel_id || null;
+}
+
+function findContentStructureForChannel(structures, channelId) {
+  if (channelId) {
+    const exact = structures.find(s => s.channel_id === channelId);
+    if (exact) return exact;
+  }
+  return structures.find(s => !s.channel_id) || structures[0] || null;
 }
 
 async function showContentStructureLanguagePicker(chatId, callbackPrefix, backData, title, currentLang = null) {
@@ -822,16 +840,12 @@ export default async function (callbackQuery, ctx) {
     const customSources = user ? await getCustomSources(user.id) : [];
 
     const keyboard = [];
-    for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+    for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
       const row = [];
-      row.push({
-        text: NEWS_CATEGORIES[i].name,
-        callback_data: `news_cat_${NEWS_CATEGORIES[i].id}`
-      });
-      if (i + 1 < NEWS_CATEGORIES.length) {
+      for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
         row.push({
-          text: NEWS_CATEGORIES[i + 1].name,
-          callback_data: `news_cat_${NEWS_CATEGORIES[i + 1].id}`
+          text: NEWS_CATEGORIES[i + j].name,
+          callback_data: `news_cat_${NEWS_CATEGORIES[i + j].id}`
         });
       }
       keyboard.push(row);
@@ -1612,48 +1626,76 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle content structure button
+  // Handle content structure button — list channels and let users manage per-channel structure/language
   if (data === 'content_structure') {
     const user = await getUserByTelegramId(userId);
-    const contentStructure = await getContentStructure(user.id);
-    const structureLang = contentStructure?.target_lang || 'am';
-    const structureLangName = contentStructureLangName(structureLang);
+    const userChannels = await getUserChannels(user.id);
+    const structures = await getContentStructures(user.id);
+    const lines = ['Content Structures\n'];
+    const keyboard = [];
 
-    if (contentStructure) {
+    const addStructureRow = (ref, label, structure) => {
+      const status = structure ? `Set (${contentStructureLangName(structure.target_lang || 'am')})` : 'Not set';
+      lines.push(`• ${label}: ${status}`);
+      keyboard.push([{ text: `${structure ? 'Manage' : 'Set'} — ${label}`, callback_data: `cs_view_${ref}` }]);
+    };
+
+    for (let i = 0; i < userChannels.length; i++) {
+      const channel = userChannels[i];
+      const channelStructure = structures.find(s => s.channel_id === channel.channel_id) || null;
+      addStructureRow(String(i), channel.channel_name || channel.channel_id, channelStructure);
+    }
+
+    const defaultStructure = structures.find(s => !s.channel_id) || null;
+    addStructureRow('d', 'Default / All channels', defaultStructure);
+
+    await api.sendMessage({
+      chat_id: callbackQuery.message.chat.id,
+      text: `${lines.join('\n')}\n\nSelect a channel to set or manage its content structure and language.`,
+      parse_mode: 'HTML',
+      reply_markup: {
+        inline_keyboard: keyboard.concat([[{ text: 'Back', callback_data: 'settings' }]])
+      }
+    });
+    return;
+  }
+
+  // View/manage one channel's content structure
+  if (data.startsWith('cs_view_')) {
+    const ref = data.replace('cs_view_', '');
+    const user = await getUserByTelegramId(userId);
+    const userChannels = await getUserChannels(user.id);
+    const structures = await getContentStructures(user.id);
+    const channel = contentStructureChannelForRef(userChannels, ref);
+    const channelId = channel?.channel_id || null;
+    const label = channel ? (channel.channel_name || channel.channel_id) : 'Default / All channels';
+    const structure = ref === 'd'
+      ? (structures.find(s => !s.channel_id) || null)
+      : (structures.find(s => s.channel_id === channelId) || null);
+
+    if (structure) {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Content Structure\n\nLanguage: <b>${structureLangName}</b>\n\nYour current structure:\n\n${contentStructure.structure_template}\n\nWhat would you like to do?`,
+        text: `Content Structure — ${label}\n\nLanguage: <b>${contentStructureLangName(structure.target_lang || 'am')}</b>\n\nYour current structure:\n\n${structure.structure_template}\n\nWhat would you like to do?`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: 'Change Language', callback_data: 'cs_change_lang' }
-            ],
-            [
-              { text: 'Edit Structure', callback_data: 'edit_content_structure' }
-            ],
-            [
-              { text: 'Delete Structure', callback_data: 'delete_content_structure' }
-            ],
-            [
-              { text: 'Back', callback_data: 'settings' }
-            ]
+            [{ text: 'Change Language', callback_data: `cs_clang_${ref}` }],
+            [{ text: 'Edit Structure', callback_data: `cs_edit_${ref}` }],
+            [{ text: 'Delete Structure', callback_data: `cs_del_${ref}` }],
+            [{ text: 'Back', callback_data: 'content_structure' }]
           ]
         }
       });
     } else {
       await api.sendMessage({
         chat_id: callbackQuery.message.chat.id,
-        text: `Content Structure\n\nYou haven't set up your content structure yet.\n\nThis helps the AI understand your posting style and language. Choose a language, then send a sample post that represents your desired format and style.`,
+        text: `Content Structure — ${label}\n\nNo structure set for this channel yet. Choose a language, then send a sample post that represents the desired format and style.`,
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
-            [
-              { text: 'Set Structure', callback_data: 'set_content_structure' }
-            ],
-            [
-              { text: 'Back', callback_data: 'settings' }
-            ]
+            [{ text: 'Set Structure', callback_data: `cs_set_${ref}` }],
+            [{ text: 'Back', callback_data: 'content_structure' }]
           ]
         }
       });
@@ -1661,52 +1703,84 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle set content structure
-  if (data === 'set_content_structure') {
-    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_pick', 'settings', 'Set Content Structure Language');
-    return;
-  }
-
-  // Handle edit content structure
-  if (data === 'edit_content_structure') {
+  // Start set/edit flow for a specific channel ref -> choose language first
+  if (data.startsWith('cs_set_') || data.startsWith('cs_edit_')) {
+    const isEdit = data.startsWith('cs_edit_');
+    const ref = data.replace(isEdit ? 'cs_edit_' : 'cs_set_', '');
     const user = await getUserByTelegramId(userId);
-    const contentStructure = await getContentStructure(user.id);
-    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_pick', 'content_structure', 'Edit Content Structure Language', contentStructure?.target_lang || 'am');
+    const userChannels = await getUserChannels(user.id);
+    const channelId = contentStructureChannelIdForRef(userChannels, ref);
+    const structures = await getContentStructures(user.id);
+    const structure = ref === 'd'
+      ? (structures.find(s => !s.channel_id) || null)
+      : (structures.find(s => s.channel_id === channelId) || null);
+    await showContentStructureLanguagePicker(
+      callbackQuery.message.chat.id,
+      `cs_pick_${ref}`,
+      'content_structure',
+      `${isEdit ? 'Edit' : 'Set'} Content Structure Language`,
+      structure?.target_lang || 'am'
+    );
     return;
   }
 
-  // Language selected before setting/editing content structure -> ask for sample post
+  // Language selected before setting/editing -> ask for sample post
   if (data.startsWith('cs_pick_')) {
-    const lang = data.replace('cs_pick_', '');
-    if (!CONTENT_STRUCTURE_LANGUAGES[lang]) return;
-    await setPendingChannelAdd(userId, `waiting_content_structure_${lang}`);
+    const parts = data.split('_');
+    const lang = parts.pop();
+    const ref = parts[2];
+    if (!CONTENT_STRUCTURE_LANGUAGES[lang] || !ref) return;
+    const user = await getUserByTelegramId(userId);
+    const userChannels = await getUserChannels(user.id);
+    const channelId = contentStructureChannelIdForRef(userChannels, ref);
+    await setPendingChannelAdd(userId, `waiting_content_structure_${lang}`, channelId || 'default');
+    const channel = contentStructureChannelForRef(userChannels, ref);
+    const label = channel ? (channel.channel_name || channel.channel_id) : 'Default / All channels';
     const langName = contentStructureLangName(lang);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Set Content Structure\n\nLanguage: <b>${langName}</b>\n\nPlease send a sample post that represents your desired format and style.\n\nThis can include:\n- Your title format\n- How you structure your content\n- Any special formatting you use\n- Your tone and style`,
+      text: `Set Content Structure — ${label}\n\nLanguage: <b>${langName}</b>\n\nPlease send a sample post that represents your desired format and style.\n\nThis can include:\n- Your title format\n- How you structure your content\n- Any special formatting you use\n- Your tone and style`,
       parse_mode: 'HTML'
     });
     return;
   }
 
-  // Change language for an existing content structure
-  if (data === 'cs_change_lang') {
+  // Change language for an existing channel/default structure
+  if (data.startsWith('cs_clang_')) {
+    const ref = data.replace('cs_clang_', '');
     const user = await getUserByTelegramId(userId);
-    const contentStructure = await getContentStructure(user.id);
-    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_set', 'content_structure', 'Change Content Structure Language', contentStructure?.target_lang || 'am');
+    const userChannels = await getUserChannels(user.id);
+    const channelId = contentStructureChannelIdForRef(userChannels, ref);
+    const structures = await getContentStructures(user.id);
+    const structure = ref === 'd'
+      ? (structures.find(s => !s.channel_id) || null)
+      : (structures.find(s => s.channel_id === channelId) || null);
+    if (!structure) {
+      await api.sendMessage({
+        chat_id: callbackQuery.message.chat.id,
+        text: 'No content structure is set for this channel yet. Set the structure first, then choose its language.',
+        reply_markup: { inline_keyboard: [[{ text: 'Back', callback_data: 'content_structure' }]] }
+      });
+      return;
+    }
+    await showContentStructureLanguagePicker(callbackQuery.message.chat.id, `cs_cset_${ref}`, 'content_structure', 'Change Content Structure Language', structure.target_lang || 'am');
     return;
   }
 
-  if (data.startsWith('cs_set_')) {
-    const lang = data.replace('cs_set_', '');
-    if (!CONTENT_STRUCTURE_LANGUAGES[lang]) return;
+  if (data.startsWith('cs_cset_')) {
+    const parts = data.split('_');
+    const lang = parts.pop();
+    const ref = parts[2];
+    if (!CONTENT_STRUCTURE_LANGUAGES[lang] || !ref) return;
     const user = await getUserByTelegramId(userId);
-    const contentStructure = await getContentStructure(user.id);
-    if (!contentStructure) {
-      await showContentStructureLanguagePicker(callbackQuery.message.chat.id, 'cs_pick', 'settings', 'Set Content Structure Language');
-      return;
-    }
-    await saveContentStructure(user.id, contentStructure.structure_template, lang);
+    const userChannels = await getUserChannels(user.id);
+    const channelId = contentStructureChannelIdForRef(userChannels, ref);
+    const structures = await getContentStructures(user.id);
+    const structure = ref === 'd'
+      ? (structures.find(s => !s.channel_id) || null)
+      : (structures.find(s => s.channel_id === channelId) || null);
+    if (!structure) return;
+    await saveContentStructure(user.id, structure.structure_template, lang, channelId);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
       text: `✅ Content structure language updated to <b>${contentStructureLangName(lang)}</b>.`,
@@ -1721,18 +1795,20 @@ export default async function (callbackQuery, ctx) {
     return;
   }
 
-  // Handle delete content structure
-  if (data === 'delete_content_structure') {
+  // Delete one channel/default content structure
+  if (data.startsWith('cs_del_')) {
+    const ref = data.replace('cs_del_', '');
     const user = await getUserByTelegramId(userId);
-    await deleteContentStructure(user.id);
+    const userChannels = await getUserChannels(user.id);
+    const channelId = contentStructureChannelIdForRef(userChannels, ref);
+    await deleteContentStructure(user.id, channelId);
     await api.sendMessage({
       chat_id: callbackQuery.message.chat.id,
-      text: `Content structure deleted.`,
+      text: '✅ Content structure deleted for this channel.',
       reply_markup: {
         inline_keyboard: [
-          [
-            { text: 'Back', callback_data: 'settings' }
-          ]
+          [{ text: 'Back to Content Structure', callback_data: 'content_structure' }],
+          [{ text: 'Settings', callback_data: 'settings' }]
         ]
       }
     });
@@ -4672,16 +4748,12 @@ async function handleBotAdminAdded(callbackQuery, userId) {
 
 async function showCategorySelection(chatId) {
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    row.push({
-      text: NEWS_CATEGORIES[i].name,
-      callback_data: `select_category_${NEWS_CATEGORIES[i].id}`
-    });
-    if (i + 1 < NEWS_CATEGORIES.length) {
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
       row.push({
-        text: NEWS_CATEGORIES[i + 1].name,
-        callback_data: `select_category_${NEWS_CATEGORIES[i + 1].id}`
+        text: NEWS_CATEGORIES[i + j].name,
+        callback_data: `select_category_${NEWS_CATEGORIES[i + j].id}`
       });
     }
     keyboard.push(row);
@@ -4728,20 +4800,14 @@ async function handleSelectCategory(callbackQuery, userId, data) {
 
   // Show category selection again
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    const cat1 = NEWS_CATEGORIES[i];
-    const isSelected1 = categories.includes(cat1.id);
-    row.push({
-      text: `${isSelected1 ? ' ' : ''}${cat1.name}`,
-      callback_data: `select_category_${cat1.id}`
-    });
-    if (i + 1 < NEWS_CATEGORIES.length) {
-      const cat2 = NEWS_CATEGORIES[i + 1];
-      const isSelected2 = categories.includes(cat2.id);
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
+      const cat = NEWS_CATEGORIES[i + j];
+      const isSelected = categories.includes(cat.id);
       row.push({
-        text: `${isSelected2 ? ' ' : ''}${cat2.name}`,
-        callback_data: `select_category_${cat2.id}`
+        text: `${isSelected ? ' ' : ''}${cat.name}`,
+        callback_data: `select_category_${cat.id}`
       });
     }
     keyboard.push(row);
@@ -4818,16 +4884,12 @@ async function handleGenerateContent(callbackQuery, userId) {
   const customSources = await getCustomSources(user.id);
 
   const keyboard = [];
-  for (let i = 0; i < NEWS_CATEGORIES.length; i += 2) {
+  for (let i = 0; i < NEWS_CATEGORIES.length; i += 3) {
     const row = [];
-    row.push({
-      text: NEWS_CATEGORIES[i].name,
-      callback_data: `news_cat_${NEWS_CATEGORIES[i].id}`
-    });
-    if (i + 1 < NEWS_CATEGORIES.length) {
+    for (let j = 0; j < 3 && i + j < NEWS_CATEGORIES.length; j++) {
       row.push({
-        text: NEWS_CATEGORIES[i + 1].name,
-        callback_data: `news_cat_${NEWS_CATEGORIES[i + 1].id}`
+        text: NEWS_CATEGORIES[i + j].name,
+        callback_data: `news_cat_${NEWS_CATEGORIES[i + j].id}`
       });
     }
     keyboard.push(row);
